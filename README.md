@@ -31,6 +31,23 @@ npm run celular    # ou: node server.js --rede
 O terminal mostra o endereço para digitar no celular, por exemplo `http://192.168.0.10:3000`.
 Se não abrir, libere a porta 3000 no firewall do computador.
 
+### Rodando no próprio celular (Android)
+
+Dá para rodar o app inteiro no Android, sem computador, com o [Termux](https://termux.dev)
+(instale pelo F-Droid ou pelo GitHub do Termux; a versão da Play Store está desatualizada). No Termux:
+
+```bash
+pkg update && pkg install -y nodejs git
+git clone -b claude/eleicoes-2026-apuracao-app-6hxol0 https://github.com/LukeMullerS/upgraded-octo-sniffle
+cd upgraded-octo-sniffle
+npm start
+```
+
+Depois abra <http://127.0.0.1:3000> no Chrome do celular. Deixe o Termux aberto em segundo plano enquanto
+usa o app. Para rodar de novo outro dia: `cd upgraded-octo-sniffle && git pull && npm start`.
+
+No iPhone não há um jeito prático de rodar Node.js; use o computador com `npm run celular`.
+
 Variáveis opcionais: `PORT` (padrão 3000), `HOST` (padrão `127.0.0.1`; use `0.0.0.0` para abrir na rede)
 e `TSE_BASE` (padrão `https://resultados.tse.jus.br/oficial`).
 
