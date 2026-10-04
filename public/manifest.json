@@ -1,0 +1,10 @@
+{
+  "name": "Apuração Eleições 2026",
+  "short_name": "Apuração 2026",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f9",
+  "theme_color": "#0b5cad",
+  "lang": "pt-BR",
+  "icons": [{ "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

@@ -8,12 +8,15 @@
 // Sem dependências: precisa só do Node.js 18+.
 
 import http from 'node:http';
+import { networkInterfaces } from 'node:os';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PORTA = Number(process.env.PORT) || 3000;
-const HOST = process.env.HOST || '127.0.0.1';
+// `--rede` (ou HOST=0.0.0.0) abre o app para outros aparelhos da rede, como o celular.
+const REDE = process.argv.includes('--rede');
+const HOST = process.env.HOST || (REDE ? '0.0.0.0' : '127.0.0.1');
 const TSE_BASE = (process.env.TSE_BASE || 'https://resultados.tse.jus.br/oficial').replace(/\/$/, '');
 const CACHE_DADOS_MS = 30_000;
 const CACHE_ESTATICO_MS = 60 * 60_000;
@@ -108,7 +111,14 @@ const servidor = http.createServer((req, res) => {
   return estatico(res, decodeURIComponent(pathname));
 });
 
+// Endereços IPv4 desta máquina na rede local, para abrir o app no celular.
+const enderecosLocais = () =>
+  Object.values(networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address);
+
 servidor.listen(PORTA, HOST, () => {
   console.log(`Apuração 2026 em http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORTA}`);
+  if (HOST === '0.0.0.0') {
+    for (const ip of enderecosLocais()) console.log(`No celular (mesma Wi-Fi): http://${ip}:${PORTA}`);
+  }
   console.log(`Dados: ${TSE_BASE}`);
 });

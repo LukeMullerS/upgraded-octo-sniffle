@@ -19,6 +19,18 @@ npm start          # ou: node server.js
 
 Abra <http://127.0.0.1:3000>.
 
+### No celular
+
+A página é responsiva e pode ser instalada na tela inicial ("Adicionar à tela de início").
+Para abrir no celular conectado à **mesma Wi‑Fi** do computador:
+
+```bash
+npm run celular    # ou: node server.js --rede
+```
+
+O terminal mostra o endereço para digitar no celular, por exemplo `http://192.168.0.10:3000`.
+Se não abrir, libere a porta 3000 no firewall do computador.
+
 Variáveis opcionais: `PORT` (padrão 3000), `HOST` (padrão `127.0.0.1`; use `0.0.0.0` para abrir na rede)
 e `TSE_BASE` (padrão `https://resultados.tse.jus.br/oficial`).
 

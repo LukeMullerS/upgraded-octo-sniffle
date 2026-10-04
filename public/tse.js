@@ -29,6 +29,7 @@ export const ELEICOES = {
   6257: {
     codigo: '6257',
     nome: 'Eleição Geral Federal',
+    curto: 'Federal',
     cargos: [
       { codigo: 1, nome: 'Presidente', majoritario: true, abrangencias: ['br', ...TODAS_UFS, 'zz'] },
     ],
@@ -36,6 +37,7 @@ export const ELEICOES = {
   6259: {
     codigo: '6259',
     nome: 'Eleições Gerais Estaduais 2026',
+    curto: 'Estaduais',
     cargos: [
       { codigo: 3, nome: 'Governador', majoritario: true, abrangencias: TODAS_UFS },
       { codigo: 5, nome: 'Senador', majoritario: true, abrangencias: TODAS_UFS },
@@ -47,6 +49,7 @@ export const ELEICOES = {
   6261: {
     codigo: '6261',
     nome: 'Eleição Conselho Distrital 2026',
+    curto: 'Conselho Distrital',
     // Conselho Distrital de Fernando de Noronha (PE). O TSE não documenta o código do
     // cargo; o app o descobre consultando os arquivos publicados (ver `descobrirCargo`).
     cargos: [

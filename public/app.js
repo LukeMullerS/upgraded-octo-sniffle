@@ -54,7 +54,7 @@ const eleicaoAtual = () => ELEICOES[el.eleicao.value];
 const cargoAtual = () => eleicaoAtual().cargos[Number(el.cargo.value)] ?? eleicaoAtual().cargos[0];
 
 function montarFiltros(inicial = {}) {
-  preencher(el.eleicao, Object.values(ELEICOES).map((e) => [e.codigo, `${e.codigo} · ${e.nome}`]), inicial.ele);
+  preencher(el.eleicao, Object.values(ELEICOES).map((e) => [e.codigo, `${e.codigo} · ${matchMedia('(max-width: 600px)').matches ? e.curto : e.nome}`]), inicial.ele);
   atualizarCargos(inicial);
 }
 
