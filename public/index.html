@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Apuração 2026</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗳️</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topo">
+    <div>
+      <h1>Apuração Eleições 2026</h1>
+      <p class="sub">1º turno · 04/10/2026 · Pleito 3220 · dados oficiais do TSE</p>
+    </div>
+    <div class="atualizacao">
+      <span id="status" class="status">carregando…</span>
+      <button id="atualizar" type="button">Atualizar</button>
+      <label class="auto"><input id="auto" type="checkbox" checked> automático (60s)</label>
+    </div>
+  </header>
+
+  <nav class="filtros">
+    <label>Eleição
+      <select id="eleicao"></select>
+    </label>
+    <label>Cargo
+      <select id="cargo"></select>
+    </label>
+    <label>Abrangência
+      <select id="abrangencia"></select>
+    </label>
+    <label>Município
+      <select id="municipio"><option value="">Todos</option></select>
+    </label>
+  </nav>
+
+  <main>
+    <section id="erro" class="erro" hidden></section>
+
+    <section class="cartao progresso">
+      <div class="linha">
+        <h2 id="titulo">—</h2>
+        <span id="horario" class="mudo"></span>
+      </div>
+      <div class="barra"><div id="barra-secoes"></div></div>
+      <p><strong id="pct-secoes">0,00%</strong> das seções totalizadas
+        <span class="mudo">(<span id="secoes">0 de 0</span>)</span></p>
+    </section>
+
+    <section class="cartao" id="resultado">
+      <div class="linha">
+        <h2>Candidatos</h2>
+        <input id="busca" type="search" placeholder="Buscar candidato, número ou partido" hidden>
+      </div>
+      <ol id="candidatos" class="candidatos"></ol>
+      <button id="mais" type="button" class="secundario" hidden>Mostrar mais</button>
+    </section>
+
+    <section class="cartao" id="partidos-cartao" hidden>
+      <h2>Votos nominais por partido</h2>
+      <table class="tabela">
+        <thead><tr><th>Partido</th><th class="num">Votos</th><th class="num">%</th><th class="num">Eleitos</th></tr></thead>
+        <tbody id="partidos"></tbody>
+      </table>
+    </section>
+
+    <section class="cartao">
+      <h2>Dados gerais</h2>
+      <dl class="grade" id="gerais"></dl>
+    </section>
+  </main>
+
+  <footer>
+    Fonte: <a href="https://resultados.tse.jus.br/oficial/app/index.html" target="_blank" rel="noopener">resultados.tse.jus.br</a>
+    (ambiente oficial). Este app apenas exibe os arquivos públicos publicados pelo TSE.
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

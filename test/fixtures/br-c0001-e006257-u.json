@@ -1,0 +1,29 @@
+{
+  "ele": "6257", "t": "1", "tpabr": "br", "cdabr": "br",
+  "dg": "04/10/2026", "hg": "19:42:10", "dt": "04/10/2026", "ht": "19:41:55",
+  "s": { "ts": "472.075", "st": "236.120", "pst": "50,02", "snt": "235.955", "psnt": "49,98" },
+  "e": { "te": "155.912.680", "est": "78.010.330", "pest": "50,03", "c": "61.004.112", "pc": "78,20", "a": "17.006.218", "pa": "21,80" },
+  "v": { "tv": "61.004.112", "vv": "56.120.900", "pvv": "92,00", "vnom": "56.120.900", "pvnom": "92,00",
+         "van": "0", "pvan": "0,00", "vansj": "0", "pvansj": "0,00", "vb": "1.830.123", "pvb": "3,00", "vn": "3.053.089", "pvn": "5,00" },
+  "carg": [{
+    "cd": "1", "nmn": "Presidente", "nv": "1",
+    "agr": [
+      { "n": "13", "nm": "Coligação A", "tp": "c", "com": "PT/PCdoB/PV", "par": [
+        { "n": "13", "sg": "PT", "nm": "Partido dos Trabalhadores", "cand": [
+          { "n": "13", "sqcand": "280001", "nm": "CANDIDATO A", "nmu": "CANDIDATO A", "seq": "1", "e": "n", "st": "2º turno", "dvt": "Válido", "vap": "25.254.405", "pvap": "45,00",
+            "vs": [{ "tp": "v", "sqcand": "280002", "nm": "VICE A", "nmu": "VICE A", "sgp": "PSB" }] }
+        ]}
+      ]},
+      { "n": "22", "nm": "Partido isolado", "tp": "p", "com": "PL", "par": [
+        { "n": "22", "sg": "PL", "nm": "Partido Liberal", "cand": [
+          { "n": "22", "sqcand": "280003", "nm": "CANDIDATO B", "nmu": "CANDIDATO B", "seq": "2", "e": "n", "st": "2º turno", "dvt": "Válido", "vap": "22.448.360", "pvap": "40,00" }
+        ]}
+      ]},
+      { "n": "30", "nm": "Partido isolado", "tp": "p", "com": "NOVO", "par": [
+        { "n": "30", "sg": "NOVO", "nm": "Partido Novo", "cand": [
+          { "n": "30", "sqcand": "280004", "nm": "CANDIDATO C", "nmu": "CANDIDATO C", "seq": "3", "e": "n", "st": "Não eleito", "dvt": "Válido", "vap": "8.418.135", "pvap": "15,00" }
+        ]}
+      ]}
+    ]
+  }]
+}
