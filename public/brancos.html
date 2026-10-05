@@ -11,6 +11,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icone.svg">
   <link rel="stylesheet" href="style.css">
+  <script src="tema.js"></script>
 </head>
 <body class="painel">
   <header class="topo">
@@ -81,7 +82,7 @@
   <main>
     <div id="chips" class="chips" hidden></div>
 
-    <details class="cartao como">
+    <details class="cartao como" data-modulo-cartao="como">
       <summary>Como é feito e como ler</summary>
       <p>O servidor lê os arquivos de resultado que o TSE publica em
         <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">resultados.tse.jus.br</a>.
@@ -106,7 +107,7 @@
 
     <section id="erro" class="erro" hidden></section>
 
-    <section class="cartao">
+    <section class="cartao" data-modulo-cartao="resumo">
       <div class="linha">
         <h2 id="titulo">—</h2>
         <span id="horario" class="mudo"></span>
@@ -119,12 +120,12 @@
     </section>
 
     <div class="grade-painel">
-      <section class="cartao">
+      <section class="cartao" data-modulo-cartao="estat">
         <div class="linha"><h2 id="titulo-estat">Estatísticas</h2></div>
         <dl class="estat" id="estat"></dl>
       </section>
 
-      <section class="cartao">
+      <section class="cartao" data-modulo-cartao="hist">
         <div class="linha">
           <h2 id="titulo-hist">Distribuição</h2>
           <span class="mudo pequeno">clique numa faixa para filtrar</span>
@@ -133,7 +134,7 @@
         <div class="legenda" id="legenda-hist"></div>
       </section>
 
-      <section class="cartao">
+      <section class="cartao" data-modulo-cartao="disp">
         <div class="linha">
           <h2>Brancos × nulos</h2>
           <span class="mudo pequeno" id="correlacao"></span>
@@ -142,7 +143,7 @@
         <div class="legenda" id="legenda-disp"></div>
       </section>
 
-      <section class="cartao">
+      <section class="cartao" data-modulo-cartao="extremos">
         <div class="linha"><h2 id="titulo-extremos">Maiores e menores</h2></div>
         <div class="extremos">
           <div><h3>Maiores</h3><ol id="maiores" class="ranking"></ol></div>
@@ -151,7 +152,7 @@
       </section>
     </div>
 
-    <section class="cartao">
+    <section class="cartao" data-modulo-cartao="cargos">
       <div class="linha">
         <h2 id="titulo-cargos">Por cargo</h2>
         <span class="mudo pequeno">o mesmo eleitor vota em vários cargos: compare onde ele mais anula ou deixa em branco</span>
@@ -168,7 +169,7 @@
       </div>
     </section>
 
-    <section class="cartao" id="comparacao-cartao" hidden>
+    <section class="cartao" id="comparacao-cartao" data-modulo-cartao="comparacao" hidden>
       <div class="linha">
         <h2>Comparação</h2>
         <button id="limpar-comparacao" type="button" class="secundario sem-margem">Limpar</button>
@@ -176,7 +177,7 @@
       <div class="tabela-rolagem"><table class="tabela comparacao" id="comparacao"></table></div>
     </section>
 
-    <section class="cartao">
+    <section class="cartao" data-modulo-cartao="tabela">
       <div class="linha">
         <h2 id="titulo-tabela">Locais</h2>
         <div class="legenda" aria-hidden="true">

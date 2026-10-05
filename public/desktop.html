@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-BR" data-tema="98">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Eleições 2026 — Área de trabalho</title>
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#008080">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icone.svg">
+  <link rel="stylesheet" href="desktop.css">
+</head>
+<body>
+  <main id="area" class="area" aria-label="Área de trabalho">
+    <div id="icones" class="icones"></div>
+    <div id="janelas"></div>
+  </main>
+
+  <div id="tarefas" class="tarefas">
+    <button type="button" id="iniciar" class="iniciar" aria-haspopup="true" aria-expanded="false"></button>
+    <span class="divisor"></span>
+    <span id="rapido" class="rapido"></span>
+    <span class="divisor"></span>
+    <span id="botoes-tarefas" class="botoes-tarefas"></span>
+    <span class="bandeja"><span id="relogio" class="relogio" title=""></span></span>
+  </div>
+
+  <div id="menu-iniciar" class="menu menu-iniciar" hidden></div>
+  <div id="menu-contexto" class="menu menu-contexto" hidden></div>
+
+  <script type="module" src="desktop.js"></script>
+</body>
+</html>

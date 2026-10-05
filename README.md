@@ -61,6 +61,38 @@ e `TSE_BASE` (padrão `https://resultados.tse.jus.br/oficial`).
 - **Atualização automática** a cada 60 s (pausa com a aba em segundo plano) e botão de atualizar.
 - A seleção fica na URL (`#ele=6259&cargo=0&abr=sp`), então dá para compartilhar o link.
 
+## Área de trabalho Windows 98
+
+Por padrão o app abre como uma área de trabalho do Windows 98 (`/desktop.html`): cada tela é uma janela que se
+arrasta pela barra de título, redimensiona pelas bordas, minimiza, maximiza (também com duplo clique) e fecha.
+
+- **Ícones** (duplo clique; no celular, um toque): Apuração, Brancos e nulos, Painéis, Explorador, Leia-me, TSE, IBGE.
+- **Menu Iniciar** → Programas → Eleições 2026 → **Painéis**: cada painel de brancos e nulos (resumo, estatísticas,
+  distribuição, dispersão, maiores e menores, por cargo, comparação, tabela) abre numa **janela própria**. Os filtros
+  ficam sincronizados entre as janelas do painel.
+- **Botão direito** na área de trabalho: cascata, lado a lado, minimizar todas, atualizar, papel de parede.
+- As janelas abertas, posições e tamanhos ficam guardados no navegador.
+- Iniciar → Configurações → **Visual moderno** (ou Desligar… → Voltar ao visual moderno) troca para a interface
+  comum; nela, o botão "Visual Windows 98" volta.
+
+## Explorador de variáveis (estilo JASP/jamovi)
+
+A janela **Explorador** cruza, por estado ou por cidade, variáveis da eleição (de vários cargos), do território
+(UF, região, porte, capital) e do **Censo/IBGE**. Arraste (ou toque e depois toque no campo) as variáveis para
+**Eixo X**, **Eixo Y**, **Grupo/cor**, **Tamanho** e **Matriz de correlação**:
+
+- duas numéricas → dispersão com regressão linear, r de Pearson, R², valor-p e r por grupo;
+- categórica + numérica → boxplot por grupo e ANOVA de um fator (F, p, η²);
+- uma numérica → histograma (ou boxplot por grupo); uma categórica → contagens; duas categóricas → contingência;
+- estatísticas descritivas e matriz de correlação (clique numa célula para ver a dispersão);
+- variável numérica em "Grupo" vira quartis.
+
+**Censo/IBGE**: o servidor baixa as séries da API de agregados do IBGE (SIDRA) e as guarda em `dados/censo`
+(o Censo não muda, então só a primeira consulta depende do IBGE). Já vêm prontas população, densidade, área e
+taxa de alfabetização (Censo 2022); qualquer outra tabela do SIDRA entra pelo número (por exemplo, a de nível de
+instrução), escolhendo a variável e as categorias. Também dá para **importar um CSV** (primeira coluna: código IBGE,
+código TSE, sigla da UF ou nome do local). A ligação com as cidades usa o código IBGE que o TSE publica.
+
 ## Brancos e nulos por estado e cidade
 
 A aba **Brancos e nulos** (`/brancos.html`) mostra, para cada cargo, os votos brancos, nulos e anulados:
@@ -112,5 +144,10 @@ public/app.js      filtros, consulta e renderização
 public/tse.js      configuração das eleições, URLs e normalização do JSON do TSE
 public/brancos.*   aba de brancos e nulos por estado e cidade
 src/coletor.js     coletor de brancos e nulos por município (acompanhamento a cada 2 min)
+src/censo.js       séries do Censo/IBGE (API de agregados), guardadas em dados/censo
+public/desktop.*   área de trabalho Windows 98 (gerenciador de janelas, menu Iniciar, barra de tarefas)
+public/tema.js     escolhe o visual (98 ou moderno) e o modo "janela" das páginas
+public/explorar.*  explorador de variáveis
+public/estatistica.js, graficos.js, comum.js   estatística (incl. testes), gráficos SVG e utilitários
 test/              testes (npm test)
 ```

@@ -76,8 +76,47 @@ function gravarHash() {
     faixa: estado.faixa ? estado.faixa.join('-') : '', sel: estado.fixados.join(','),
   };
   for (const [k, v] of Object.entries(extra)) if (v) p.set(k, v);
-  history.replaceState(null, '', `#${p}`);
+  const hash = `#${p}`;
+  if (hash === location.hash) return;
+  history.replaceState(null, '', hash);
+  // Outras janelas do painel (área de trabalho) recebem os mesmos filtros.
+  if (!estado.aplicandoRemoto) canal?.postMessage({ hash });
 }
+
+// Janelas do painel abertas ao mesmo tempo compartilham filtros, seleção e comparação.
+const canal = 'BroadcastChannel' in window ? new BroadcastChannel('apuracao2026:brancos') : null;
+canal?.addEventListener('message', (ev) => {
+  const hash = ev.data?.hash;
+  if (!hash || hash === location.hash) return;
+  const antes = `${el.cargo.value}|${el.uf.value}`;
+  history.replaceState(null, '', hash);
+  aplicarHash();
+
+// Janela de módulo (área de trabalho): filtros recolhidos atrás de um botão, já que
+// chegam sincronizados das outras janelas do painel.
+if (document.documentElement.dataset.modulo) {
+  const botao = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Filtros…' });
+  botao.setAttribute('aria-expanded', 'false');
+  botao.addEventListener('click', () => {
+    const aberto = document.documentElement.classList.toggle('filtros-abertos');
+    botao.setAttribute('aria-expanded', String(aberto));
+  });
+  el.atualizar.before(botao);
+  if (document.documentElement.dataset.modulo !== 'tabela') el.exportar.hidden = true;
+}
+  estado.aplicandoRemoto = true;
+  try {
+    if (`${el.cargo.value}|${el.uf.value}` !== antes) {
+      estado.municipios = null;
+      carregar();
+      carregarCargos();
+    } else {
+      renderizar();
+    }
+  } finally {
+    estado.aplicandoRemoto = false;
+  }
+});
 
 // ---------- carga ----------
 
@@ -477,7 +516,10 @@ function renderizarTabela({ visiveis, base }) {
 function renderizarComparacao({ porId, estat }) {
   const lista = estado.fixados.map((id) => porId.get(id)).filter(Boolean);
   el.comparacaoCartao.hidden = !lista.length;
-  if (!lista.length) return;
+  if (!lista.length) {
+    el.comparacao.innerHTML = '<tbody><tr><td class="mudo">Marque locais com ☆ na tabela (ou toque nos pontos da dispersão) para compará-los aqui.</td></tr></tbody>';
+    return;
+  }
   const linhasMet = [
     ['Votos', (l) => fmtInt.format(l.total)],
     ['Seções apuradas', (l) => pct(l.secoesPct)],
@@ -660,23 +702,29 @@ el.exportar.addEventListener('click', () => {
 
 // ---------- início ----------
 
-const inicial = lerHash();
-opcoes(el.cargo, CARGOS.map((c) => [c.valor, c.nome]), inicial.cargo);
-opcoes(el.metrica, Object.entries(METRICAS).map(([k, m]) => [k, m.nome]),
-  inicial.metrica ?? (METRICAS[inicial.ordem] ? inicial.ordem : 'pctBrancosNulos'));
-preencherLocais(inicial.uf);
-preencherReferencias(inicial.ref);
-for (const [campo, chave] of [[el.porte, 'porte'], [el.apuracao, 'apur'], [el.mostrar, 'mostrar']]) {
-  if (inicial[chave] && [...campo.options].some((o) => o.value === inicial[chave])) campo.value = inicial[chave];
+/** Aplica ao formulário e ao estado os filtros guardados no link (#cargo=…&uf=…). */
+function aplicarHash() {
+  const inicial = lerHash();
+  opcoes(el.cargo, CARGOS.map((c) => [c.valor, c.nome]), inicial.cargo ?? el.cargo.value);
+  opcoes(el.metrica, Object.entries(METRICAS).map(([k, m]) => [k, m.nome]),
+    inicial.metrica ?? (METRICAS[inicial.ordem] ? inicial.ordem : 'pctBrancosNulos'));
+  preencherLocais(inicial.uf ?? '');
+  preencherReferencias(inicial.ref);
+  for (const [campo, chave, padrao] of [[el.porte, 'porte', ''], [el.apuracao, 'apur', '0'], [el.mostrar, 'mostrar', '']]) {
+    campo.value = inicial[chave] && [...campo.options].some((o) => o.value === inicial[chave]) ? inicial[chave] : padrao;
+  }
+  // Link antigo "ordem=pctNulos" vira métrica Nulos ordenada pela própria métrica.
+  estado.ordem = inicial.ordem && !METRICAS[inicial.ordem] ? inicial.ordem : 'metrica';
+  estado.direcao = inicial.dir === 'asc' ? 1 : -1;
+  estado.faixa = null;
+  if (inicial.faixa) {
+    const [a, b] = inicial.faixa.split('-').map(Number);
+    if (Number.isFinite(a) && Number.isFinite(b)) estado.faixa = [a, b, 0];
+  }
+  estado.fixados = (inicial.sel ?? '').split(',').filter(Boolean).slice(0, MAX_COMPARAR);
 }
-// Link antigo "ordem=pctNulos" vira métrica Nulos ordenada pela própria métrica.
-if (inicial.ordem && !METRICAS[inicial.ordem]) estado.ordem = inicial.ordem;
-if (inicial.dir === 'asc') estado.direcao = 1;
-if (inicial.faixa) {
-  const [a, b] = inicial.faixa.split('-').map(Number);
-  if (Number.isFinite(a) && Number.isFinite(b)) estado.faixa = [a, b, 0];
-}
-if (inicial.sel) estado.fixados = inicial.sel.split(',').filter(Boolean).slice(0, MAX_COMPARAR);
+
+aplicarHash();
 carregar();
 carregarCargos();
 setInterval(() => { if (!document.hidden) carregar(); }, INTERVALO_MS);
