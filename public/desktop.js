@@ -36,6 +36,7 @@ const APPS = {
   lixeira: { titulo: 'Lixeira', icone: 'lixeira', nativo: 'lixeira', w: 420, h: 280 },
   video: { titulo: 'Propriedades de Vídeo', icone: 'pintura', nativo: 'video', w: 380, h: 300, fixa: true },
   sobre: { titulo: 'Sobre Eleições 2026', icone: 'ajuda', nativo: 'sobre', w: 400, h: 270, fixa: true },
+  banco: { titulo: 'Banco de dados do TSE', icone: 'banco', nativo: 'banco', w: 400, h: 380, fixa: true },
   desligar: { titulo: 'Desligar o Windows', icone: 'desligar', nativo: 'desligar', w: 380, h: 250, fixa: true, modal: true },
 };
 
@@ -327,6 +328,27 @@ $('rapido').addEventListener('click', (ev) => {
   else if (acao) abrir(acao);
 });
 
+// Indicador do banco na bandeja: pisca enquanto há arquivos chegando do TSE.
+let ultimoBanco = null;
+async function consultarBanco() {
+  try {
+    const r = await fetch('api/banco', { cache: 'no-store' });
+    ultimoBanco = await r.json();
+    const ocupados = ultimoBanco.emAndamento + ultimoBanco.naFila;
+    $('banco').innerHTML = `${icone('banco', 16)}${ocupados ? `<span>${ocupados}</span>` : ''}`;
+    $('banco').classList.toggle('ativo', ocupados > 0);
+    $('banco').title = ocupados
+      ? `Banco do TSE: baixando ${ocupados} arquivo(s)… (${ultimoBanco.ok} já guardados)`
+      : `Banco do TSE: ${ultimoBanco.ok} arquivos guardados, em dia`;
+    janelas.forEach((j) => j.pintarBanco?.());
+  } catch {
+    $('banco').title = 'Banco do TSE: servidor sem resposta';
+  }
+}
+$('banco').addEventListener('click', () => abrir('banco'));
+consultarBanco();
+setInterval(consultarBanco, 3_000);
+
 function relogio() {
   const agora = new Date();
   $('relogio').textContent = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -465,6 +487,11 @@ $('icones').addEventListener('keydown', (ev) => {
 // ---------- janelas próprias ----------
 
 const NATIVOS = {
+  banco: () => `<div class="dialogo">
+    <p>Todas as janelas usam o mesmo banco: cada arquivo do TSE é baixado uma vez, guardado no
+      servidor e conferido de novo a cada 1–2 minutos (só baixa se mudou).</p>
+    <table class="tabela-banco" id="tabela-banco"><tbody><tr><td>Carregando…</td></tr></tbody></table>
+    <div class="dialogo-botoes"><button type="button" data-acao="fechar">OK</button></div></div>`,
   paineis: () => `
     <div class="pasta">
       <aside class="pasta-web">
@@ -497,6 +524,10 @@ Como usar esta área de trabalho
 
 De onde vêm os dados
 --------------------
+* Todas as janelas usam o mesmo banco no servidor: cada arquivo do
+  TSE é baixado uma vez e conferido a cada 1-2 minutos (só baixa de
+  novo se mudou). O ícone de banco ao lado do relógio mostra o
+  andamento; clique nele para ver os detalhes.
 * Resultados: arquivos públicos do TSE (resultados.tse.jus.br,
   ambiente oficial), relidos a cada 2 minutos.
 * Brancos = v.vb; nulos = v.tvn (nulos + nulos técnicos);
@@ -547,6 +578,22 @@ Cuidados na leitura
 };
 
 function ligarNativo(tipo, conteudo, j) {
+  if (tipo === 'banco') {
+    const pintar = () => {
+      const t = conteudo.querySelector('#tabela-banco');
+      if (!t || !ultimoBanco) return;
+      const b = ultimoBanco;
+      const mb = (n) => `${(n / 1048576).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} MB`;
+      t.innerHTML = `<tbody>${[
+        ['Arquivos no banco', b.ok], ['Ainda não publicados', b.indisponiveis], ['Com erro', b.erros],
+        ['Baixando agora', b.emAndamento], ['Na fila', b.naFila], ['Consultas ao TSE', b.pedidos],
+        ['Sem mudança (304)', b.naoMudou], ['Baixados', `${b.baixados} · ${mb(b.bytes)}`],
+        ['Pausa pedida pelo TSE', b.pausadoAte ? new Date(b.pausadoAte).toLocaleTimeString('pt-BR') : '—'],
+      ].map(([k, v]) => `<tr><td>${k}</td><td>${typeof v === 'number' ? v.toLocaleString('pt-BR') : esc(v)}</td></tr>`).join('')}</tbody>`;
+    };
+    pintar();
+    j.pintarBanco = pintar;
+  }
   if (tipo === 'paineis') {
     const descricao = conteudo.querySelector('#pasta-descricao');
     conteudo.addEventListener('click', (ev) => {

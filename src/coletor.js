@@ -8,6 +8,10 @@
 //   3. baixa só os municípios novos ou cujas seções totalizadas mudaram.
 // Assim os números cobrem apenas os municípios já lidos, e vão se completando.
 // Uma UF só é acompanhada enquanto alguém a consulta (pára depois de 15 min sem pedidos).
+//
+// Todos os arquivos vêm do banco único (src/banco.js): o arquivo de cada UF e de cada
+// município é baixado uma vez, conferido com GET condicional e compartilhado por todas as
+// janelas. As consultas respondem com o que já existe e dizem quantos arquivos faltam.
 
 import { CICLO, UFS, lerMunicipios, num, resumoVotos, somarResumos, urlResultado } from '../public/tse.js';
 
@@ -16,29 +20,6 @@ const caminhoMunicipios = (ele) => `${CICLO}/${ele}/config/mun-e${pad(ele, 6)}-c
 const caminhoAcompanhamento = (ele, uf) => `${CICLO}/${ele}/dados/${uf}/${uf}-e${pad(ele, 6)}-ab.json`;
 // urlResultado com base vazia gera "/ele2026/..."; o coletor trabalha com caminhos relativos.
 const caminhoResultado = (ele, uf, cargo, mun = '') => urlResultado('', ele, uf, cargo, mun).slice(1);
-
-/**
- * Limita quantas requisições ao TSE ficam abertas ao mesmo tempo. Tarefas com prioridade
- * (arquivos de UF e de acompanhamento) furam a fila dos municípios, para a tabela por estado
- * não esperar atrás de milhares de cidades quando "todas as cidades do Brasil" está carregando.
- */
-function criarLimitador(maximo) {
-  let ativos = 0;
-  const fila = [];
-  const proximo = () => {
-    if (ativos >= maximo || fila.length === 0) return;
-    ativos += 1;
-    const { tarefa, ok, falha } = fila.shift();
-    tarefa().then(ok, falha).finally(() => {
-      ativos -= 1;
-      proximo();
-    });
-  };
-  return (tarefa, { prioridade = false } = {}) => new Promise((ok, falha) => {
-    fila[prioridade ? 'unshift' : 'push']({ tarefa, ok, falha });
-    proximo();
-  });
-}
 
 // "seções totalizadas:comparecimento" — muda sempre que entram urnas novas no município.
 const marca = (s, e) => `${num(s?.st)}:${num(e?.c)}`;
@@ -53,33 +34,29 @@ export function marcasAcompanhamento(bruto) {
   return marcas;
 }
 
+// Resumo de votos de um arquivo de resultado, mais a "marca" (seções totalizadas e
+// comparecimento) usada para saber se o arquivo está em dia com o acompanhamento.
+const resumoComMarca = (bruto) => ({ marca: marca(bruto.s, bruto.e), ...resumoVotos(bruto) });
+const RESUMO = { processar: resumoComMarca, nome: 'resumo' };
+
 /**
  * @param {object} opcoes
- * @param {(caminho: string) => Promise<object|null>} opcoes.buscarJson  devolve o JSON, ou null se o TSE respondeu 404
+ * @param {ReturnType<import('./banco.js').criarBanco>} opcoes.banco  banco único dos arquivos do TSE
  */
 export function criarColetor({
-  buscarJson,
+  banco,
   intervaloMs = 120_000,
-  concorrencia = 6,
   ociosoMs = 15 * 60_000,
   agora = () => Date.now(),
   agendar = setInterval,
   cancelar = clearInterval,
 } = {}) {
-  const limitar = criarLimitador(concorrencia);
-  const listas = new Map(); // eleição → Promise<{ uf → municípios }>
   const alvos = new Map(); // "ele:cargo:uf" → estado do acompanhamento
 
-  function municipiosDa(ele) {
-    if (!listas.has(ele)) {
-      const p = buscarJson(caminhoMunicipios(ele)).then((bruto) => {
-        if (!bruto) throw new Error('lista de municípios ainda não publicada pelo TSE');
-        return lerMunicipios(bruto);
-      });
-      p.catch(() => listas.delete(ele)); // tenta de novo na próxima consulta
-      listas.set(ele, p);
-    }
-    return listas.get(ele);
+  async function municipiosDa(ele) {
+    const r = await banco.buscar(caminhoMunicipios(ele), { processar: lerMunicipios, nome: 'municipios', prioridade: 2, esperarMs: 30_000 });
+    if (r.valor) return r.valor;
+    throw new Error(r.estado === 'indisponivel' ? 'lista de municípios ainda não publicada pelo TSE' : (r.erro ?? 'lista de municípios indisponível'));
   }
 
   async function passada(alvo) {
@@ -91,42 +68,32 @@ export function criarColetor({
         alvo.lista = lista;
 
         let marcas = null;
-        try {
-          const ab = await limitar(() => buscarJson(caminhoAcompanhamento(ele, uf)), { prioridade: true });
-          if (ab) marcas = marcasAcompanhamento(ab);
-        } catch {
-          // Sem acompanhamento, recai em reler tudo, mas no máximo a cada 10 minutos.
-        }
+        const ab = await banco.atualizar(caminhoAcompanhamento(ele, uf), {
+          processar: (b) => Object.fromEntries(marcasAcompanhamento(b)), nome: 'marcas', prioridade: true,
+        });
+        if (ab.valor) marcas = new Map(Object.entries(ab.valor));
         // Município sem informação no acompanhamento (ou acompanhamento fora do ar) é
         // relido a cada 10 minutos.
         const releTudo = agora() - (alvo.ultimaCompleta ?? 0) >= 10 * 60_000;
 
-        const pendentes = lista.filter((m) => {
-          const lido = alvo.municipios.get(m.codigo);
-          if (!lido) return true;
-          if (marcas?.has(m.codigo)) return marcas.get(m.codigo) !== lido.marca;
-          return releTudo;
-        });
-
         let falhas = 0;
-        await Promise.all(pendentes.map((m) => limitar(async () => {
-          try {
-            const bruto = await buscarJson(caminhoResultado(ele, uf, cargo, m.codigo));
-            if (!bruto) return; // ainda não publicado
-            alvo.municipios.set(m.codigo, {
-              codigo: m.codigo,
-              nome: m.nome,
-              uf,
-              ibge: m.ibge ?? null,
-              // A marca vem do próprio arquivo: se ele estiver atrás do acompanhamento
-              // (os dois são gerados em momentos diferentes), é relido na próxima passada.
-              marca: marca(bruto.s, bruto.e),
-              ...resumoVotos(bruto),
-            });
-          } catch {
-            falhas += 1;
+        await Promise.all(lista.map(async (m) => {
+          const caminho = caminhoResultado(ele, uf, cargo, m.codigo);
+          const lido = alvo.municipios.get(m.codigo);
+          // O arquivo do município só é conferido de novo quando o acompanhamento mostra
+          // seções novas (ou a cada 10 min, se o acompanhamento não ajudar).
+          if (!lido) {
+            // Resumo guardado em disco (de uma execução anterior) aparece já, enquanto confere.
+            const salvo = banco.obter(caminho, { ...RESUMO, auto: false });
+            if (salvo.valor) alvo.municipios.set(m.codigo, { codigo: m.codigo, nome: m.nome, uf, ibge: m.ibge ?? null, ...salvo.valor });
           }
-        })));
+          const conferir = !lido || (marcas?.has(m.codigo) ? marcas.get(m.codigo) !== lido.marca : releTudo);
+          const r = conferir
+            ? await banco.atualizar(caminho, RESUMO)
+            : banco.obter(caminho, { ...RESUMO, auto: false });
+          if (r.estado === 'erro') falhas += 1;
+          if (r.valor) alvo.municipios.set(m.codigo, { codigo: m.codigo, nome: m.nome, uf, ibge: m.ibge ?? null, ...r.valor });
+        }));
         if (releTudo) alvo.ultimaCompleta = agora();
         alvo.erro = falhas ? `${falhas} município(s) não responderam; nova tentativa na próxima passada` : null;
       } catch (erro) {
@@ -170,7 +137,7 @@ export function criarColetor({
   }
 
   function retrato(ele, cargo, uf, lista) {
-    const lidos = lista.flatMap((a) => [...a.municipios.values()].map(({ marca, ...m }) => m));
+    const lidos = lista.flatMap((a) => [...a.municipios.values()].map(({ marca: _m, ...m }) => m));
     const passadas = lista.map((a) => a.ultimaPassada).filter(Boolean);
     const ultima = passadas.length ? Math.min(...passadas) : null;
     const erros = lista.map((a) => a.erro).filter(Boolean);
@@ -191,42 +158,50 @@ export function criarColetor({
   }
 
   /** Brancos e nulos de cada município da UF (só os já lidos). */
-  async function municipios(ele, cargo, uf, { esperarMs = 8_000 } = {}) {
+  async function municipios(ele, cargo, uf, { esperarMs = 4_000 } = {}) {
     const alvo = acompanhar(ele, cargo, uf);
     await esperarPrimeira([alvo], esperarMs);
     return retrato(ele, cargo, uf, [alvo]);
   }
 
   /** Todas as cidades de várias UFs (o Brasil inteiro): cada UF é acompanhada como em `municipios`. */
-  async function todas(ele, cargo, ufs, { esperarMs = 8_000 } = {}) {
+  async function todas(ele, cargo, ufs, { esperarMs = 4_000 } = {}) {
     const lista = ufs.map((uf) => acompanhar(ele, cargo, uf));
     await esperarPrimeira(lista, esperarMs);
     return retrato(ele, cargo, 'todas', lista);
   }
 
-  /** Brancos e nulos por UF, direto dos arquivos de cada UF (27 arquivos, mais o Brasil quando existe). */
-  async function estados(ele, cargo, abrangencias) {
+  /**
+   * Brancos e nulos por UF, dos arquivos de cada UF (27, mais o do Brasil quando existe).
+   * Espera no máximo `esperarMs` pelos arquivos que ainda não chegaram e responde com o que tem.
+   */
+  async function estados(ele, cargo, abrangencias, { esperarMs = 4_000, prioridade = 1 } = {}) {
     const ufs = abrangencias.filter((a) => a !== 'br');
-    const lidos = await Promise.all(ufs.map((uf) => limitar(async () => {
-      try {
-        const bruto = await buscarJson(caminhoResultado(ele, uf, cargo));
-        return bruto ? { uf, nome: UFS[uf] ?? (uf === 'zz' ? 'Exterior' : uf), ...resumoVotos(bruto) } : null;
-      } catch {
-        return null;
+    const opcoes = { ...RESUMO, prioridade, esperarMs };
+    const [respostas, br] = await Promise.all([
+      Promise.all(ufs.map((uf) => banco.buscar(caminhoResultado(ele, uf, cargo), opcoes))),
+      abrangencias.includes('br') ? banco.buscar(caminhoResultado(ele, 'br', cargo), opcoes) : null,
+    ]);
+    const lista = [];
+    respostas.forEach((r, i) => {
+      const uf = ufs[i];
+      if (r.valor) {
+        const { marca: _m, ...resumo } = r.valor;
+        lista.push({ uf, nome: UFS[uf] ?? (uf === 'zz' ? 'Exterior' : uf), ...resumo });
       }
-    }, { prioridade: true })));
-    const lista = lidos.filter(Boolean);
+    });
     let brasil = null;
-    if (abrangencias.includes('br')) {
-      try {
-        const bruto = await buscarJson(caminhoResultado(ele, 'br', cargo));
-        if (bruto) brasil = resumoVotos(bruto);
-      } catch {
-        // cai na soma das UFs abaixo
-      }
+    if (br?.valor) {
+      const { marca: _m, ...resumo } = br.valor;
+      brasil = resumo;
     }
     if (!brasil && lista.length) brasil = somarResumos(lista);
-    return { eleicao: ele, cargo, total: ufs.length, lidos: lista.length, brasil, estados: lista };
+    const pendentes = respostas.filter((r) => r.pendente).length + (br?.pendente ? 1 : 0);
+    const erros = [...new Set(respostas.map((r) => r.erro).filter(Boolean))];
+    return {
+      eleicao: ele, cargo, total: ufs.length, lidos: lista.length, pendentes, brasil, estados: lista,
+      erro: erros.length && !lista.length ? erros.join(' · ') : null,
+    };
   }
 
   return { estados, municipios, todas, parar, alvos };

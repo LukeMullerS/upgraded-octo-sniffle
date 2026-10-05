@@ -61,6 +61,21 @@ e `TSE_BASE` (padrão `https://resultados.tse.jus.br/oficial`).
 - **Atualização automática** a cada 60 s (pausa com a aba em segundo plano) e botão de atualizar.
 - A seleção fica na URL (`#ele=6259&cargo=0&abr=sp`), então dá para compartilhar o link.
 
+## Banco único de dados
+
+Todas as janelas (Apuração, Brancos e nulos, Explorador, Logs) leem do mesmo banco no servidor (`src/banco.js`):
+
+- cada arquivo do TSE é baixado **uma vez** e compartilhado; a cada 1–2 minutos o banco confere se mudou com
+  GET condicional (ETag) — se o TSE responde "não mudou" (304), nada é baixado de novo;
+- uma fila única limita os pedidos simultâneos, com três níveis de prioridade (o que está na tela primeiro;
+  painéis secundários, municípios e conferências depois) e espera quando o TSE pede calma (429/503);
+- as consultas respondem **na hora** com o que já existe e dizem quantos arquivos ainda estão chegando; as janelas
+  vão se completando sozinhas;
+- dos arquivos grandes (deputados) só o resumo de brancos e nulos fica na memória;
+- os resumos são gravados em `dados/banco.json` e voltam instantaneamente quando o servidor reinicia;
+- na barra de tarefas, o ícone de banco ao lado do relógio pisca enquanto há arquivos chegando; clicar nele mostra
+  o estado do banco (arquivos guardados, na fila, consultas, 304, MB baixados). Também em `/api/banco`.
+
 ## Área de trabalho Windows 98
 
 Por padrão o app abre como uma área de trabalho do Windows 98 (`/desktop.html`): cada tela é uma janela que se
@@ -157,7 +172,8 @@ Antes de o TSE publicar um arquivo (ex.: antes da apuração), o app mostra "Arq
 ## Estrutura
 
 ```
-server.js          servidor estático + proxy com cache para o TSE + API /api/estados e /api/municipios
+server.js          servidor estático + proxy para o TSE + APIs (/api/estados, /api/municipios, /api/banco, …)
+src/banco.js       banco único dos arquivos do TSE (GET condicional, fila com prioridade, disco)
 public/index.html  página
 public/app.js      filtros, consulta e renderização
 public/tse.js      configuração das eleições, URLs e normalização do JSON do TSE

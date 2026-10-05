@@ -3,9 +3,12 @@
 // `/tse/*` para https://resultados.tse.jus.br/oficial/*.
 //
 // O proxy existe porque o CDN do TSE recusa clientes sem User-Agent de navegador e
-// não garante CORS para outras origens. Ele também guarda as respostas por alguns
-// segundos, para que vários navegadores abertos não multipliquem as consultas.
-// Em `/api/*` serve os brancos e nulos por estado e por município (ver src/coletor.js).
+// não garante CORS para outras origens.
+//
+// Todos os arquivos do TSE passam por um banco único (src/banco.js), compartilhado por
+// todas as janelas: cada arquivo é baixado uma vez, conferido com GET condicional e
+// servido a quem pedir. Em `/api/*` ficam os brancos e nulos por estado e município
+// (src/coletor.js), o Censo (src/censo.js) e os logs das urnas (src/logs.js).
 // Sem dependências: precisa só do Node.js 18+.
 
 import http from 'node:http';
@@ -13,6 +16,7 @@ import { networkInterfaces } from 'node:os';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { criarBanco } from './src/banco.js';
 import { criarColetor } from './src/coletor.js';
 import { PRESETS, criarCenso } from './src/censo.js';
 import { criarColetorLogs } from './src/logs.js';
@@ -41,10 +45,20 @@ const CABECALHOS_TSE = {
   Accept: 'application/json,image/*,*/*',
 };
 
+const DADOS = join(fileURLToPath(new URL('.', import.meta.url)), 'dados');
+
+// Banco único de todos os arquivos JSON do TSE.
+const banco = criarBanco({
+  base: TSE_BASE,
+  cabecalhos: CABECALHOS_TSE,
+  arquivoDisco: join(DADOS, 'banco.json'),
+});
+
+// Fotos dos candidatos: imagens, num cache simples à parte do banco.
 const cache = new Map(); // caminho → { expira, status, tipo, corpo }
 const emAndamento = new Map(); // caminho → Promise (evita consultas duplicadas simultâneas)
 
-async function buscarNoTse(caminho) {
+async function buscarFoto(caminho) {
   const salvo = cache.get(caminho);
   if (salvo && salvo.expira > Date.now()) return salvo;
   if (emAndamento.has(caminho)) return emAndamento.get(caminho);
@@ -71,17 +85,17 @@ async function buscarNoTse(caminho) {
   return promessa;
 }
 
-/** JSON de um arquivo do TSE (com o mesmo cache do proxy); null quando ainda não publicado. */
+/** JSON de um arquivo do TSE pelo banco, sem atualização automática; null se ainda não publicado. */
 async function buscarJson(caminho) {
-  const r = await buscarNoTse(caminho);
-  if (r.status === 404 || r.status === 403) return null;
-  if (r.status < 200 || r.status >= 300) throw new Error(`TSE respondeu HTTP ${r.status}`);
-  return JSON.parse(r.corpo.toString('utf8'));
+  const r = await banco.buscar(caminho, { auto: false, esperarMs: 30_000 });
+  if (r.estado === 'ok') return r.valor;
+  if (r.estado === 'indisponivel') return null;
+  throw new Error(r.erro ?? 'falha ao consultar o TSE');
 }
 
-const coletor = criarColetor({ buscarJson });
+const coletor = criarColetor({ banco });
 const censo = criarCenso({
-  pasta: join(fileURLToPath(new URL('.', import.meta.url)), 'dados', 'censo'),
+  pasta: join(DADOS, 'censo'),
   ...(process.env.IBGE_BASE ? { base: process.env.IBGE_BASE.replace(/\/$/, '') } : {}),
 });
 
@@ -93,10 +107,7 @@ async function buscarBinario(caminho) {
   return Buffer.from(await res.arrayBuffer());
 }
 
-const logs = criarColetorLogs({
-  buscarJson, buscarBinario, pleito: PLEITO.codigo,
-  pasta: join(fileURLToPath(new URL('.', import.meta.url)), 'dados', 'logs'),
-});
+const logs = criarColetorLogs({ buscarJson, buscarBinario, pleito: PLEITO.codigo, pasta: join(DADOS, 'logs') });
 const UFS_LOGS = [...Object.keys(UFS), 'zz'];
 
 // /api/logs/*: tempo de votação e biometria a partir dos logs das urnas (ver src/logs.js).
@@ -152,7 +163,9 @@ async function api(res, pathname, params) {
   if (!cargo) return json(res, 400, { erro: 'eleição ou cargo inválido' });
   try {
     if (pathname === '/api/estados') {
-      return json(res, 200, await coletor.estados(eleicao.codigo, cargo.codigo, cargo.abrangencias));
+      // fundo=1: painéis secundários (outros cargos) esperam na fila de baixa prioridade.
+      const prioridade = params.get('fundo') === '1' ? 0 : 1;
+      return json(res, 200, await coletor.estados(eleicao.codigo, cargo.codigo, cargo.abrangencias, { prioridade }));
     }
     if (pathname === '/api/municipios') {
       const uf = params.get('uf');
@@ -175,12 +188,8 @@ async function proxy(req, res, caminho) {
     return;
   }
   try {
-    const r = await buscarNoTse(caminho);
-    res.writeHead(r.status, {
-      'content-type': r.tipo,
-      'cache-control': 'no-cache',
-      'x-tse-cache-expira': new Date(r.expira).toISOString(),
-    });
+    const r = caminho.includes('/fotos/') ? await buscarFoto(caminho) : await banco.bruto(caminho);
+    res.writeHead(r.status, { 'content-type': r.tipo, 'cache-control': 'no-cache' });
     res.end(r.corpo);
   } catch (erro) {
     const mensagem = erro?.name === 'TimeoutError' ? 'TSE não respondeu a tempo' : `falha ao consultar o TSE: ${erro.message}`;
@@ -209,6 +218,7 @@ const servidor = http.createServer((req, res) => {
     return;
   }
   const { pathname, searchParams } = new URL(req.url, 'http://localhost');
+  if (pathname === '/api/banco') return json(res, 200, banco.status());
   if (pathname.startsWith('/api/censo/')) return apiCenso(res, pathname, searchParams);
   if (pathname.startsWith('/api/logs/')) return apiLogs(res, pathname, searchParams);
   if (pathname.startsWith('/api/')) return api(res, pathname, searchParams);
@@ -220,10 +230,19 @@ const servidor = http.createServer((req, res) => {
 const enderecosLocais = () =>
   Object.values(networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address);
 
+// Resumos guardados da última execução aparecem na hora; ao sair, o banco é gravado.
+const salvos = await banco.carregarDisco();
+for (const sinal of ['SIGINT', 'SIGTERM']) {
+  process.on(sinal, async () => {
+    await banco.salvarDisco();
+    process.exit(0);
+  });
+}
+
 servidor.listen(PORTA, HOST, () => {
   console.log(`Apuração 2026 em http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORTA}`);
   if (HOST === '0.0.0.0') {
     for (const ip of enderecosLocais()) console.log(`No celular (mesma Wi-Fi): http://${ip}:${PORTA}`);
   }
-  console.log(`Dados: ${TSE_BASE}`);
+  console.log(`Dados: ${TSE_BASE}${salvos ? ` (${salvos} resumos guardados carregados)` : ''}`);
 });

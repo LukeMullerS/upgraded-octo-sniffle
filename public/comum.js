@@ -47,7 +47,9 @@ async function getApi(caminho, params) {
   return dados;
 }
 
-export const carregarEstados = (cargo) => getApi('estados', { ele: cargo.eleicao, cargo: cargo.codigo });
+/** `fundo`: pedido de painel secundário, atendido depois do que está em destaque na tela. */
+export const carregarEstados = (cargo, { fundo = false } = {}) =>
+  getApi('estados', { ele: cargo.eleicao, cargo: cargo.codigo, ...(fundo ? { fundo: '1' } : {}) });
 export const carregarMunicipios = (cargo, uf) =>
   getApi('municipios', { ele: cargo.eleicao, cargo: cargo.codigo, uf });
 

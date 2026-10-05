@@ -56,7 +56,7 @@ async function carregar() {
   const n = nivel();
   const cargos = estado.cargos.map(cargoPorValor).filter((c) => c && (n === 'estados' || n === 'todas' || c.abrangencias.includes(n)));
   try {
-    const respostas = await Promise.all(cargos.map((c) => (n === 'estados' ? carregarEstados(c) : carregarMunicipios(c, n))
+    const respostas = await Promise.all(cargos.map((c, i) => (n === 'estados' ? carregarEstados(c, { fundo: i > 0 }) : carregarMunicipios(c, n))
       .then((d) => [c.valor, d]).catch((e) => [c.valor, { erro: e.message }])));
     if (pedido !== estado.pedido) return;
     estado.dados = new Map(respostas);
@@ -68,7 +68,10 @@ async function carregar() {
     renderizarTudo();
     el.status.textContent = `consultado às ${new Date().toLocaleTimeString('pt-BR')}`;
     el.status.className = 'status ok';
-    if (respostas.some(([, d]) => d.lendo)) setTimeout(() => pedido === estado.pedido && carregar(), 5_000);
+    if (respostas.some(([, d]) => d.pendentes)) setTimeout(() => pedido === estado.pedido && carregar(), 3_000);
+    else if (respostas.some(([, d]) => d.lendo)) setTimeout(() => pedido === estado.pedido && carregar(), 5_000);
+    const pend = respostas.reduce((t, [, d]) => t + (d.pendentes ?? 0), 0);
+    if (pend) el.resumoDados.textContent += ` · carregando ${pend} arquivo(s) do TSE…`;
   } catch (erro) {
     el.erro.hidden = false;
     el.erro.textContent = `Não foi possível carregar: ${erro.message}`;

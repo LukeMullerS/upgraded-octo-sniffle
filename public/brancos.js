@@ -142,7 +142,9 @@ async function carregar() {
     renderizar();
     el.status.textContent = `consultado às ${new Date().toLocaleTimeString('pt-BR')}`;
     el.status.className = 'status ok';
-    if (municipios?.lendo) setTimeout(() => pedido === estado.pedido && carregar(), 5_000);
+    // Arquivos ainda chegando ao banco do servidor: consulta de novo logo, sem esperar 30 s.
+    if (estados.pendentes) setTimeout(() => pedido === estado.pedido && carregar(), 3_000);
+    else if (municipios?.lendo) setTimeout(() => pedido === estado.pedido && carregar(), 5_000);
   } catch (erro) {
     if (pedido !== estado.pedido) return;
     el.erro.hidden = false;
@@ -158,14 +160,18 @@ async function carregar() {
 async function carregarCargos() {
   const uf = nivel() === 'municipios' ? el.uf.value : null;
   const cargos = CARGOS.filter((c) => (uf ? c.abrangencias.includes(uf) : c.abrangencias.length > 1));
+  let pendentes = 0;
   await Promise.all(cargos.map(async (c) => {
     try {
-      estado.porCargo.set(c.valor, await carregarEstados(c));
+      const d = await carregarEstados(c, { fundo: c.valor !== el.cargo.value });
+      estado.porCargo.set(c.valor, d);
+      pendentes += d.pendentes ?? 0;
     } catch {
       // cargo sem dados ainda: a linha aparece vazia
     }
   }));
   renderizarCargos();
+  if (pendentes) setTimeout(carregarCargos, 4_000);
 }
 
 // ---------- cálculo ----------
@@ -304,9 +310,12 @@ function renderizarResumo() {
       : `${fmtInt.format(m.lidos)} de ${fmtInt.format(total)} cidades lidas${proxima}.`;
     el.leitura.hidden = false;
   } else {
-    const faltam = (estado.estados?.total ?? 0) - (estado.estados?.lidos ?? 0);
-    el.leitura.textContent = faltam > 0 ? `${faltam} UF(s) ainda sem resultado publicado pelo TSE.` : '';
-    el.leitura.hidden = faltam <= 0;
+    const { pendentes = 0, total = 0, lidos = 0 } = estado.estados ?? {};
+    const faltam = total - lidos;
+    el.leitura.textContent = pendentes
+      ? `Carregando ${pendentes} arquivo(s) do TSE… ${lidos} de ${total} UFs já no banco.`
+      : faltam > 0 ? `${faltam} UF(s) ainda sem resultado publicado pelo TSE.` : '';
+    el.leitura.hidden = !el.leitura.textContent;
   }
 
   const brasil = estado.estados?.brasil;

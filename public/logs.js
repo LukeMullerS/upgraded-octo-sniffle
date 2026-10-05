@@ -91,6 +91,7 @@ async function carregar({ coletar = false, por = 0, munInicial = null } = {}) {
     if (pedido !== estado.pedido) return;
     estado.logs = logs;
     estado.bn = bn;
+    if (bn?.pendentes || bn?.lendo) setTimeout(() => pedido === estado.pedido && carregar(), 4_000);
     el.erro.hidden = !logs.progresso?.erro;
     el.erro.textContent = logs.progresso?.erro ? `Aviso: ${logs.progresso.erro}` : '';
     gravarHash();

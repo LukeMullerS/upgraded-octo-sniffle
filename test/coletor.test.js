@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { criarColetor, marcasAcompanhamento } from '../src/coletor.js';
+import { criarBanco } from '../src/banco.js';
+import { createHash } from 'node:crypto';
 import { resumoVotos, somarResumos } from '../public/tse.js';
 
 const resultado = ({ st = '0', c = '0', tv = '0', vb = '0', tvn = '0', van = '0', vansj = '0' } = {}) => ({
@@ -9,18 +11,29 @@ const resultado = ({ st = '0', c = '0', tv = '0', vb = '0', tvn = '0', van = '0'
   carg: [{ agr: [] }],
 });
 
-// TSE falso: arquivos em memória, contando quantas vezes cada um foi pedido.
+// TSE falso: arquivos em memória, com ETag (responde 304 se não mudou), contando os pedidos.
 function tseFalso(arquivos) {
   const pedidos = new Map();
+  const etag = (c) => `"${createHash('sha1').update(JSON.stringify(arquivos[c])).digest('hex')}"`;
   return {
     pedidos,
     arquivos,
-    async buscarJson(caminho) {
+    async buscar(url, { headers = {} } = {}) {
+      const caminho = url.replace('https://tse.falso/', '');
       pedidos.set(caminho, (pedidos.get(caminho) ?? 0) + 1);
-      return arquivos[caminho] ?? null;
+      const cab = (h) => ({ get: (k) => h[k.toLowerCase()] ?? null });
+      if (!(caminho in arquivos)) return { status: 404, ok: false, headers: cab({}), arrayBuffer: async () => new ArrayBuffer(0) };
+      if (headers['If-None-Match'] === etag(caminho)) return { status: 304, ok: false, headers: cab({}), arrayBuffer: async () => new ArrayBuffer(0) };
+      const corpo = Buffer.from(JSON.stringify(arquivos[caminho]));
+      return { status: 200, ok: true, headers: cab({ etag: etag(caminho) }), arrayBuffer: async () => corpo };
     },
   };
 }
+
+const bancoDe = (tse) => criarBanco({
+  base: 'https://tse.falso', buscar: tse.buscar.bind(tse),
+  relogio: { setInterval: () => 0, clearInterval: () => {}, setTimeout },
+});
 
 const MUN = 'ele2026/6257/config/mun-e006257-cm.json';
 const AB = 'ele2026/6257/dados/pe/pe-e006257-ab.json';
@@ -42,7 +55,7 @@ function coletorDeTeste(tse) {
   const timers = [];
   let relogio = 0;
   const coletor = criarColetor({
-    buscarJson: tse.buscarJson,
+    banco: bancoDe(tse),
     agora: () => relogio,
     agendar: (fn) => { timers.push(fn); return timers.length; },
     cancelar: () => {},
@@ -124,6 +137,7 @@ test('estados lê o arquivo de cada UF e o do Brasil', async () => {
   });
   const { coletor } = coletorDeTeste(tse);
   const r = await coletor.estados('6257', 1, ['br', 'pe', 'sp', 'rj']);
+  assert.equal(r.pendentes, 0);
   assert.equal(r.total, 3);
   assert.equal(r.lidos, 2);
   assert.equal(r.estados.find((e) => e.uf === 'pe').nome, 'Pernambuco');

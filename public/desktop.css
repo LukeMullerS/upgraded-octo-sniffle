@@ -117,7 +117,13 @@ button { font: inherit; color: inherit; }
 .tarefa { flex: 0 1 160px; min-width: 40px; justify-content: flex-start; }
 .tarefa span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .tarefa.pressionado span { font-weight: bold; }
-.bandeja { flex: none; height: 22px; display: flex; align-items: center; padding: 0 10px; box-shadow: var(--campo); }
+.bandeja { flex: none; height: 22px; display: flex; align-items: center; gap: 6px; padding: 0 10px 0 4px; box-shadow: var(--campo); }
+.banco { display: inline-flex; align-items: center; gap: 3px; border: none; background: none; padding: 0 2px; cursor: default; font-size: 11px; }
+.banco.ativo .icone { animation: piscar 1s steps(2) infinite; }
+@keyframes piscar { 50% { opacity: .35; } }
+.tabela-banco { width: 100%; border-collapse: collapse; background: #fff; box-shadow: var(--afundado); }
+.tabela-banco td { padding: 3px 8px; border-bottom: 1px solid #e4e4e4; }
+.tabela-banco td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---------- menus ---------- */
 .menu { position: fixed; z-index: 100001; background: var(--cinza); box-shadow: var(--relevo); padding: 3px; }
