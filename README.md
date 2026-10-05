@@ -49,7 +49,8 @@ usa o app. Para rodar de novo outro dia: `cd upgraded-octo-sniffle && git pull &
 No iPhone não há um jeito prático de rodar Node.js; use o computador com `npm run celular`.
 
 Variáveis opcionais: `PORT` (padrão 3000), `HOST` (padrão `127.0.0.1`; use `0.0.0.0` para abrir na rede)
-e `TSE_BASE` (padrão `https://resultados.tse.jus.br/oficial`).
+e `TSE_BASE` (padrão `https://resultados.tse.jus.br/oficial`). Também: `IBGE_BASE` (API de agregados do IBGE),
+`IBGE_MALHAS` (API de malhas do IBGE, para os mapas), `LOGS_NACIONAL` e `LOGS_CONCORRENCIA` (ver Logs das urnas).
 
 ## O que o app mostra
 
@@ -93,14 +94,28 @@ arrasta pela barra de título, redimensiona pelas bordas, minimiza, maximiza (ta
 ## Explorador de variáveis (estilo JASP/jamovi)
 
 A janela **Explorador** cruza, por estado ou por cidade, variáveis da eleição (de vários cargos), do território
-(UF, região, porte, capital) e do **Censo/IBGE**. Arraste (ou toque e depois toque no campo) as variáveis para
-**Eixo X**, **Eixo Y**, **Grupo/cor**, **Tamanho** e **Matriz de correlação**:
+(UF, região, porte, capital), dos **logs das urnas** e do **Censo/IBGE**. Três jeitos de usar, do mais simples ao
+mais livre:
 
-- duas numéricas → dispersão com regressão linear, r de Pearson, R², valor-p e r por grupo;
-- categórica + numérica → boxplot por grupo e ANOVA de um fator (F, p, η²);
-- uma numérica → histograma (ou boxplot por grupo); uma categórica → contagens; duas categóricas → contingência;
-- estatísticas descritivas e matriz de correlação (clique numa célula para ver a dispersão);
-- variável numérica em "Grupo" vira quartis.
+1. **"O que você quer descobrir?"** — perguntas prontas com um clique (onde mais se votou nulo, brancos e nulos por
+   região, alfabetização × nulos, tempo na cabine × nulos, capitais × interior, presidente × senador, o que mais
+   explica os nulos, ranking das cidades, porte).
+2. **"Monte sua análise"** — uma frase com listas: *olhando para* (estados / cidades) *quero entender* (Y)
+   *comparando com* (X) *separando por* (grupo) *usando* (tipo de análise). A escolha automática decide sozinha.
+3. **Arrastar e soltar** (em "Modo avançado"): eixos X/Y, grupo/cor, tamanho e matriz de correlação.
+
+Tipos de análise e o que mostram:
+
+- **Mapa** interativo (coroplético, IBGE): estados ou cidades coloridos pelo valor; zoom com a roda/pinça.
+- **Correlação**: dispersão com regressão linear, r de Pearson, ρ de Spearman, R², valor-p e r por grupo.
+- **Comparar grupos**: boxplot e ANOVA de um fator (F, p, η²).
+- **Teste t de Welch** (2 grupos): diferença das médias, p e d de Cohen.
+- **Regressão múltipla** (MQO): coeficientes, erros padrão, t, p, pesos padronizados (beta), R² e R² ajustado.
+- **Ranking**: os maiores e os menores. **Distribuição**: histograma e descritivas.
+
+Cada resultado vem com um **"Em resumo"** em português simples e as abas **Gráfico · Mapa · Dados**; os detalhes
+estatísticos, as descritivas e a matriz de correlação ficam logo abaixo. Tudo é calculado no navegador
+(`public/calculos.js`), sem bibliotecas externas.
 
 **Censo/IBGE**: o servidor baixa as séries da API de agregados do IBGE (SIDRA) e as guarda em `dados/censo`
 (o Censo não muda, então só a primeira consulta depende do IBGE). Já vêm prontas população, densidade, área e
@@ -120,9 +135,16 @@ A janela **Logs das urnas** mede o tempo de votação a partir do log de cada ur
 - Os números cobrem só as seções já lidas; horários são os do relógio de cada urna; durações acima de 30 min ficam
   fora das médias. O log não registra em quem nem como o eleitor votou: brancos e nulos vêm do resultado oficial e
   são cruzados com o tempo médio por município ou por estado (dispersão com regressão).
-- Ler o Brasil inteiro seriam centenas de milhares de logs, então a leitura é **por município** (todas as seções) ou
-  por **amostra do estado** (1 a 10 seções por cidade). Cada log é lido uma vez; os resumos ficam em `dados/logs` e
-  sobrevivem a reinícios. Seções ainda não publicadas são tentadas de novo a cada 2 minutos.
+- **Compilação nacional automática**: assim que o servidor liga, ele passa por todas as UFs (as pequenas e as do
+  Norte primeiro) e lê o log de toda seção já totalizada, de novo a cada 2 minutos — não é preciso escolher cidade
+  nem seção. Só procura onde o acompanhamento do TSE já mostra seções totalizadas e pula municípios completos.
+  Cada log é lido uma única vez; os resumos ficam em `dados/logs` e sobrevivem a reinícios.
+- A janela mostra o progresso (barra nacional e por estado, botão Pausar/Retomar), os indicadores do Brasil, de um
+  estado ou de um município, e um **mapa interativo** (estados → clique → municípios → clique → seções) pintado pelo
+  indicador escolhido: tempo na cabine, atendimento, habilitação, % biometria, teclas indevidas, horário de
+  abertura/encerramento ou % brancos e nulos do resultado.
+- Variáveis: `LOGS_NACIONAL=0` desliga a compilação automática; `LOGS_CONCORRENCIA` (padrão 6) define quantos logs
+  são baixados ao mesmo tempo.
 - O 7z é aberto por um leitor próprio em JavaScript (`src/sete-zip.js`, LZMA/LZMA2), sem precisar do 7-Zip.
 - No Explorador, as variáveis do grupo "Logs das urnas" (tempo médio na cabine, mediana, atendimento, % biometria…)
   aparecem para os locais com logs lidos.
@@ -180,13 +202,15 @@ public/tse.js      configuração das eleições, URLs e normalização do JSON 
 public/brancos.*   aba de brancos e nulos por estado e cidade
 src/coletor.js     coletor de brancos e nulos por município (acompanhamento a cada 2 min)
 src/censo.js       séries do Censo/IBGE (API de agregados), guardadas em dados/censo
-src/logs.js        coletor dos logs das urnas (seções publicadas, amostra, cache em dados/logs)
+src/logs.js        compilação nacional dos logs das urnas (cache em dados/logs)
+src/mapas.js       malhas do IBGE para os mapas (cache em dados/mapas)
 src/log-urna.js    leitura do logd.dat: tempos por eleitor e resumo da seção
 src/sete-zip.js    leitor de 7z (LZMA/LZMA2) em JavaScript puro
 public/urnas.*     janela Logs das urnas
 public/desktop.*   área de trabalho Windows 98 (gerenciador de janelas, menu Iniciar, barra de tarefas)
 public/tema.js     escolhe o visual (98 ou moderno) e o modo "janela" das páginas
-public/explorar.*  explorador de variáveis
+public/explorar.*  explorador de variáveis (perguntas prontas, mapa, testes, regressão)
+public/mapa.js     mapas coropléticos em SVG (zoom, arrastar, legenda por quantis)
 public/calculos.js, graficos.js, comum.js     estatística (incl. testes), gráficos SVG e utilitários
 test/              testes (npm test)
 ```

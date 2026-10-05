@@ -31,11 +31,24 @@
   </nav>
 
   <nav class="filtros filtros-painel" aria-label="Filtros">
-    <label>Estado
+    <label>Local
       <select id="uf"></select>
     </label>
     <label>Município
-      <select id="mun"><option value="">Todos (municípios já lidos)</option></select>
+      <select id="mun"><option value="">Todos</option></select>
+    </label>
+    <label>Mapa e ranking por
+      <select id="indicador">
+        <option value="cabine">Tempo médio na cabine</option>
+        <option value="atendimento">Tempo médio de atendimento</option>
+        <option value="habilitacao">Tempo de habilitação (biometria)</option>
+        <option value="bio">% habilitação biométrica</option>
+        <option value="manual">% habilitação manual</option>
+        <option value="teclas">Teclas indevidas por eleitor</option>
+        <option value="abertura">Horário médio de abertura</option>
+        <option value="encerramento">Horário médio de encerramento</option>
+        <option value="bn">% brancos e nulos (resultado)</option>
+      </select>
     </label>
     <label>Comparar com
       <select id="metrica-bn">
@@ -51,24 +64,41 @@
   </nav>
 
   <main>
+    <section class="cartao compilacao" data-modulo-cartao="compilacao">
+      <div class="linha">
+        <h2>Compilação de todos os logs do Brasil</h2>
+        <span class="acoes-compilacao">
+          <span id="estado-compilacao" class="mudo pequeno"></span>
+          <button id="pausar" type="button" class="secundario sem-margem">Pausar</button>
+        </span>
+      </div>
+      <div class="barra"><div id="barra-nacional"></div></div>
+      <p class="progresso-texto"><strong id="pct-nacional">—</strong> <span id="texto-nacional"></span></p>
+      <details class="por-uf">
+        <summary>Progresso por estado</summary>
+        <div id="por-uf" class="por-uf-grade"></div>
+      </details>
+    </section>
+
     <details class="cartao como" data-modulo-cartao="como">
       <summary>Como é feito</summary>
-      <p>Para cada seção, o servidor vê se o TSE já publicou os arquivos da urna, baixa o log (<code>logd.dat</code>,
-        dentro do <code>.jez</code>, um arquivo 7z) e lê os eventos de cada eleitor: <em>"Título digitado pelo
-        mesário"</em>, <em>"Eleitor foi habilitado"</em> e <em>"O voto do eleitor foi computado"</em>.</p>
+      <p>O servidor lê <strong>sozinho</strong> os logs de todas as urnas do Brasil, sem você precisar escolher
+        cidade ou seção. A cada 2 minutos ele vê quais seções o TSE já totalizou, baixa o log de cada uma
+        (<code>logd.dat</code>, dentro do <code>.jez</code>, um arquivo 7z) e conta os eventos de cada eleitor:
+        <em>"Título digitado pelo mesário"</em>, <em>"Eleitor foi habilitado"</em> e <em>"O voto do eleitor foi computado"</em>.
+        Estados pequenos e do Norte vêm primeiro.</p>
       <ul>
         <li><strong>Tempo na cabine</strong>: de "Eleitor foi habilitado" até "O voto do eleitor foi computado".</li>
         <li><strong>Tempo de atendimento</strong>: do título digitado até o voto computado (inclui a biometria).</li>
         <li><strong>Biometria</strong>: eleitores habilitados pela digital; os demais foram habilitados manualmente
           (a digital não foi reconhecida) ou não tinham biometria cadastrada.</li>
-        <li>Os números cobrem só as seções já lidas; as do Norte e as pequenas chegam primeiro. Horários são os do
-          relógio de cada urna. Durações acima de 30 minutos (urna suspensa etc.) ficam fora das médias.</li>
+        <li>Os números cobrem só as seções já lidas. Horários são os do relógio de cada urna. Durações acima de
+          30 minutos (urna suspensa etc.) ficam fora das médias.</li>
         <li>O log não registra em quem o eleitor votou nem se votou em branco ou nulo. Brancos e nulos vêm do
-          resultado oficial do município e são comparados com o tempo médio de votação.</li>
+          resultado oficial e são comparados com o tempo médio de votação.</li>
       </ul>
-      <p class="mudo">Ler o Brasil inteiro seriam centenas de milhares de logs. Por isso a leitura é por município
-        (todas as seções) ou por amostra do estado (algumas seções de cada cidade). Cada log é lido uma vez e o
-        resumo fica guardado em <code>dados/logs</code>.</p>
+      <p class="mudo">Cada log é lido uma única vez; o resumo de cada seção fica guardado em <code>dados/logs</code>
+        e sobrevive a reinícios. Para desligar a leitura automática: <code>LOGS_NACIONAL=0 npm start</code>.</p>
     </details>
 
     <section id="erro" class="erro" hidden></section>
@@ -76,20 +106,15 @@
     <section class="cartao" data-modulo-cartao="resumo">
       <div class="linha"><h2 id="titulo">—</h2><span id="sub-titulo" class="mudo"></span></div>
       <div class="acoes">
-        <button id="ler-municipio" type="button" hidden>Ler todas as seções do município</button>
-        <label class="acao-amostra">Amostra do estado:
-          <select id="por">
-            <option value="1">1 seção por cidade</option>
-            <option value="2" selected>2 seções por cidade</option>
-            <option value="5">5 seções por cidade</option>
-            <option value="10">10 seções por cidade</option>
-          </select>
-        </label>
-        <button id="ler-amostra" type="button">Ler amostra</button>
+        <button id="ler-municipio" type="button" hidden>Ler este município agora</button>
       </div>
-      <div class="barra"><div id="barra"></div></div>
       <p class="progresso-texto"><strong id="pct-lidas">0%</strong> <span id="lidas"></span></p>
       <dl class="kpis kpis-5" id="kpis"></dl>
+    </section>
+
+    <section class="cartao" data-modulo-cartao="mapa" id="mapa-cartao">
+      <div class="linha"><h2 id="titulo-mapa">Mapa</h2><span class="mudo pequeno" id="sub-mapa">clique num local para detalhar</span></div>
+      <div id="mapa"></div>
     </section>
 
     <div class="grade-painel">

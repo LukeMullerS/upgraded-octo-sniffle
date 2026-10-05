@@ -541,8 +541,10 @@ De onde vêm os dados
 * Logs das urnas: o log de cada seção (logd.dat, dentro do .jez)
   é baixado, descompactado e lido; o tempo na cabine vai de
   "Eleitor foi habilitado" a "O voto do eleitor foi computado".
-  Leitura por município ou por amostra do estado; os resumos
-  ficam em dados/logs. O log não diz como o eleitor votou.
+  O servidor compila sozinho os logs de todas as seções já
+  totalizadas do Brasil, a cada 2 minutos; os resumos ficam em
+  dados/logs. O log não diz como o eleitor votou.
+* Mapas: malhas do IBGE (API de malhas), guardadas em dados/mapas.
 
 Cuidados na leitura
 -------------------

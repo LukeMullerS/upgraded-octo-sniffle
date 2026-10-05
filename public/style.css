@@ -92,7 +92,7 @@ select, input[type=search] {
 }
 input[type=search] { min-width: 0; width: 100%; max-width: 320px; }
 
-main { max-width: 1100px; margin: 0 auto; padding: 0 16px 2rem; display: grid; gap: 1rem; }
+main { max-width: 1100px; margin: 0 auto; padding: 0 16px 2rem; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
 .cartao { background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; padding: 1rem; }
 .linha { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: space-between; align-items: baseline; }
 .erro { background: color-mix(in srgb, var(--erro) 12%, var(--cartao)); color: var(--erro);
@@ -591,3 +591,23 @@ input[type=number] {
 [data-tema="98"] .abas-resultado { border-bottom: 1px solid #fff; gap: 0; }
 [data-tema="98"] .abas-resultado button { border-radius: 3px 3px 0 0; box-shadow: inset 1px 1px #fff, inset -1px 0 #808080; min-height: 0; padding: 2px 10px; color: #000; }
 [data-tema="98"] .abas-resultado button[aria-selected="true"] { background: #c0c0c0; padding-bottom: 4px; font-weight: normal; }
+
+/* ---------- Logs: compilação nacional ---------- */
+.acoes-compilacao { display: inline-flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.por-uf { margin-top: .4rem; }
+.por-uf summary { cursor: pointer; color: var(--mudo); font-size: .85rem; }
+.por-uf-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: .35rem; margin-top: .5rem; }
+.uf-progresso {
+  display: grid; gap: .15rem; margin: 0; padding: .3rem .4rem; text-align: left; font: inherit; cursor: pointer;
+  background: var(--cartao); color: var(--texto); border: 1px solid var(--borda); border-radius: 6px;
+}
+.uf-progresso:hover { border-color: var(--destaque); }
+.uf-progresso.atual { border-color: var(--destaque); box-shadow: 0 0 0 1px var(--destaque); }
+.uf-progresso small { color: var(--mudo); font-size: .72rem; }
+.mini-barra { display: block; height: 4px; background: var(--borda); border-radius: 2px; overflow: hidden; }
+.mini-barra > span { display: block; height: 100%; background: var(--destaque); }
+[data-tema="98"] .uf-progresso { border-radius: 0; background: #c0c0c0; color: #000; border: none; box-shadow: var(--relevo); padding: 2px 4px; min-height: 0; }
+[data-tema="98"] .uf-progresso.atual { box-shadow: var(--afundado); }
+[data-tema="98"] .uf-progresso small, [data-tema="98"] .por-uf summary { color: #000; font-size: 11px; }
+[data-tema="98"] .mini-barra { background: #fff; box-shadow: var(--afundado); border-radius: 0; height: 6px; }
+[data-tema="98"] .mini-barra > span { background: #000080; }
