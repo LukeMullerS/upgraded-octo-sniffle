@@ -370,3 +370,207 @@ export function regressaoMultipla(y, X) {
     f, pF: Number.isFinite(f) ? pValorF(f, k, glRes) : 0, glRes,
   };
 }
+
+// ---------- análise espacial ----------
+
+/**
+ * Vizinhos de cada área (contiguidade "rainha": compartilham ao menos um vértice), a partir
+ * das feições GeoJSON (MultiPolygon, properties.codarea). As malhas do IBGE são topológicas:
+ * fronteiras comuns usam os mesmos pontos, então basta comparar vértices arredondados.
+ * @returns {Map<string, Set<string>>}
+ */
+export function vizinhancaDeMalha(features, casas = 3) {
+  const f = 10 ** casas;
+  const porPonto = new Map();
+  for (const ft of features) {
+    const cod = ft.properties.codarea;
+    for (const pol of ft.geometry.coordinates) {
+      for (const anel of pol) {
+        for (const [x, y] of anel) {
+          const k = `${Math.round(x * f)},${Math.round(y * f)}`;
+          let s = porPonto.get(k);
+          if (!s) porPonto.set(k, (s = new Set()));
+          s.add(cod);
+        }
+      }
+    }
+  }
+  const viz = new Map(features.map((ft) => [ft.properties.codarea, new Set()]));
+  for (const s of porPonto.values()) {
+    if (s.size < 2) continue;
+    for (const a of s) for (const b of s) if (a !== b) viz.get(a).add(b);
+  }
+  return viz;
+}
+
+/** Gerador pseudoaleatório com semente (resultados reprodutíveis). */
+export function aleatorio(semente = 42) {
+  let s = semente >>> 0 || 1;
+  return () => {
+    s ^= s << 13; s >>>= 0;
+    s ^= s >>> 17;
+    s ^= s << 5; s >>>= 0;
+    return s / 4294967296;
+  };
+}
+
+/** Prepara z-scores e listas de vizinhos (índices) só com as áreas que têm valor. */
+function prepararEspacial(valores, vizinhos) {
+  const cods = [...valores.keys()].filter((c) => Number.isFinite(valores.get(c)) && vizinhos.has(c));
+  const idx = new Map(cods.map((c, i) => [c, i]));
+  const x = cods.map((c) => valores.get(c));
+  const m = media(x);
+  const dp = Math.sqrt(x.reduce((t, v) => t + (v - m) ** 2, 0) / x.length) || 1;
+  const z = x.map((v) => (v - m) / dp);
+  const viz = cods.map((c) => [...vizinhos.get(c)].map((v) => idx.get(v)).filter((i) => i !== undefined));
+  return { cods, z, viz };
+}
+
+/** Defasagem espacial: média dos vizinhos (pesos padronizados por linha). */
+const defasagem = (z, viz, i) => (viz[i].length ? viz[i].reduce((t, j) => t + z[j], 0) / viz[i].length : 0);
+
+/**
+ * I de Moran global (pesos padronizados por linha) com teste de permutação.
+ * I > 0: áreas vizinhas parecidas (agrupamento); I < 0: vizinhas diferentes; ~0: aleatório.
+ */
+export function moranGlobal(valores, vizinhos, { permutacoes = 499, semente = 42 } = {}) {
+  const { cods, z, viz } = prepararEspacial(valores, vizinhos);
+  const n = cods.length;
+  const comViz = viz.filter((v) => v.length).length;
+  if (n < 8 || comViz < 4) return null;
+  const calcular = (zz) => {
+    let num = 0;
+    for (let i = 0; i < n; i += 1) if (viz[i].length) num += zz[i] * defasagem(zz, viz, i);
+    return num / zz.reduce((t, v) => t + v * v, 0) * (n / comViz);
+  };
+  const I = calcular(z);
+  const rnd = aleatorio(semente);
+  const perm = [...z];
+  let maiores = 0;
+  const sim = [];
+  for (let k = 0; k < permutacoes; k += 1) {
+    for (let i = n - 1; i > 0; i -= 1) { const j = Math.floor(rnd() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; }
+    const Ik = calcular(perm);
+    sim.push(Ik);
+    if (Ik >= I) maiores += 1;
+  }
+  const mSim = media(sim);
+  const dpSim = Math.sqrt(sim.reduce((t, v) => t + (v - mSim) ** 2, 0) / sim.length) || 1;
+  // p unicaudal (agrupamento) por permutação; z em relação à distribuição simulada.
+  return { I, esperado: -1 / (n - 1), z: (I - mSim) / dpSim, p: (maiores + 1) / (permutacoes + 1), n, semVizinhos: n - comViz };
+}
+
+/**
+ * LISA (Moran local, Anselin 1995): para cada área, o quadrante — Alto-Alto (bolsão de
+ * valores altos), Baixo-Baixo, Alto-Baixo e Baixo-Alto (áreas destoantes dos vizinhos) — e o
+ * valor-p por permutação condicional. Só as com p < alfa são marcadas.
+ * @returns {Map<string, {Ii: number, quadrante: string|null, p: number}>}
+ */
+export function lisa(valores, vizinhos, { permutacoes = 199, alfa = 0.05, semente = 7 } = {}) {
+  const { cods, z, viz } = prepararEspacial(valores, vizinhos);
+  const n = cods.length;
+  const out = new Map();
+  if (n < 8) return out;
+  const rnd = aleatorio(semente);
+  for (let i = 0; i < n; i += 1) {
+    const k = viz[i].length;
+    if (!k) { out.set(cods[i], { Ii: 0, quadrante: null, p: 1 }); continue; }
+    const lag = defasagem(z, viz, i);
+    const Ii = z[i] * lag;
+    // Permutação condicional: o valor da área fica; os vizinhos são sorteados entre as outras.
+    let extremos = 0;
+    for (let r = 0; r < permutacoes; r += 1) {
+      let soma = 0;
+      for (let j = 0; j < k; j += 1) {
+        let q = Math.floor(rnd() * (n - 1));
+        if (q >= i) q += 1;
+        soma += z[q];
+      }
+      const Ir = z[i] * (soma / k);
+      if (Ii >= 0 ? Ir >= Ii : Ir <= Ii) extremos += 1;
+    }
+    const p = (extremos + 1) / (permutacoes + 1);
+    const quadrante = p < alfa
+      ? (z[i] >= 0 ? (lag >= 0 ? 'Alto-Alto' : 'Alto-Baixo') : (lag < 0 ? 'Baixo-Baixo' : 'Baixo-Alto'))
+      : null;
+    out.set(cods[i], { Ii, quadrante, p });
+  }
+  return out;
+}
+
+// ---------- agrupamento ----------
+
+/** Padroniza colunas (z-score). Linhas com algum valor ausente devem ser filtradas antes. */
+export function padronizar(linhas) {
+  const k = linhas[0]?.length ?? 0;
+  const medias = Array.from({ length: k }, (_, j) => media(linhas.map((l) => l[j])));
+  const dps = medias.map((m, j) => Math.sqrt(linhas.reduce((t, l) => t + (l[j] - m) ** 2, 0) / linhas.length) || 1);
+  return { z: linhas.map((l) => l.map((v, j) => (v - medias[j]) / dps[j])), medias, dps };
+}
+
+const dist2 = (a, b) => a.reduce((t, v, j) => t + (v - b[j]) ** 2, 0);
+
+/**
+ * k-médias (k-means++ com semente, várias tentativas): agrupa locais parecidos.
+ * @param {number[][]} pontos  já padronizados
+ * @returns {{grupos: number[], centros: number[][], inercia: number}}
+ */
+export function kmedias(pontos, k, { tentativas = 5, iteracoes = 60, semente = 11 } = {}) {
+  const n = pontos.length;
+  if (n < k || k < 1) return null;
+  const rnd = aleatorio(semente);
+  let melhor = null;
+  for (let t = 0; t < tentativas; t += 1) {
+    const centros = [pontos[Math.floor(rnd() * n)]];
+    while (centros.length < k) {
+      const d = pontos.map((p) => Math.min(...centros.map((c) => dist2(p, c))));
+      const total = d.reduce((a, b) => a + b, 0);
+      let alvo = rnd() * total;
+      let i = 0;
+      while (i < n - 1 && (alvo -= d[i]) > 0) i += 1;
+      centros.push(pontos[i]);
+    }
+    let grupos = new Array(n).fill(0);
+    for (let it = 0; it < iteracoes; it += 1) {
+      let mudou = false;
+      grupos = pontos.map((p, i) => {
+        let g = 0;
+        let dm = Infinity;
+        centros.forEach((c, j) => { const d = dist2(p, c); if (d < dm) { dm = d; g = j; } });
+        if (g !== grupos[i]) mudou = true;
+        return g;
+      });
+      for (let j = 0; j < k; j += 1) {
+        const membros = pontos.filter((_, i) => grupos[i] === j);
+        if (membros.length) centros[j] = membros[0].map((_, c) => media(membros.map((m) => m[c])));
+      }
+      if (!mudou && it > 0) break;
+    }
+    const inercia = pontos.reduce((tot, p, i) => tot + dist2(p, centros[grupos[i]]), 0);
+    if (!melhor || inercia < melhor.inercia) melhor = { grupos, centros: centros.map((c) => [...c]), inercia };
+  }
+  return melhor;
+}
+
+/** Silhueta média (−1 a 1): quão bem separados estão os grupos. Usa amostra se n for grande. */
+export function silhueta(pontos, grupos, { maxAmostra = 600 } = {}) {
+  const passo = Math.max(1, Math.floor(pontos.length / maxAmostra));
+  const idx = pontos.map((_, i) => i).filter((i) => i % passo === 0);
+  const k = Math.max(...grupos) + 1;
+  if (k < 2) return 0;
+  let soma = 0;
+  for (const i of idx) {
+    const somas = new Array(k).fill(0);
+    const cont = new Array(k).fill(0);
+    for (const j of idx) {
+      if (i === j) continue;
+      somas[grupos[j]] += Math.sqrt(dist2(pontos[i], pontos[j]));
+      cont[grupos[j]] += 1;
+    }
+    const a = cont[grupos[i]] ? somas[grupos[i]] / cont[grupos[i]] : 0;
+    let b = Infinity;
+    for (let g = 0; g < k; g += 1) if (g !== grupos[i] && cont[g]) b = Math.min(b, somas[g] / cont[g]);
+    soma += b === Infinity ? 0 : (b - a) / Math.max(a, b);
+  }
+  return soma / idx.length;
+}

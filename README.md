@@ -149,6 +149,40 @@ A janela **Logs das urnas** mede o tempo de votação a partir do log de cada ur
 - No Explorador, as variáveis do grupo "Logs das urnas" (tempo médio na cabine, mediana, atendimento, % biometria…)
   aparecem para os locais com logs lidos.
 
+## Outras fontes públicas
+
+Além do TSE, o Explorador cruza a eleição com séries públicas, todas baixadas uma vez e guardadas em `dados/`
+(em "Mais dados → Fontes públicas", clique numa série ou em "Trazer todas"):
+
+| Fonte | Séries | API |
+|---|---|---|
+| IBGE · Censo 2022 | população, densidade, área, alfabetização, % de pardos, pretos, brancos e indígenas | agregados v3 (tabelas 4714, 9543, 9605) |
+| IBGE · PIB dos Municípios | PIB e PIB por habitante (aprox.) | agregados v3 (5938) |
+| IBGE · Censo 2010 | % de católicos, evangélicos e sem religião | agregados v3 (137) |
+| IBGE · Localidades | região intermediária, imediata, meso e microrregião de cada cidade (para agrupar) | localidades v1 |
+| IPEA · Atlas do Desenvolvimento Humano (2010) | IDHM e componentes, Gini, renda per capita, % de pobres, esperança de vida | Ipeadata OData v4 |
+| qualquer tabela do SIDRA | pelo número da tabela, escolhendo variável e categorias | agregados v3 |
+| seu próprio CSV | qualquer indicador por código IBGE, código TSE, UF ou nome | — |
+
+As séries prontas acham a variável pelo nome nos metadados; se uma fonte mudar ou sair do ar, só aquela série
+falha (com aviso), e o resto continua. Endereços podem ser trocados por variáveis de ambiente: `IBGE_BASE`,
+`IBGE_MALHAS`, `IBGE_LOCALIDADES`, `IPEA_BASE`. Resultados de 2022 não estão mais no site de resultados do TSE
+(só a eleição em curso); para comparar com 2022 seria preciso importar os arquivos do Portal de Dados Abertos do TSE.
+
+### Análises para todos os níveis
+
+- **Para quem está começando**: perguntas prontas com um clique, "Em resumo" em português e um glossário de cada
+  número (média, correlação, p, R², Moran…).
+- **Descobertas automáticas**: testa todas as variáveis carregadas contra a escolhida, ordena pelas que mais
+  andam juntas (Pearson e Spearman, com p corrigido por Bonferroni) e aponta os locais fora da curva (|z| > 2,5).
+- **Padrão no mapa**: I de Moran global (vizinhança rainha, 499 permutações) e LISA — bolsões Alto-Alto,
+  Baixo-Baixo e locais destoantes — com o diagrama de Moran e o mapa dos bolsões.
+- **Perfis de locais**: k-médias (k-means++ com semente fixa; k de 2 a 6 pela silhueta) sobre características
+  padronizadas, com a tabela de médias de cada perfil e o mapa dos grupos.
+- **Regressão múltipla com resíduos no mapa**: onde o modelo erra para mais ou para menos (resíduos agrupados
+  sugerem variáveis que faltaram).
+- E também: correlação, ANOVA, teste t de Welch, ranking, distribuição, matriz de correlação, CSV de tudo.
+
 ## Mapa da votação (todos os dados de cada local)
 
 O servidor guarda, para cada estado e cidade, não só brancos e nulos, mas também **os votos de cada candidato e
@@ -256,7 +290,8 @@ public/tse.js      configuração das eleições, URLs e normalização do JSON 
 public/brancos.*   aba de brancos e nulos por estado e cidade
 public/candidatos.*  mapa da votação: candidatos, partidos, vencedor, comparecimento
 src/coletor.js     coletor de brancos e nulos por município (acompanhamento a cada 2 min)
-src/censo.js       séries do Censo/IBGE (API de agregados), guardadas em dados/censo
+src/censo.js       séries do IBGE (Censo, PIB; API de agregados), guardadas em dados/censo
+src/fontes.js      IPEA (Atlas do Desenvolvimento Humano) e IBGE Localidades, guardados em dados/fontes
 src/logs.js        compilação nacional dos logs das urnas (cache em dados/logs)
 src/mapas.js       malhas do IBGE para os mapas (cache em dados/mapas)
 src/log-urna.js    leitura do logd.dat: tempos por eleitor e resumo da seção

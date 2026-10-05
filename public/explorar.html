@@ -17,7 +17,7 @@
   <header class="topo">
     <div>
       <h1>Explorador de variáveis</h1>
-      <p class="sub">Perguntas prontas, mapas e estatística com os dados da eleição, dos logs das urnas e do Censo</p>
+      <p class="sub">Perguntas prontas, mapas e estatística com os dados da eleição, dos logs das urnas, do IBGE e do IPEA</p>
     </div>
     <div class="atualizacao">
       <span id="status" class="status">carregando…</span>
@@ -67,6 +67,9 @@
             <option value="regressao">Regressão múltipla</option>
             <option value="ranking">Ranking (maiores e menores)</option>
             <option value="distribuicao">Distribuição (histograma)</option>
+            <option value="descobertas">Descobertas automáticas</option>
+            <option value="espacial">Padrão no mapa (Moran / bolsões LISA)</option>
+            <option value="clusters">Perfis de locais (agrupamento k-médias)</option>
           </select>
         </label>
       </div>
@@ -98,6 +101,25 @@
       <div id="resultados"></div>
     </section>
 
+    <details class="cartao glossario" data-modulo-cartao="glossario">
+      <summary>Glossário: o que quer dizer cada número</summary>
+      <dl>
+        <dt>Média e mediana</dt><dd>A média soma tudo e divide; a mediana é o valor do meio (metade dos locais fica abaixo). Se as duas diferem muito, há locais extremos puxando a média.</dd>
+        <dt>Correlação (r de Pearson, ρ de Spearman)</dt><dd>De −1 a 1. Perto de 1: as duas variáveis sobem juntas; perto de −1: uma sobe e a outra desce; perto de 0: sem relação em linha reta. Spearman olha só a ordem (mais robusto a extremos). Correlação não é causa.</dd>
+        <dt>Valor-p (p)</dt><dd>A chance de ver um resultado assim só por acaso, se não houvesse relação nenhuma. Abaixo de 0,05 costuma-se chamar de "significativo". Com muitos testes, use o p corrigido (Bonferroni).</dd>
+        <dt>R² (coeficiente de determinação)</dt><dd>Quanto da variação entre os locais o modelo explica (0 a 100%).</dd>
+        <dt>Regressão múltipla e beta</dt><dd>Estima o efeito de cada variável descontando as outras. O beta (peso padronizado) permite comparar variáveis de unidades diferentes. Resíduo = valor real − valor previsto pelo modelo.</dd>
+        <dt>ANOVA, F e η²</dt><dd>Testa se as médias de vários grupos diferem. η² é a parte da variação explicada pelos grupos (0,01 pequeno, 0,06 médio, 0,14 grande).</dd>
+        <dt>Teste t de Welch e d de Cohen</dt><dd>Compara as médias de dois grupos sem supor variâncias iguais. d mede o tamanho da diferença (0,2 pequeno, 0,5 médio, 0,8 grande).</dd>
+        <dt>Nº efetivo de candidatos/partidos</dt><dd>Fragmentação do voto (Laakso-Taagepera, 1/Σp²): 2 = disputa entre dois; 5 = voto espalhado entre cinco forças de peso igual.</dd>
+        <dt>I de Moran</dt><dd>Mede se locais vizinhos se parecem (positivo), se diferem (negativo) ou se não há padrão (perto de 0). Testado por permutações.</dd>
+        <dt>LISA (bolsões)</dt><dd>Versão local do Moran: Alto-Alto é um bolsão de valores altos cercado de valores altos; Baixo-Baixo, de baixos; Alto-Baixo e Baixo-Alto são locais que destoam dos vizinhos.</dd>
+        <dt>k-médias e silhueta</dt><dd>Agrupa locais parecidos em k perfis. A silhueta (−1 a 1) diz quão bem separados os grupos ficaram (acima de 0,5 é bom).</dd>
+        <dt>Falácia ecológica</dt><dd>Os dados são por local, não por pessoa: "cidades com mais X votam mais em Y" não quer dizer que as pessoas com X votem em Y.</dd>
+        <dt>IDHM, Gini</dt><dd>IDHM (Atlas/IPEA, 2010): desenvolvimento humano de 0 a 1 (educação, longevidade e renda). Gini: desigualdade de renda de 0 (todos iguais) a 1 (um tem tudo).</dd>
+      </dl>
+    </details>
+
     <section class="cartao">
       <div class="linha"><h2>Estatísticas descritivas</h2></div>
       <div class="tabela-rolagem"><table class="tabela" id="descritivas"></table></div>
@@ -110,7 +132,7 @@
     </section>
 
     <details class="cartao">
-      <summary>Mais dados: cargos, Censo/IBGE e CSV</summary>
+      <summary>Mais dados: fontes públicas (IBGE, IPEA), cargos e CSV</summary>
       <div class="filtros filtros-painel embutido">
         <label>Apuração mínima
           <select id="apuracao">
@@ -127,8 +149,11 @@
         <div id="cargos" class="checks"></div>
       </fieldset>
       <fieldset class="grupo-campos">
-        <legend>Censo / IBGE</legend>
-        <div id="presets" class="checks"></div>
+        <legend>Fontes públicas: IBGE (Censo, PIB, regiões) e IPEA (IDHM, Gini, renda)</legend>
+        <p class="mudo pequeno">Clique para trazer a série; ela vira variável no grupo da fonte. As regiões do IBGE
+          (intermediária, imediata, meso e microrregião) entram sozinhas quando você olha para as cidades.
+          <button id="todas-fontes" type="button" class="secundario sem-margem">Trazer todas</button></p>
+        <div id="presets" class="fontes"></div>
         <div class="sidra">
           <label>Outra tabela do SIDRA (nº)
             <input id="tabela-sidra" type="number" inputmode="numeric" placeholder="ex.: 9543" min="1">

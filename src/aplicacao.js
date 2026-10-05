@@ -16,6 +16,7 @@ import { criarColetor } from './coletor.js';
 import { PRESETS, criarCenso } from './censo.js';
 import { criarColetorLogs } from './logs.js';
 import { criarMapas } from './mapas.js';
+import { SERIES_IPEA, criarFontes } from './fontes.js';
 import { ELEICOES, UFS, PLEITO } from '../public/tse.js';
 
 export const TSE_BASE = (process.env.TSE_BASE || 'https://resultados.tse.jus.br/oficial').replace(/\/$/, '');
@@ -98,6 +99,11 @@ async function buscarJson(caminho) {
 const coletor = criarColetor({ banco, sobDemanda: SERVERLESS });
 // Quanto uma consulta espera pelas cidades: no serverless, quase todo o prazo da função (60 s).
 const ESPERA_MS = SERVERLESS ? 45_000 : 4_000;
+const fontes = criarFontes({
+  pasta: join(DADOS, 'fontes'),
+  ...(process.env.IPEA_BASE ? { ipea: process.env.IPEA_BASE.replace(/\/$/, '') } : {}),
+  ...(process.env.IBGE_LOCALIDADES ? { localidades: process.env.IBGE_LOCALIDADES.replace(/\/$/, '') } : {}),
+});
 const censo = criarCenso({
   pasta: join(DADOS, 'censo'),
   ...(process.env.IBGE_BASE ? { base: process.env.IBGE_BASE.replace(/\/$/, '') } : {}),
@@ -185,10 +191,19 @@ const mapas = criarMapas({
 // /api/censo/*: séries do IBGE para o explorador (ver src/censo.js).
 async function apiCenso(res, pathname, params) {
   try {
-    if (pathname === '/api/censo/presets') return json(res, 200, PRESETS.map(({ id, nome, tabela }) => ({ id, nome, tabela })));
+    if (pathname === '/api/censo/presets') {
+      // Catálogo de séries prontas: IBGE (Censo, PIB) e IPEA (Atlas do Desenvolvimento Humano).
+      return json(res, 200, [
+        ...PRESETS.map(({ id, nome, tabela, grupo }) => ({ id, nome, tabela: tabela ?? null, grupo, fonte: 'IBGE' })),
+        ...SERIES_IPEA.map(({ id, nome, codigo, grupo }) => ({ id: `ipea:${id}`, nome, codigo, grupo, fonte: 'IPEA' })),
+      ], true);
+    }
+    if (pathname === '/api/fontes/regioes') return json(res, 200, await fontes.regioes(), true);
     if (pathname === '/api/censo/metadados') return json(res, 200, await censo.metadados(params.get('tabela')));
     if (pathname === '/api/censo/serie') {
-      if (params.get('preset')) return json(res, 200, await censo.preset(params.get('preset')), true);
+      const preset = params.get('preset');
+      if (preset?.startsWith('ipea:')) return json(res, 200, await fontes.serieIpea(preset.slice(5)), true);
+      if (preset) return json(res, 200, await censo.preset(preset), true);
       // Categorias escolhidas vêm como c<id da classificação>=<id da categoria>.
       const classificacao = {};
       for (const [k, v] of params) if (/^c\d+$/.test(k) && /^\d+$/.test(v)) classificacao[k.slice(1)] = v;
@@ -198,8 +213,8 @@ async function apiCenso(res, pathname, params) {
     }
     return json(res, 404, { erro: 'rota desconhecida' });
   } catch (erro) {
-    const msg = erro?.name === 'TimeoutError' ? 'o IBGE não respondeu a tempo' : erro.message;
-    return json(res, 502, { erro: `falha ao consultar o IBGE: ${msg}` });
+    const msg = erro?.name === 'TimeoutError' ? 'a fonte não respondeu a tempo' : erro.message;
+    return json(res, 502, { erro: `falha ao consultar a fonte de dados: ${msg}` });
   }
 }
 
@@ -430,7 +445,7 @@ function rotear(req, res) {
     if (uf && uf !== 'todas' && !UFS[uf]) return json(res, 400, { erro: 'UF inválida' });
     return mapas.malha({ uf }).then((g) => json(res, 200, g, true), (e) => json(res, 502, { erro: `falha ao obter o mapa do IBGE: ${e.message}` }));
   }
-  if (pathname.startsWith('/api/censo/')) return apiCenso(res, pathname, searchParams);
+  if (pathname.startsWith('/api/censo/') || pathname.startsWith('/api/fontes/')) return apiCenso(res, pathname, searchParams);
   if (pathname.startsWith('/api/urnas/')) return apiLogs(res, pathname, searchParams);
   if (pathname.startsWith('/api/')) return api(res, pathname, searchParams);
   if (pathname.startsWith('/tse/')) return proxy(req, res, decodeURIComponent(pathname.slice(5)));

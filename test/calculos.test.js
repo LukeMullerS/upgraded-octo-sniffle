@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   correlacao, desvioPadrao, escoreZ, histograma, media, mediaPonderada, mediana, passoRedondo,
-  quantil, resumoEstatistico, valorMetrica,
+  quantil, resumoEstatistico, valorMetrica, vizinhancaDeMalha, moranGlobal, lisa, kmedias, padronizar, silhueta,
 } from '../public/calculos.js';
 
 const local = (nome, total, brancos, nulos, extra = {}) => ({ nome, total, brancos, nulos, anulados: 0, ...extra });
@@ -106,4 +106,48 @@ test('Spearman, teste t de Welch e regressão múltipla', async () => {
   assert.ok(Math.abs(rm.r2 - simples.r2) < 1e-9);
   assert.equal(regressaoMultipla([1, 2], [[1], [2]]), null, 'poucos dados');
   assert.equal(regressaoMultipla([1, 2, 3, 4], [[1, 2], [2, 4], [3, 6], [4, 8]]), null, 'colinear');
+});
+
+// Grade n×n de quadrados (GeoJSON), código "lin-col".
+function grade(n) {
+  const features = [];
+  for (let i = 0; i < n; i += 1) {
+    for (let j = 0; j < n; j += 1) {
+      const anel = [[j, i], [j + 1, i], [j + 1, i + 1], [j, i + 1], [j, i]];
+      features.push({ properties: { codarea: `${i}-${j}` }, geometry: { type: 'MultiPolygon', coordinates: [[anel]] } });
+    }
+  }
+  return features;
+}
+
+test('vizinhança rainha numa grade', () => {
+  const v = vizinhancaDeMalha(grade(3));
+  assert.equal(v.get('1-1').size, 8, 'centro tem 8 vizinhos');
+  assert.equal(v.get('0-0').size, 3, 'canto tem 3');
+});
+
+test('I de Moran: agrupado > 0 e significativo; tabuleiro de xadrez < 0', () => {
+  const g = grade(8);
+  const viz = vizinhancaDeMalha(g);
+  const agrupado = new Map(g.map((f) => { const [i] = f.properties.codarea.split('-').map(Number); return [f.properties.codarea, i < 4 ? 10 + i : i]; }));
+  const m = moranGlobal(agrupado, viz, { permutacoes: 199 });
+  assert.ok(m.I > 0.5, `I=${m.I}`);
+  assert.ok(m.p < 0.05);
+  // Xadrez com vizinhança "torre" (só lados): vizinhos sempre diferentes.
+  const torre = new Map([...viz].map(([c, s]) => { const [i, j] = c.split('-').map(Number); return [c, new Set([...s].filter((o) => { const [a, b] = o.split('-').map(Number); return a === i || b === j; }))]; }));
+  const xadrez = new Map(g.map((f) => { const [i, j] = f.properties.codarea.split('-').map(Number); return [f.properties.codarea, (i + j) % 2]; }));
+  assert.ok(moranGlobal(xadrez, torre, { permutacoes: 99 }).I < -0.9);
+  const l = lisa(agrupado, viz, { permutacoes: 199 });
+  assert.equal(l.get('6-6').quadrante, 'Baixo-Baixo');
+  assert.equal(l.get('2-2').quadrante, 'Alto-Alto');
+});
+
+test('k-médias separa grupos evidentes e a silhueta é alta', () => {
+  const pontos = [...Array.from({ length: 20 }, (_, i) => [0 + (i % 3) * 0.1, 0]), ...Array.from({ length: 20 }, (_, i) => [10 + (i % 3) * 0.1, 10])];
+  const { z } = padronizar(pontos);
+  const r = kmedias(z, 2);
+  assert.equal(new Set(r.grupos.slice(0, 20)).size, 1);
+  assert.notEqual(r.grupos[0], r.grupos[39]);
+  assert.ok(silhueta(z, r.grupos) > 0.9);
+  assert.equal(kmedias([[1]], 3), null);
 });

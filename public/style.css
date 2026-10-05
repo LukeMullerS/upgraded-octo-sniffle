@@ -614,3 +614,15 @@ input[type=number] {
 
 /* Mapa da votação */
 .ponto-cor { display: inline-block; width: .7em; height: .7em; border-radius: 50%; margin-right: .35em; vertical-align: baseline; }
+
+/* Explorador: catálogo de fontes públicas */
+.fontes { display: grid; gap: .6rem; }
+.fonte-grupo { display: grid; gap: .3rem; }
+.chip-fonte.ok { font-size: .85rem; color: var(--eleito); padding: .2rem .4rem; }
+
+/* Explorador: glossário */
+.glossario dl { display: grid; gap: .35rem .9rem; margin: .6rem 0 0; }
+.glossario dt { font-weight: 600; }
+.glossario dd { margin: 0 0 .4rem; color: var(--mudo); }
+@media (min-width: 760px) { .glossario dl { grid-template-columns: minmax(180px, 1fr) 3fr; } .glossario dd { margin: 0; } }
+[data-tema="98"] .glossario dd { color: #000; }

@@ -7,7 +7,7 @@ import {
   nomeUf, pctSecoes, porteDe, regiaoDe, semAcento,
 } from './comum.js';
 import {
-  METRICAS, anovaUmFator, correlacao, histograma, quantil, regressaoLinear, regressaoMultipla, resumoCaixa, spearman,
+  METRICAS, anovaUmFator, correlacao, histograma, kmedias, lisa, moranGlobal, padronizar, quantil, regressaoLinear, regressaoMultipla, resumoCaixa, silhueta, spearman, vizinhancaDeMalha,
   testeCorrelacao, testeTWelch, valorMetrica,
 } from './calculos.js';
 import { svgBarras, svgBoxplot, svgDispersao, svgHistograma } from './graficos.js';
@@ -15,7 +15,7 @@ import { carregarMalha, criarMapa } from './mapa.js';
 
 const $ = (id) => document.getElementById(id);
 const el = Object.fromEntries([
-  'status', 'exportar', 'atualizar', 'erro', 'resumo-dados', 'nivel', 'apuracao', 'sem-exterior', 'cargos', 'presets',
+  'status', 'exportar', 'atualizar', 'erro', 'resumo-dados', 'nivel', 'apuracao', 'sem-exterior', 'cargos', 'presets', 'todas-fontes',
   'tabela-sidra', 'buscar-sidra', 'sidra-form', 'csv', 'filtro-var', 'lista-var', 'limpar-zonas', 'titulo-grafico',
   'sub-grafico', 'grafico', 'legenda', 'resultados', 'descritivas', 'matriz-cartao', 'matriz', 'dica',
   'perguntas', 'sel-y', 'sel-x', 'sel-grupo', 'sel-tipo', 'explicativas-bloco', 'explicativas', 'dica-tipo',
@@ -31,6 +31,8 @@ const estado = {
   censo: new Map(), // id → série {nome, unidade, municipios, ufs}
   importadas: new Map(), // id → {nome, valores: Map(chave → número)}
   logs: new Map(), // código do município (ou UF) → resumo dos logs das urnas
+  regioes: null, // código IBGE → divisão regional (IBGE Localidades)
+  catalogo: null, // séries prontas das fontes públicas
   zonas: { x: null, y: null, grupo: null, tamanho: null, matriz: [] },
   selecionada: null, // variável escolhida por toque (alternativa ao arrastar)
   tipo: 'auto', // tipo de análise escolhido
@@ -69,6 +71,8 @@ async function carregar() {
     if (pedido !== estado.pedido) return;
     estado.dados = new Map(respostas);
     estado.logs = await carregarLogs(n);
+    // Divisão regional do IBGE (para agrupar cidades): baixada uma vez, só quando há cidades.
+    if (n !== 'estados' && !estado.regioes) estado.regioes = await getJson('api/fontes/regioes').catch(() => null);
     if (pedido !== estado.pedido) return;
     const erros = respostas.filter(([, d]) => d.erro && !d.municipios && !d.estados).map(([v, d]) => `${cargoPorValor(v).nome}: ${d.erro}`);
     el.erro.hidden = !erros.length;
@@ -118,6 +122,7 @@ async function adicionarCenso(url, rotulo, preset = null) {
   try {
     const s = { ...(await getJson(url)), preset };
     estado.censo.set(s.id, s);
+    if (estado.catalogo) renderizarCatalogo();
     renderizarTudo();
     el.status.textContent = `${s.nome} carregado`;
     el.status.className = 'status ok';
@@ -131,10 +136,23 @@ async function adicionarCenso(url, rotulo, preset = null) {
   }
 }
 
+/** Botões das séries prontas, agrupados por fonte; as já trazidas aparecem marcadas. */
+function renderizarCatalogo() {
+  const grupos = new Map();
+  for (const p of estado.catalogo ?? []) {
+    if (!grupos.has(p.grupo)) grupos.set(p.grupo, []);
+    grupos.get(p.grupo).push(p);
+  }
+  const carregadas = new Set([...estado.censo.values()].map((s) => s.preset));
+  el.presets.innerHTML = [...grupos].map(([g, lista]) => `<div class="fonte-grupo"><strong class="pequeno">${esc(g)}</strong><div class="checks">${lista.map((p) => (carregadas.has(p.id)
+    ? `<span class="chip-fonte ok">✓ ${esc(p.nome)}</span>`
+    : `<button type="button" class="secundario sem-margem" data-preset="${esc(p.id)}">+ ${esc(p.nome)}</button>`)).join('')}</div></div>`).join('');
+}
+
 async function carregarPresets() {
   try {
-    const presets = await getJson('api/censo/presets');
-    el.presets.innerHTML = presets.map((p) => `<button type="button" class="secundario sem-margem" data-preset="${esc(p.id)}">+ ${esc(p.nome)}</button>`).join('');
+    estado.catalogo = await getJson('api/censo/presets');
+    renderizarCatalogo();
   } catch {
     el.presets.innerHTML = '<span class="mudo">Censo indisponível neste servidor.</span>';
   }
@@ -295,12 +313,21 @@ function montarVariaveis() {
   if (nivel() !== 'estados') {
     vars.push({ id: 'terr:porte', nome: 'Porte (votos)', grupo: 'Território', tipo: 'cat', ordem: PORTES.map((p) => p[2]),
       valor: (l) => (l.cargos[principal] ? porteDe(l.cargos[principal].total) : null) });
+    if (estado.regioes) {
+      const reg = (l, k) => estado.regioes[l.ibge]?.[k] ?? null;
+      vars.push(
+        { id: 'reg:intermediaria', nome: 'Região intermediária (IBGE)', grupo: 'Território', tipo: 'cat', valor: (l) => reg(l, 'intermediaria') },
+        { id: 'reg:imediata', nome: 'Região imediata (IBGE)', grupo: 'Território', tipo: 'cat', valor: (l) => reg(l, 'imediata') },
+        { id: 'reg:meso', nome: 'Mesorregião (IBGE)', grupo: 'Território', tipo: 'cat', valor: (l) => reg(l, 'meso') },
+        { id: 'reg:micro', nome: 'Microrregião (IBGE)', grupo: 'Território', tipo: 'cat', valor: (l) => reg(l, 'micro') },
+      );
+    }
     vars.push({ id: 'terr:capital', nome: 'Capital?', grupo: 'Território', tipo: 'cat', valor: (l) => (CAPITAIS.has(semAcento(`${l.nome}/${l.uf}`)) ? 'Capital' : 'Interior') });
   }
   for (const [id, s] of estado.censo) {
     const porNivel = nivel() === 'estados';
     vars.push({ id: `censo:${id}`, apelido: s.preset ? `censo:${s.preset}` : null, nome: s.nome, detalhe: [s.periodo, ...(s.categorias ?? []).filter((t) => !/total/i.test(t))].filter(Boolean).join(' · '),
-      grupo: 'Censo / IBGE', tipo: 'num', unidade: s.unidade,
+      grupo: s.grupo ?? 'Censo / IBGE', tipo: 'num', unidade: s.unidade,
       valor: (l) => (porNivel ? s.ufs[l.uf] : s.municipios[l.ibge]) ?? null });
   }
   if (estado.logs.size) {
@@ -394,6 +421,7 @@ function renderizarTudo() {
   renderizarVariaveis(v);
   renderizarZonas(v);
   estado.resumo = '';
+  estado.mapaEspecial = null;
   renderizarAnalise(v);
   el.resumoTexto.innerHTML = estado.resumo ? `<strong>Em resumo:</strong> ${estado.resumo}` : '';
   el.resumoTexto.hidden = !estado.resumo;
@@ -424,8 +452,11 @@ function renderizarSeletores({ vars, z }) {
   el.selX.value = z.x?.id ?? '';
   el.selGrupo.value = z.grupo?.id ?? '';
   el.selTipo.value = estado.tipo;
-  const regressao = estado.tipo === 'regressao';
+  const regressao = estado.tipo === 'regressao' || estado.tipo === 'clusters';
   el.explicativasBloco.hidden = !regressao;
+  el.explicativasBloco.querySelector('p').innerHTML = estado.tipo === 'clusters'
+    ? '<strong>Características usadas para agrupar</strong> (marque 2 ou mais):'
+    : '<strong>Variáveis explicativas</strong> (marque as que podem influenciar "quero entender"):';
   if (regressao) {
     el.explicativas.innerHTML = vars.filter((v) => v.tipo === 'num' && v.id !== z.y?.id).map((v) => `<label class="check"><input type="checkbox" value="${esc(v.id)}"
       ${z.matriz.some((m) => m.id === v.id) ? 'checked' : ''}> ${esc(v.nome)}</label>`).join('');
@@ -439,6 +470,9 @@ function renderizarSeletores({ vars, z }) {
     regressao: 'Mede quanto cada variável explicativa pesa em "quero entender", descontando as outras.',
     ranking: 'Os 15 maiores e os 15 menores valores de "quero entender".',
     distribuicao: 'Como os valores se espalham entre os locais.',
+    descobertas: 'Procura sozinho, entre todas as variáveis carregadas, as que mais andam junto com "quero entender" — e os locais fora da curva.',
+    espacial: 'Vizinhos parecem entre si? I de Moran (global) e LISA (bolsões de valores altos e baixos), no mapa.',
+    clusters: 'Agrupa os locais em perfis parecidos (k-médias) pelas características marcadas, e mostra os grupos no mapa.',
   }[estado.tipo] ?? '';
 }
 
@@ -466,7 +500,8 @@ let pedidoMapa = 0;
 async function renderizarMapa({ linhas, z }) {
   const v = z.y ?? z.x;
   const pedido = ++pedidoMapa;
-  if (!v) {
+  const especial = estado.mapaEspecial;
+  if (!v && !especial) {
     el.mapaExplorar.querySelector('.mapa-area').innerHTML = '<p class="mudo">Escolha uma variável em "quero entender" para ver o mapa.</p>';
     el.notaMapa.textContent = '';
     return;
@@ -480,6 +515,26 @@ async function renderizarMapa({ linhas, z }) {
     return;
   }
   if (pedido !== pedidoMapa) return;
+  const codDe = (l) => (n === 'estados' ? CODIGO_IBGE_UF[l.uf] : l.ibge);
+  const rotuloDe = (l) => (n === 'estados' ? l.nome : `${l.nome} · ${l.uf?.toUpperCase()}`);
+  if (especial) {
+    // Camada calculada pela análise (resíduos da regressão, bolsões LISA, grupos do k-médias).
+    const rotulos = new Map();
+    const valores = new Map();
+    const categorias = especial.categorias ? new Map() : null;
+    for (const l of linhas) {
+      const cod = codDe(l);
+      if (!cod) continue;
+      rotulos.set(cod, rotuloDe(l));
+      const val = especial.valores?.get(l);
+      if (Number.isFinite(val)) valores.set(cod, val);
+      const cat = especial.categorias?.get(l);
+      if (cat) categorias.set(cod, cat);
+    }
+    mapa.desenhar({ geo, valores, rotulos, titulo: especial.titulo, formato: especial.formato ?? ((x) => fmtNum.format(x)), referencia: especial.referencia ?? null, categorias, cores: especial.cores ?? null, rotuloSemDado: especial.rotuloSemDado ?? 'sem dado' });
+    el.notaMapa.textContent = especial.nota ?? '';
+    return;
+  }
   const valores = new Map();
   const rotulos = new Map();
   const categorias = v.tipo === 'cat' ? new Map() : null;
@@ -538,6 +593,9 @@ function renderizarAnalise({ linhas, z }) {
   // Tipos escolhidos explicitamente.
   const tipo = estado.tipo;
   if (tipo === 'regressao') return analiseRegressao(linhas, y, z.matriz);
+  if (tipo === 'descobertas') return analiseDescobertas(linhas, y ?? x);
+  if (tipo === 'espacial') return analiseEspacial(linhas, y ?? x);
+  if (tipo === 'clusters') return analiseClusters(linhas, z.matriz);
   if (tipo === 'ranking' && y) return analiseRanking(linhas, y);
   if (tipo === 'testet' && y) return analiseTesteT(linhas, y, grupo ?? (x?.tipo === 'cat' ? x : null));
   if (tipo === 'mapa' && (y ?? x)) {
@@ -769,11 +827,206 @@ function analiseRegressao(linhas, y, explicativas) {
       }),
     ])
     + '<p class="mudo pequeno">Cada coeficiente é o efeito de +1 na variável mantendo as outras fixas. Associação entre locais, não causalidade.</p>';
+  // Resíduos (real − previsto): onde o modelo erra para mais ou para menos, no mapa.
+  const residuos = new Map();
+  for (const l of validas) {
+    const prev = r.coeficientes[0].coef + xs.reduce((t, v, i) => t + r.coeficientes[i + 1].coef * v.valor(l), 0);
+    residuos.set(l, y.valor(l) - prev);
+  }
+  estado.mapaEspecial = {
+    titulo: `Resíduo: ${y.nome} real − previsto`, valores: residuos, referencia: 0, formato: (v) => fmtValor(v, y),
+    nota: 'Vermelho: o local tem mais do que o modelo prevê; azul: menos. Resíduos agrupados no mapa sugerem uma variável que faltou (por exemplo, a região).',
+  };
+  const ordRes = [...residuos].sort((a, b) => b[1] - a[1]);
+  const nomeL = (l) => `${l.nome}${l.uf && nivel() !== 'estados' ? ` · ${l.uf.toUpperCase()}` : ''}`;
+  el.resultados.innerHTML += `<p class="pequeno"><strong>Mais acima do previsto:</strong> ${ordRes.slice(0, 5).map(([l, v]) => `${esc(nomeL(l))} (${fmtValor(v, y)})`).join(', ')}<br>
+    <strong>Mais abaixo do previsto:</strong> ${ordRes.slice(-5).reverse().map(([l, v]) => `${esc(nomeL(l))} (${fmtValor(v, y)})`).join(', ')} · veja todos na aba Mapa.</p>`;
   const sig = itens.filter((i) => i.p < 0.05);
   estado.resumo = `As variáveis escolhidas explicam ${fmtNum.format(r.r2 * 100)}% da variação de ${esc(y.nome)} entre os locais. `
     + (sig.length
       ? `A que mais pesa é <strong>${esc(sig[0].nome)}</strong> (${sig[0].valor > 0 ? 'quanto maior, maior' : 'quanto maior, menor'} ${esc(y.nome)})${sig.length > 1 ? `; também contam ${sig.slice(1, 3).map((i) => esc(i.nome)).join(' e ')}` : ''}.`
       : 'Nenhuma delas tem efeito estatisticamente significativo quando consideradas juntas.');
+}
+
+// ---------- descobertas automáticas ----------
+
+function analiseDescobertas(linhas, y) {
+  el.tituloGrafico.textContent = y ? `O que anda junto com ${y.nome}?` : 'Descobertas automáticas';
+  if (!y || y.tipo !== 'num') {
+    el.grafico.innerHTML = '<p class="mudo">Escolha uma variável numérica em "quero entender".</p>';
+    el.resultados.innerHTML = '';
+    return;
+  }
+  const grupoY = y.grupo;
+  const candidatas = estado.vista.vars.filter((v) => v.tipo === 'num' && v.id !== y.id && !/seções apuradas|Seções com log/.test(v.nome));
+  const achados = [];
+  for (const v of candidatas) {
+    const pares = linhas.map((l) => [v.valor(l), y.valor(l)]).filter(([a, b]) => a !== null && b !== null && Number.isFinite(a) && Number.isFinite(b));
+    if (pares.length < 8) continue;
+    const reg = regressaoLinear(pares.map((p) => p[0]), pares.map((p) => p[1]));
+    if (!reg || !Number.isFinite(reg.r)) continue;
+    const t = testeCorrelacao(reg.r, reg.n);
+    const rho = spearman(pares.map((p) => p[0]), pares.map((p) => p[1]));
+    achados.push({ v, r: reg.r, rho, n: reg.n, p: t.p, mesmaFonte: v.grupo === grupoY });
+  }
+  achados.sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
+  const testes = achados.length || 1;
+  const externas = achados.filter((a) => !a.mesmaFonte);
+  const topo = (externas.length >= 5 ? externas : achados).slice(0, 12);
+  el.subGrafico.textContent = `${fmtInt.format(achados.length)} variáveis testadas`;
+  estado.itensGrafico = topo.map((a) => ({ titulo: a.v.nome, linhas: [`r = ${fmtR(a.r)}`, textoP(a.p)] }));
+  el.grafico.innerHTML = topo.length
+    ? svgBarras({ itens: topo.map((a) => ({ nome: a.v.nome, valor: a.r, cor: a.r >= 0 ? 'var(--cat-2)' : 'var(--cat-1)' })), rotuloX: 'correlação de Pearson (r) com quero entender', fmtValor: (v) => fmtR(v), largura: largura() })
+    : '<p class="mudo">Carregue mais variáveis (Censo, IPEA, logs, outros cargos) para comparar.</p>';
+  el.legenda.innerHTML = '<span class="mudo">Laranja: sobem juntas · azul: uma sobe, a outra desce. Variáveis da mesma fonte de "quero entender" aparecem só na tabela.</span>';
+  // Fora da curva: locais a mais de 2,5 desvios padrão da média.
+  const vals = linhas.map((l) => ({ l, v: y.valor(l) })).filter((x) => x.v !== null);
+  const m = vals.reduce((t, x) => t + x.v, 0) / (vals.length || 1);
+  const dp = Math.sqrt(vals.reduce((t, x) => t + (x.v - m) ** 2, 0) / (vals.length || 1)) || 1;
+  const fora = vals.map((x) => ({ ...x, z: (x.v - m) / dp })).filter((x) => Math.abs(x.z) > 2.5).sort((a, b) => Math.abs(b.z) - Math.abs(a.z));
+  const nomeL = (l) => `${l.nome}${l.uf && nivel() !== 'estados' ? ` · ${l.uf.toUpperCase()}` : ''}`;
+  el.resultados.innerHTML = tabelaHtml(['Variável', 'Fonte', 'r (Pearson)', 'ρ (Spearman)', 'n', 'p', `p corrigido (Bonferroni, ${testes} testes)`],
+    achados.slice(0, 40).map((a) => [esc(a.v.nome), esc(a.v.grupo), `${fmtR(a.r)}${estrelas(a.p)}`, fmtR(a.rho), fmtInt.format(a.n), fmtP(a.p), fmtP(Math.min(1, a.p * testes))]))
+    + `<p class="pequeno"><strong>Fora da curva</strong> (mais de 2,5 desvios padrão da média): ${fora.length ? fora.slice(0, 12).map((x) => `${esc(nomeL(x.l))} (${fmtValor(x.v, y)}, z = ${fmtNum.format(x.z)})`).join(', ') : 'nenhum local.'}</p>`
+    + '<p class="mudo pequeno">Com muitas comparações, algumas dão "significativas" por acaso: o p corrigido (Bonferroni) é a referência conservadora. Correlação não é causalidade.</p>';
+  const fortes = topo.filter((a) => a.p < 0.05 && Math.abs(a.r) >= 0.3).slice(0, 3);
+  estado.resumo = fortes.length
+    ? `O que mais acompanha ${esc(y.nome)}: ${fortes.map((a) => `<strong>${esc(a.v.nome)}</strong> (${a.r > 0 ? 'sobem juntas' : 'uma sobe, a outra desce'}, r = ${fmtR(a.r)})`).join('; ')}. ${fora.length ? `${fmtInt.format(fora.length)} local(is) estão fora da curva, como ${esc(nomeL(fora[0].l))}.` : ''} Lembre: andar junto não quer dizer causar.`
+    : `Nenhuma variável carregada tem relação forte e significativa com ${esc(y.nome)}. Traga mais fontes em "Mais dados".`;
+}
+
+// ---------- autocorrelação espacial ----------
+
+const CORES_LISA = new Map([['Alto-Alto', '#c8302f'], ['Baixo-Baixo', '#1c5cab'], ['Alto-Baixo', '#f0a3a2'], ['Baixo-Alto', '#86b6ef']]);
+const vizinhancas = new Map(); // nível → Map(cod → Set(cod))
+let pedidoEspacial = 0;
+
+function analiseEspacial(linhas, y) {
+  el.tituloGrafico.textContent = y ? `${y.nome}: vizinhos parecidos?` : 'Autocorrelação espacial';
+  if (!y || y.tipo !== 'num') {
+    el.grafico.innerHTML = '<p class="mudo">Escolha uma variável numérica em "quero entender".</p>';
+    el.resultados.innerHTML = '';
+    return;
+  }
+  const pedido = ++pedidoEspacial;
+  el.grafico.innerHTML = '<p class="mudo">calculando vizinhanças e permutações…</p>';
+  el.resultados.innerHTML = '';
+  const n = nivel();
+  (async () => {
+    let viz = vizinhancas.get(n);
+    if (!viz) {
+      const geo = await carregarMalha(n === 'estados' ? undefined : n === 'todas' ? 'todas' : n);
+      viz = vizinhancaDeMalha(geo.features);
+      vizinhancas.set(n, viz);
+    }
+    if (pedido !== pedidoEspacial) return;
+    const codDe = (l) => (n === 'estados' ? CODIGO_IBGE_UF[l.uf] : l.ibge);
+    const porCod = new Map();
+    const valores = new Map();
+    for (const l of linhas) {
+      const cod = codDe(l);
+      const v = y.valor(l);
+      if (cod && v !== null && Number.isFinite(v)) { valores.set(cod, v); porCod.set(cod, l); }
+    }
+    const m = moranGlobal(valores, viz);
+    if (!m) {
+      el.grafico.innerHTML = '<p class="mudo">Poucos locais vizinhos com dados para medir a autocorrelação espacial.</p>';
+      return;
+    }
+    const loc = lisa(valores, viz);
+    // Diagrama de Moran: valor padronizado × média padronizada dos vizinhos.
+    const cods = [...valores.keys()];
+    const xs = cods.map((c) => valores.get(c));
+    const media = xs.reduce((a, b) => a + b, 0) / xs.length;
+    const dp = Math.sqrt(xs.reduce((t, v) => t + (v - media) ** 2, 0) / xs.length) || 1;
+    const zDe = (c) => (valores.get(c) - media) / dp;
+    const pontos = [];
+    estado.pontos = null;
+    estado.itensGrafico = [];
+    for (const c of cods) {
+      const vs = [...(viz.get(c) ?? [])].filter((o) => valores.has(o));
+      if (!vs.length) continue;
+      const lag = vs.reduce((t, o) => t + zDe(o), 0) / vs.length;
+      const q = loc.get(c)?.quadrante;
+      pontos.push({ x: zDe(c), y: lag, r: 3.5, cor: q ? CORES_LISA.get(q) : 'var(--cat-7)' });
+      const l = porCod.get(c);
+      estado.itensGrafico.push({ titulo: `${l.nome}${n === 'todas' ? ` · ${l.uf.toUpperCase()}` : ''}`, linhas: [`${y.nome}: ${fmtValor(valores.get(c), y)}`, q ?? 'sem padrão local significativo'] });
+    }
+    const reg = regressaoLinear(pontos.map((p) => p.x), pontos.map((p) => p.y));
+    el.grafico.innerHTML = svgDispersao({ pontos, rotuloX: `${y.nome} (padronizado)`, rotuloY: 'média dos vizinhos (padronizada)', regressao: reg, refX: 0, refY: 0, largura: largura(), altura: Math.round(largura() * 0.55) });
+    el.legenda.innerHTML = [...CORES_LISA].map(([q, c]) => `<span><i class="amostra" style="background:${c}"></i>${q}</span>`).join('') + '<span class="mudo">cinza: não significativo</span>';
+    const contagem = new Map();
+    for (const [c, r] of loc) if (r.quadrante) contagem.set(r.quadrante, [...(contagem.get(r.quadrante) ?? []), c]);
+    const nomeC = (c) => { const l = porCod.get(c); return l ? `${l.nome}${n === 'todas' ? ` · ${l.uf.toUpperCase()}` : ''}` : c; };
+    const exemplos = (q) => (contagem.get(q) ?? []).sort((a, b) => (q.startsWith('Alto') ? valores.get(b) - valores.get(a) : valores.get(a) - valores.get(b))).slice(0, 6).map((c) => esc(nomeC(c))).join(', ');
+    el.resultados.innerHTML = `<p class="resultado-destaque">I de Moran = <strong>${fmtNum.format(m.I)}</strong>${estrelas(m.p)} · esperado sem padrão ${fmtNum.format(m.esperado)} · z = ${fmtNum.format(m.z)} · ${textoP(m.p)} (499 permutações) · n = ${fmtInt.format(m.n)}</p>`
+      + tabelaHtml(['Tipo (LISA, p < 0,05)', 'Locais', 'Exemplos'], [...CORES_LISA.keys()].map((q) => [`<i class="amostra" style="background:${CORES_LISA.get(q)}"></i> ${q}`, fmtInt.format(contagem.get(q)?.length ?? 0), exemplos(q) || '—']))
+      + `<p class="mudo pequeno">Vizinhança "rainha" (fronteira ou vértice em comum), pesos padronizados por linha. Alto-Alto = bolsão de valores altos; Baixo-Baixo = de valores baixos; Alto-Baixo e Baixo-Alto = locais que destoam dos vizinhos. ${m.semVizinhos ? `${m.semVizinhos} local(is) sem vizinhos com dados ficaram de fora.` : ''} Os valores-p locais não são corrigidos para comparações múltiplas.</p>`;
+    estado.mapaEspecial = {
+      titulo: `Bolsões (LISA) · ${y.nome}`,
+      categorias: new Map([...loc].filter(([, r]) => r.quadrante).map(([c, r]) => [porCod.get(c), r.quadrante])),
+      cores: CORES_LISA,
+      rotuloSemDado: 'sem padrão significativo ou sem dado',
+      nota: 'Só os locais com padrão local significativo (p < 0,05) aparecem coloridos.',
+    };
+    const resumo = m.p < 0.05 && m.I > 0
+      ? `Há agrupamento no espaço: locais vizinhos tendem a ter valores parecidos de ${esc(y.nome)} (I de Moran = ${fmtNum.format(m.I)}, ${textoP(m.p)}). ${contagem.get('Alto-Alto')?.length ? `Bolsões de valores altos: ${fmtInt.format(contagem.get('Alto-Alto').length)} locais (ex.: ${exemplos('Alto-Alto').split(', ').slice(0, 3).join(', ')}).` : ''} ${contagem.get('Baixo-Baixo')?.length ? `De valores baixos: ${fmtInt.format(contagem.get('Baixo-Baixo').length)}.` : ''}`
+      : m.p < 0.05 && m.I < 0
+        ? `Vizinhos tendem a ser diferentes entre si em ${esc(y.nome)} (I de Moran = ${fmtNum.format(m.I)}, ${textoP(m.p)}): um padrão de "xadrez".`
+        : `Não há padrão espacial claro: ${esc(y.nome)} se distribui como se fosse ao acaso entre vizinhos (I de Moran = ${fmtNum.format(m.I)}, ${textoP(m.p)}).`;
+    estado.resumo = resumo;
+    el.resumoTexto.innerHTML = `<strong>Em resumo:</strong> ${resumo}`;
+    el.resumoTexto.hidden = false;
+    if (estado.aba === 'mapa') renderizarMapa(estado.vista);
+  })().catch((erro) => {
+    if (pedido === pedidoEspacial) el.grafico.innerHTML = `<p class="mudo">Não foi possível calcular: ${esc(erro.message)}</p>`;
+  });
+}
+
+// ---------- agrupamento (k-médias) ----------
+
+function analiseClusters(linhas, caracteristicas) {
+  const xs = caracteristicas.filter((v) => v.tipo === 'num');
+  el.tituloGrafico.textContent = 'Perfis de locais (agrupamento)';
+  if (xs.length < 2) {
+    el.grafico.innerHTML = '<p class="mudo">Marque ao menos duas características para agrupar os locais.</p>';
+    el.resultados.innerHTML = '';
+    return;
+  }
+  const validas = linhas.filter((l) => xs.every((v) => v.valor(l) !== null && Number.isFinite(v.valor(l))));
+  if (validas.length < 10) {
+    el.grafico.innerHTML = '<p class="mudo">Poucos locais com todas as características.</p>';
+    el.resultados.innerHTML = '';
+    return;
+  }
+  const { z } = padronizar(validas.map((l) => xs.map((v) => v.valor(l))));
+  // k escolhido pela melhor silhueta entre 2 e 6.
+  let melhor = null;
+  for (let k = 2; k <= Math.min(6, validas.length - 1); k += 1) {
+    const r = kmedias(z, k);
+    const s = r ? silhueta(z, r.grupos) : -1;
+    if (r && (!melhor || s > melhor.s + 0.02)) melhor = { ...r, k, s };
+  }
+  const { grupos, centros, k, s } = melhor;
+  // Nome de cada grupo: as duas características mais marcantes (centro mais longe da média).
+  const rotulos = centros.map((c, g) => {
+    const marc = c.map((v, j) => ({ j, v })).sort((a, b) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 2);
+    return `Grupo ${g + 1}: ${marc.map((m) => `${m.v > 0 ? '↑' : '↓'} ${xs[m.j].nome}`).join(', ')}`;
+  });
+  const tamanhos = rotulos.map((_, g) => grupos.filter((x) => x === g).length);
+  const ordem = rotulos.map((_, g) => g).sort((a, b) => tamanhos[b] - tamanhos[a]);
+  el.subGrafico.textContent = `${fmtInt.format(validas.length)} locais · k = ${k} (silhueta ${fmtNum.format(s)})`;
+  estado.itensGrafico = ordem.map((g) => ({ titulo: rotulos[g], linhas: [`${fmtInt.format(tamanhos[g])} locais`] }));
+  el.grafico.innerHTML = svgBarras({ itens: ordem.map((g, i) => ({ nome: rotulos[g], valor: tamanhos[g], cor: `var(--cat-${i + 1})` })), rotuloX: 'nº de locais', fmtValor: fmtInt.format, largura: largura() });
+  const mediaG = (g, v) => { const m = validas.filter((_, i) => grupos[i] === g); return m.reduce((t, l) => t + v.valor(l), 0) / (m.length || 1); };
+  const nomeL = (l) => `${l.nome}${l.uf && nivel() !== 'estados' ? ` · ${l.uf.toUpperCase()}` : ''}`;
+  el.resultados.innerHTML = tabelaHtml(['Grupo', 'Locais', ...xs.map((v) => esc(v.nome)), 'Exemplos'],
+    ordem.map((g) => [esc(rotulos[g]), fmtInt.format(tamanhos[g]), ...xs.map((v) => fmtValor(mediaG(g, v), v)),
+      esc(validas.filter((_, i) => grupos[i] === g).slice(0, 4).map(nomeL).join(', '))]))
+    + `<p class="mudo pequeno">k-médias sobre as características padronizadas (z), k-means++ com semente fixa (resultado reprodutível); k entre 2 e 6 escolhido pela maior silhueta (${fmtNum.format(s)}; acima de 0,5 = grupos bem separados, abaixo de 0,25 = fracos). As médias da tabela estão nas unidades originais.</p>`;
+  const cores = new Map(ordem.map((g, i) => [rotulos[g], `var(--cat-${i + 1})`]));
+  estado.mapaEspecial = { titulo: 'Perfis (k-médias)', categorias: new Map(validas.map((l, i) => [l, rotulos[grupos[i]]])), cores, nota: 'Cada cor é um perfil de local; veja as médias de cada grupo em "Detalhes estatísticos".' };
+  estado.resumo = `Os locais se dividem em <strong>${k} perfis</strong>. O maior, com ${fmtInt.format(tamanhos[ordem[0]])} locais, é o ${esc(rotulos[ordem[0]])}. ${s < 0.25 ? 'Os grupos são pouco separados: trate-os como tendências.' : 'Veja no mapa onde fica cada perfil.'}`;
 }
 
 function resultadoAnova(an, fator, v) {
@@ -874,6 +1127,11 @@ const SEN = '6259:5';
 const DEPF = '6259:6';
 const PERGUNTAS = [
   { icone: '🏆', titulo: 'Quem venceu em cada cidade?', texto: 'Mapa do candidato mais votado', nivel: 'todas', cargos: [PRES], y: `${PRES}:vencedor`, tipo: 'mapa' },
+  { icone: '💡', titulo: 'O que mais se relaciona com o voto no líder?', texto: 'Descobertas automáticas: IBGE, IPEA, logs', nivel: 'todas', cargos: [PRES], censo: ['alfabetizacao', 'densidade', 'ipea:idhm', 'ipea:gini', 'ipea:renda', 'cor_pardos', 'rel_evangelicos', 'pibPerCapita'], y: `${PRES}:lider`, tipo: 'descobertas' },
+  { icone: '🔥', titulo: 'Onde há bolsões de voto no líder?', texto: 'Padrão no mapa (Moran e LISA)', nivel: 'todas', cargos: [PRES], y: `${PRES}:lider`, tipo: 'espacial' },
+  { icone: '🧬', titulo: 'Que tipos de cidade existem?', texto: 'Perfis por IDH, densidade, escolaridade e voto', nivel: 'todas', cargos: [PRES], censo: ['ipea:idhm', 'densidade', 'alfabetizacao'], explicativas: ['censo:ipea:idhm', 'censo:densidade', 'censo:alfabetizacao', `${PRES}:lider`, `${PRES}:pctComparecimento`], tipo: 'clusters' },
+  { icone: '📈', titulo: 'O IDH tem a ver com o voto?', texto: 'IPEA (IDHM 2010) × votação do líder', nivel: 'todas', cargos: [PRES], censo: ['ipea:idhm'], x: 'censo:ipea:idhm', y: `${PRES}:lider`, tipo: 'dispersao' },
+  { icone: '⛪', titulo: 'Religião e voto andam juntos?', texto: 'IBGE (% evangélicos) × votação do líder', nivel: 'todas', cargos: [PRES], censo: ['rel_evangelicos'], x: 'censo:rel_evangelicos', y: `${PRES}:lider`, tipo: 'dispersao' },
   { icone: '🗳️', titulo: 'Onde mais gente foi votar?', texto: 'Mapa do comparecimento', nivel: 'todas', cargos: [PRES], y: `${PRES}:pctComparecimento`, tipo: 'mapa' },
   { icone: '📚', titulo: 'A alfabetização muda o voto no líder?', texto: 'Censo 2022 × votação do 1º colocado', nivel: 'todas', cargos: [PRES], censo: ['alfabetizacao'], x: 'censo:alfabetizacao', y: `${PRES}:lider`, tipo: 'dispersao' },
   { icone: '🥊', titulo: 'Onde um cresce, o outro cai?', texto: '1º × 2º colocado por cidade', nivel: 'todas', cargos: [PRES], x: `${PRES}:lider`, y: `${PRES}:segundo`, tipo: 'dispersao' },
@@ -991,6 +1249,15 @@ el.cargos.addEventListener('change', () => {
     preencherCargos();
   }
   carregar();
+});
+el.todasFontes.addEventListener('click', async () => {
+  const faltam = (estado.catalogo ?? []).filter((p) => ![...estado.censo.values()].some((s) => s.preset === p.id));
+  el.todasFontes.disabled = true;
+  // Poucas por vez, para não sobrecarregar o servidor nem as APIs públicas.
+  for (let i = 0; i < faltam.length; i += 3) {
+    await Promise.all(faltam.slice(i, i + 3).map((p) => adicionarCenso(`api/censo/serie?preset=${encodeURIComponent(p.id)}`, p.nome, p.id)));
+  }
+  el.todasFontes.disabled = false;
 });
 el.presets.addEventListener('click', (ev) => {
   const b = ev.target.closest('[data-preset]');

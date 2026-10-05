@@ -24,11 +24,28 @@ export const UF_IBGE = {
   43: 'rs', 50: 'ms', 51: 'mt', 52: 'go', 53: 'df',
 };
 
+// Séries pré-configuradas. A variável é achada pelo nome nos metadados (os números de
+// variável mudam entre tabelas); `categoria` pega uma categoria de uma classificação (ex.:
+// cor ou raça = parda) e, com `percentual`, divide pelo total; `razao` divide uma série por
+// outra (ex.: PIB por habitante). Se o IBGE mudar uma tabela, só aquela série falha.
+const C22 = 'IBGE · Censo 2022';
 export const PRESETS = [
-  { id: 'populacao', nome: 'População residente (Censo 2022)', tabela: '4714', variavel: /popula[cç][aã]o residente/i },
-  { id: 'densidade', nome: 'Densidade demográfica (Censo 2022)', tabela: '4714', variavel: /densidade/i },
-  { id: 'area', nome: 'Área territorial em km² (Censo 2022)', tabela: '4714', variavel: /[aá]rea/i },
-  { id: 'alfabetizacao', nome: 'Taxa de alfabetização, 15 anos ou mais (Censo 2022)', tabela: '9543', variavel: /alfabetiza/i },
+  { id: 'populacao', grupo: C22, nome: 'População residente (Censo 2022)', tabela: '4714', variavel: /popula[cç][aã]o residente/i },
+  { id: 'densidade', grupo: C22, nome: 'Densidade demográfica (Censo 2022)', tabela: '4714', variavel: /densidade/i },
+  { id: 'area', grupo: C22, nome: 'Área territorial em km² (Censo 2022)', tabela: '4714', variavel: /[aá]rea/i },
+  { id: 'alfabetizacao', grupo: C22, nome: 'Taxa de alfabetização, 15 anos ou mais (Censo 2022)', tabela: '9543', variavel: /alfabetiza/i },
+  ...[['pardos', /parda/i, 'pardos'], ['pretos', /preta/i, 'pretos'], ['brancos', /branca/i, 'brancos'], ['indigenas', /ind[ií]gena/i, 'indígenas']]
+    .map(([id, cat, rotulo]) => ({
+      id: `cor_${id}`, grupo: C22, nome: `% de ${rotulo} na população (Censo 2022)`, unidade: '%',
+      tabela: '9605', variavel: /popula[cç][aã]o residente/i, categoria: { classificacao: /cor ou ra[cç]a/i, nome: cat }, percentual: true,
+    })),
+  { id: 'pib', grupo: 'IBGE · PIB dos Municípios', nome: 'PIB a preços correntes (mil R$)', tabela: '5938', variavel: /produto interno bruto a pre[cç]os correntes/i },
+  { id: 'pibPerCapita', grupo: 'IBGE · PIB dos Municípios', nome: 'PIB por habitante (R$, aprox.)', unidade: 'R$', razao: { numerador: 'pib', denominador: 'populacao', fator: 1000 } },
+  ...[['catolicos', /cat[oó]lica apost[oó]lica romana/i, 'católicos'], ['evangelicos', /evang[eé]lica/i, 'evangélicos'], ['semReligiao', /sem religi[aã]o/i, 'sem religião']]
+    .map(([id, cat, rotulo]) => ({
+      id: `rel_${id}`, grupo: 'IBGE · Censo 2010 (religião)', nome: `% de ${rotulo} (Censo 2010)`, unidade: '%',
+      tabela: '137', variavel: /popula[cç][aã]o residente/i, categoria: { classificacao: /religi[aã]o/i, nome: cat }, percentual: true,
+    })),
 ];
 
 /** Converte o valor do IBGE: "-", "...", "X" e afins viram null. */
@@ -58,6 +75,13 @@ export function lerValores(resposta, periodo) {
     }
   }
   return porLocal;
+}
+
+/** a/b × fator para as chaves presentes nos dois. */
+export function dividir(a, b, fator = 1) {
+  const out = {};
+  for (const [k, v] of Object.entries(a ?? {})) if (b?.[k] > 0) out[k] = (v / b[k]) * fator;
+  return out;
 }
 
 export function criarCenso({ pasta = 'dados/censo', buscar = fetch, timeoutMs = 120_000, base = IBGE_BASE } = {}) {
@@ -157,15 +181,26 @@ export function criarCenso({ pasta = 'dados/censo', buscar = fetch, timeoutMs = 
     return resultado;
   }
 
-  /** Série de uma tabela pré-configurada: acha a variável pelo nome, com todas as classificações em "Total". */
+  /** Série de uma tabela pré-configurada (ver PRESETS). */
   async function preset(id) {
     const p = PRESETS.find((x) => x.id === id);
     if (!p) throw new Error('série desconhecida');
+    const base = { nome: p.nome, grupo: p.grupo, preset: p.id, ...(p.unidade ? { unidade: p.unidade } : {}) };
+    if (p.razao) {
+      const [a, b] = await Promise.all([preset(p.razao.numerador), preset(p.razao.denominador)]);
+      return { ...a, ...base, id: `razao-${p.id}`, municipios: dividir(a.municipios, b.municipios, p.razao.fator), ufs: dividir(a.ufs, b.ufs, p.razao.fator) };
+    }
     const meta = await metadados(p.tabela);
     const v = meta.variaveis.find((x) => p.variavel.test(x.nome));
     if (!v) throw new Error(`não achei a variável "${p.variavel.source}" na tabela ${p.tabela}`);
-    const r = await serie({ tabela: p.tabela, variavel: v.id });
-    return { ...r, nome: p.nome };
+    if (!p.categoria) return { ...(await serie({ tabela: p.tabela, variavel: v.id })), ...base };
+    const cl = meta.classificacoes.find((c) => p.categoria.classificacao.test(c.nome));
+    const cat = cl?.categorias.find((k) => p.categoria.nome.test(k.nome));
+    if (!cat) throw new Error(`não achei a categoria "${p.categoria.nome.source}" na tabela ${p.tabela}`);
+    const parte = await serie({ tabela: p.tabela, variavel: v.id, classificacao: { [cl.id]: cat.id } });
+    if (!p.percentual) return { ...parte, ...base };
+    const total = await serie({ tabela: p.tabela, variavel: v.id });
+    return { ...parte, ...base, id: `pct-${parte.id}`, municipios: dividir(parte.municipios, total.municipios, 100), ufs: dividir(parte.ufs, total.ufs, 100) };
   }
 
   return { metadados, serie, preset };

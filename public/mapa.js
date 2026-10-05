@@ -182,7 +182,7 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
    * @param {Map<string, string>} [o.cores]  categoria → cor (senão, a paleta categórica pela ordem de frequência)
    * @param {Map<string, number>} [o.intensidade]  codarea → 0..1: cor mais forte onde é maior (ex.: margem)
    */
-  function desenhar({ geo, valores = new Map(), rotulos = new Map(), titulo = '', formato = (v) => fmtNum.format(v), referencia = null, modo = 'quantis', extra = null, destaques = new Set(), categorias = null, cores = null, intensidade = null }) {
+  function desenhar({ geo, valores = new Map(), rotulos = new Map(), titulo = '', formato = (v) => fmtNum.format(v), referencia = null, modo = 'quantis', extra = null, destaques = new Set(), categorias = null, cores = null, intensidade = null, rotuloSemDado = 'sem dado' }) {
     if (!geo?.features?.length) {
       area.innerHTML = '<p class="mudo">Mapa indisponível.</p>';
       legenda.innerHTML = '';
@@ -241,7 +241,7 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
       legenda.innerHTML = `<span class="mapa-titulo">${esc(titulo)}</span>`
         + [...corCat].map(([c, cor]) => `<span class="mapa-faixa"><i style="background:${cor}"></i>${esc(c)} <span class="mudo">(${contagem.get(c)})</span></span>`).join('')
         + (intensidade ? '<span class="mapa-faixa mudo">cor mais forte = vitória mais folgada</span>' : '')
-        + (semCat ? '<span class="mapa-faixa"><i class="sem-dado"></i>sem dado</span>' : '');
+        + (semCat ? `<span class="mapa-faixa"><i class="sem-dado"></i>${esc(rotuloSemDado)}</span>` : '');
       return;
     }
 
