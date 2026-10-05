@@ -37,7 +37,18 @@ export function marcasAcompanhamento(bruto) {
 // Resumo de votos de um arquivo de resultado, mais a "marca" (seções totalizadas e
 // comparecimento) usada para saber se o arquivo está em dia com o acompanhamento.
 const resumoComMarca = (bruto) => ({ marca: marca(bruto.s, bruto.e), ...resumoVotos(bruto) });
-const RESUMO = { processar: resumoComMarca, nome: 'resumo' };
+// "resumo2": inclui candidatos e partidos (resumos antigos guardados em disco são ignorados).
+const RESUMO = { processar: resumoComMarca, nome: 'resumo2' };
+
+/** Tira os nomes dos candidatos de cada local e junta num catálogo único (resposta menor). */
+function separarNomes(lista) {
+  const nomes = {};
+  const locais = lista.map(({ marca: _m, nomes: n, ...r }) => {
+    Object.assign(nomes, n);
+    return r;
+  });
+  return { locais, nomes };
+}
 
 /**
  * @param {object} opcoes
@@ -137,7 +148,7 @@ export function criarColetor({
   }
 
   function retrato(ele, cargo, uf, lista) {
-    const lidos = lista.flatMap((a) => [...a.municipios.values()].map(({ marca: _m, ...m }) => m));
+    const { locais: lidos, nomes } = separarNomes(lista.flatMap((a) => [...a.municipios.values()]));
     const passadas = lista.map((a) => a.ultimaPassada).filter(Boolean);
     const ultima = passadas.length ? Math.min(...passadas) : null;
     const erros = lista.map((a) => a.erro).filter(Boolean);
@@ -152,8 +163,9 @@ export function criarColetor({
       ultimaPassada: ultima ? new Date(ultima).toISOString() : null,
       proximaEmSegundos: ultima ? Math.max(0, Math.round((ultima + intervaloMs - agora()) / 1000)) : null,
       erro: erros.length ? [...new Set(erros)].join(' · ') : null,
-      consolidado: lidos.length ? somarResumos(lidos) : null,
+      consolidado: lidos.length ? somarResumos(lidos.map((m) => ({ ...m, nomes }))) : null,
       municipios: lidos,
+      nomes,
     };
   }
 
@@ -182,24 +194,26 @@ export function criarColetor({
       Promise.all(ufs.map((uf) => banco.buscar(caminhoResultado(ele, uf, cargo), opcoes))),
       abrangencias.includes('br') ? banco.buscar(caminhoResultado(ele, 'br', cargo), opcoes) : null,
     ]);
-    const lista = [];
+    const brutos = [];
     respostas.forEach((r, i) => {
       const uf = ufs[i];
-      if (r.valor) {
-        const { marca: _m, ...resumo } = r.valor;
-        lista.push({ uf, nome: UFS[uf] ?? (uf === 'zz' ? 'Exterior' : uf), ...resumo });
-      }
+      if (r.valor) brutos.push({ uf, nome: UFS[uf] ?? (uf === 'zz' ? 'Exterior' : uf), ...r.valor });
     });
+    const { locais: lista, nomes } = separarNomes(brutos);
     let brasil = null;
     if (br?.valor) {
-      const { marca: _m, ...resumo } = br.valor;
+      const { marca: _m, nomes: n, ...resumo } = br.valor;
+      Object.assign(nomes, n);
       brasil = resumo;
     }
-    if (!brasil && lista.length) brasil = somarResumos(lista);
+    if (!brasil && lista.length) {
+      const { nomes: _n, ...soma } = somarResumos(lista.map((e) => ({ ...e, nomes: {} })));
+      brasil = soma;
+    }
     const pendentes = respostas.filter((r) => r.pendente).length + (br?.pendente ? 1 : 0);
     const erros = [...new Set(respostas.map((r) => r.erro).filter(Boolean))];
     return {
-      eleicao: ele, cargo, total: ufs.length, lidos: lista.length, pendentes, brasil, estados: lista,
+      eleicao: ele, cargo, total: ufs.length, lidos: lista.length, pendentes, brasil, estados: lista, nomes,
       erro: erros.length && !lista.length ? erros.join(' · ') : null,
     };
   }

@@ -186,12 +186,30 @@ export function lerMunicipios(bruto) {
   return porUf;
 }
 
+// Quantos candidatos guardar por local. Cargos majoritários (presidente, governador,
+// senador) têm poucos candidatos: guarda todos. Nos proporcionais (deputados) são centenas
+// por UF: guarda os mais votados de cada local, e os votos de todos os partidos.
+export const MAX_CANDIDATOS_LOCAL = 15;
+const LIMITE_TODOS = 30;
+
+/** Número efetivo (Laakso-Taagepera): 1 / Σ p². Mede a fragmentação dos votos. */
+export function numeroEfetivo(votos) {
+  const lista = Object.values(votos).filter((v) => v > 0);
+  const total = lista.reduce((t, v) => t + v, 0);
+  if (!total) return null;
+  return 1 / lista.reduce((t, v) => t + (v / total) ** 2, 0);
+}
+
 /**
- * Só os totais de votos de um arquivo de resultado, sem a lista de candidatos: é o que a
- * tela de brancos e nulos guarda de cada município. Percentuais sobre o total de votos.
+ * Totais de um arquivo de resultado, mais os votos de candidatos e partidos em forma
+ * compacta: é o que o servidor guarda de cada estado e município. Percentuais de brancos,
+ * nulos e anulados sobre o total de votos; de candidatos e partidos, sobre os válidos.
  *   brancos  votos em branco (v.vb)
  *   nulos    nulos + nulos técnicos (v.tvn)
  *   anulados votos dados a candidatos com registro anulado, inclusive sub judice (v.van + v.vansj)
+ *   cand     número do candidato → votos (todos, ou os mais votados nos cargos proporcionais)
+ *   par      sigla do partido → votos nominais dos seus candidatos
+ *   nomes    número → [nome na urna, partido, eleito (1/0)] dos candidatos guardados
  */
 export function resumoVotos(bruto) {
   const v = bruto.v ?? {};
@@ -201,17 +219,41 @@ export function resumoVotos(bruto) {
   const brancos = num(v.vb);
   const nulos = totalNulos(v);
   const anulados = num(v.van) + num(v.vansj);
+  const validos = num(v.vv ?? v.vvc);
+  const todos = [];
+  const par = {};
+  for (const agr of bruto.carg?.[0]?.agr ?? []) {
+    for (const p of agr.par ?? []) {
+      for (const c of p.cand ?? []) {
+        const votos = num(c.vap);
+        todos.push({ n: String(c.n ?? ''), nome: c.nmu || c.nm || '', partido: p.sg ?? '', votos, eleito: c.e === 's' });
+        if (p.sg) par[p.sg] = (par[p.sg] ?? 0) + votos;
+      }
+    }
+  }
+  todos.sort((x, y) => y.votos - x.votos || Number(x.n) - Number(y.n));
+  const guardados = todos.length > LIMITE_TODOS ? todos.slice(0, MAX_CANDIDATOS_LOCAL) : todos;
+  const cand = {};
+  const nomes = {};
+  for (const c of guardados) {
+    cand[c.n] = c.votos;
+    nomes[c.n] = [c.nome, c.partido, c.eleito ? 1 : 0];
+  }
+  const comparecimento = num(e.c);
+  const aptosTotalizadas = num(e.est);
   return {
     atualizadoEm: [bruto.dg, bruto.hg].filter(Boolean).join(' '),
     secoes: { total: num(s.ts), totalizadas: num(s.st) },
     eleitorado: num(e.te),
     // Eleitores aptos só das seções já totalizadas: base da abstenção parcial.
-    aptosTotalizadas: num(e.est),
-    comparecimento: num(e.c),
+    aptosTotalizadas,
+    comparecimento,
+    pctComparecimento: pct(comparecimento, aptosTotalizadas),
     abstencao: num(e.a),
-    pctAbstencao: pct(num(e.a), num(e.est)),
+    pctAbstencao: pct(num(e.a), aptosTotalizadas),
     total,
-    validos: num(v.vv ?? v.vvc),
+    validos,
+    pctValidos: pct(validos, total),
     brancos,
     nulos,
     anulados,
@@ -219,26 +261,46 @@ export function resumoVotos(bruto) {
     pctNulos: pct(nulos, total),
     pctAnulados: pct(anulados, total),
     pctBrancosNulos: pct(brancos + nulos, total),
+    candidatos: todos.length,
+    cand,
+    par,
+    nomes,
+    efetivoCand: numeroEfetivo(Object.fromEntries(todos.map((c) => [c.n, c.votos]))),
+    efetivoPar: numeroEfetivo(par),
   };
 }
 
-/** Soma resumos (para consolidar o Brasil a partir das UFs). */
+const somarMapas = (mapas) => {
+  const out = {};
+  for (const m of mapas) for (const [k, v] of Object.entries(m ?? {})) out[k] = (out[k] ?? 0) + v;
+  return out;
+};
+
+/** Soma resumos (para consolidar o Brasil a partir das UFs, ou uma UF a partir das cidades). */
 export function somarResumos(lista) {
   const soma = (f) => lista.reduce((t, r) => t + f(r), 0);
   const total = soma((r) => r.total);
   const brancos = soma((r) => r.brancos);
   const nulos = soma((r) => r.nulos);
   const anulados = soma((r) => r.anulados);
+  const validos = soma((r) => r.validos);
+  const aptos = soma((r) => r.aptosTotalizadas ?? 0);
+  const comparecimento = soma((r) => r.comparecimento);
+  const cand = somarMapas(lista.map((r) => r.cand));
+  const par = somarMapas(lista.map((r) => r.par));
+  const nomes = Object.assign({}, ...lista.map((r) => r.nomes ?? {}));
   return {
     atualizadoEm: lista.map((r) => r.atualizadoEm).sort(compararDataHora).at(-1) ?? '',
     secoes: { total: soma((r) => r.secoes.total), totalizadas: soma((r) => r.secoes.totalizadas) },
     eleitorado: soma((r) => r.eleitorado),
-    aptosTotalizadas: soma((r) => r.aptosTotalizadas ?? 0),
-    comparecimento: soma((r) => r.comparecimento),
+    aptosTotalizadas: aptos,
+    comparecimento,
+    pctComparecimento: pct(comparecimento, aptos),
     abstencao: soma((r) => r.abstencao ?? 0),
-    pctAbstencao: pct(soma((r) => r.abstencao ?? 0), soma((r) => r.aptosTotalizadas ?? 0)),
+    pctAbstencao: pct(soma((r) => r.abstencao ?? 0), aptos),
     total,
-    validos: soma((r) => r.validos),
+    validos,
+    pctValidos: pct(validos, total),
     brancos,
     nulos,
     anulados,
@@ -246,7 +308,22 @@ export function somarResumos(lista) {
     pctNulos: pct(nulos, total),
     pctAnulados: pct(anulados, total),
     pctBrancosNulos: pct(brancos + nulos, total),
+    candidatos: Math.max(0, ...lista.map((r) => r.candidatos ?? 0)),
+    cand,
+    par,
+    nomes,
+    // Nos proporcionais os candidatos guardados são só os mais votados: o número efetivo
+    // de candidatos somado é aproximado; o de partidos é exato.
+    efetivoCand: numeroEfetivo(cand),
+    efetivoPar: numeroEfetivo(par),
   };
+}
+
+/** Candidatos de um resumo, do mais votado ao menos: [{numero, nome, partido, votos, pct}]. */
+export function candidatosDe(r, nomes = r?.nomes ?? {}) {
+  return Object.entries(r?.cand ?? {})
+    .map(([numero, votos]) => ({ numero, nome: nomes[numero]?.[0] ?? numero, partido: nomes[numero]?.[1] ?? '', eleito: !!nomes[numero]?.[2], votos, pct: pct(votos, r.validos) }))
+    .sort((a, b) => b.votos - a.votos);
 }
 
 // "dd/mm/aaaa hh:mm:ss" em ordem cronológica.

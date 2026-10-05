@@ -27,6 +27,7 @@ const MODULOS = [
 const APPS = {
   apuracao: { titulo: 'Apuração', icone: 'computador', url: 'index.html', w: 760, h: 620, descricao: 'Resultado por cargo, estado e município.' },
   brancos: { titulo: 'Brancos e nulos', icone: 'pastaPainel', url: 'brancos.html', w: 1000, h: 660, descricao: 'Painel completo de brancos, nulos e anulados.' },
+  candidatos: { titulo: 'Mapa da votação', icone: 'mapa', url: 'candidatos.html', w: 1040, h: 700, descricao: 'Candidatos, partidos, vencedor e comparecimento em mapas por estado e cidade.' },
   logs: { titulo: 'Logs das urnas', icone: 'urna', url: 'urnas.html', w: 1000, h: 680, descricao: 'Tempo de votação, biometria e horários a partir do log de cada urna.' },
   explorar: { titulo: 'Explorador de variáveis', icone: 'grafico', url: 'explorar.html', w: 1040, h: 680, descricao: 'Cruze variáveis da eleição e do Censo (estilo JASP).' },
   ...Object.fromEntries(MODULOS.map(([id, titulo, ic, descricao, w, h]) => [`brancos-${id}`, {
@@ -48,7 +49,7 @@ const EXTERNOS = {
 
 const ICONES_AREA = [
   ['apuracao', 'Apuração'], ['brancos', 'Brancos e nulos'], ['paineis', 'Painéis'],
-  ['explorar', 'Explorador'], ['logs', 'Logs das urnas'], ['leiame', 'Leia-me.txt'], ['tse', 'Resultados TSE'], ['ibge', 'IBGE SIDRA'], ['lixeira', 'Lixeira'],
+  ['candidatos', 'Mapa da votação'], ['explorar', 'Explorador'], ['logs', 'Logs das urnas'], ['leiame', 'Leia-me.txt'], ['tse', 'Resultados TSE'], ['ibge', 'IBGE SIDRA'], ['lixeira', 'Lixeira'],
 ];
 
 const FUNDOS = [
@@ -321,7 +322,7 @@ $('botoes-tarefas').addEventListener('click', (ev) => {
 
 $('iniciar').innerHTML = `${icone('janelas', 16)}<b>Iniciar</b>`;
 $('rapido').innerHTML = [
-  ['desktop', 'Mostrar área de trabalho', 'mostrar'], ['pastaPainel', 'Brancos e nulos', 'brancos'], ['grafico', 'Explorador', 'explorar'], ['urna', 'Logs das urnas', 'logs'],
+  ['desktop', 'Mostrar área de trabalho', 'mostrar'], ['pastaPainel', 'Brancos e nulos', 'brancos'], ['mapa', 'Mapa da votação', 'candidatos'], ['grafico', 'Explorador', 'explorar'], ['urna', 'Logs das urnas', 'logs'],
 ].map(([ic, t, acao]) => `<button type="button" class="rapido-botao" data-rapido="${acao}" title="${esc(t)}">${icone(ic, 16)}</button>`).join('');
 $('rapido').addEventListener('click', (ev) => {
   const acao = ev.target.closest('[data-rapido]')?.dataset.rapido;
@@ -370,6 +371,7 @@ function montarMenuIniciar() {
     ${itemMenu('computador', 'Apuração', 'data-abrir="apuracao"')}
     ${itemMenu('pastaPainel', 'Brancos e nulos', 'data-abrir="brancos"')}
     ${itemMenu('pasta', 'Painéis', '', subPaineis)}
+    ${itemMenu('mapa', 'Mapa da votação', 'data-abrir="candidatos"')}
     ${itemMenu('grafico', 'Explorador de variáveis', 'data-abrir="explorar"')}
     ${itemMenu('urna', 'Logs das urnas', 'data-abrir="logs"')}</ul>`;
   const subProgramas = `<ul class="menu sub">

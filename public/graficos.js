@@ -143,7 +143,7 @@ export function svgBoxplot({ grupos, rotuloX, largura = 560, linhaRef = null }) 
   return `<svg viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
 }
 
-/** Barras horizontais (média por grupo, contagens…). `itens` = [{nome, valor}]. */
+/** Barras horizontais (média por grupo, contagens…). `itens` = [{nome, valor, cor?}]. */
 export function svgBarras({ itens, rotuloX, largura = 560, cor = 'var(--destaque)', fmtValor = fmt.format }) {
   if (!itens.length) return '<p class="mudo">Sem dados suficientes.</p>';
   const altLinha = 24;
@@ -162,7 +162,7 @@ export function svgBarras({ itens, rotuloX, largura = 560, cor = 'var(--destaque
     s += `<g class="barra-h" data-dica="${i}">`
       + `<rect class="alvo" x="0" y="${cy}" width="${largura}" height="${altLinha}"/>`
       + `<text class="eixo" x="${m.l - 8}" y="${cy + altLinha / 2 + 4}" text-anchor="end">${esc(it.nome.length > maxLetras ? `${it.nome.slice(0, maxLetras - 1)}…` : it.nome)}</text>`
-      + `<rect x="${x0}" y="${cy + 4}" width="${w}" height="${altLinha - 8}" rx="4" fill="${cor}"/>`
+      + `<rect x="${x0}" y="${cy + 4}" width="${w}" height="${altLinha - 8}" rx="4" fill="${it.cor ?? cor}"/>`
       + `<text class="eixo" x="${x0 + w + 4}" y="${cy + altLinha / 2 + 4}">${esc(fmtValor(it.valor))}</text>`
       + '</g>';
   });

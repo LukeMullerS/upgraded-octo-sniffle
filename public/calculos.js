@@ -1,4 +1,4 @@
-// Estatística descritiva para o painel de brancos e nulos. Funções puras: rodam no
+// Estatística descritiva para os painéis (brancos, nulos, comparecimento, candidatos…). Funções puras: rodam no
 // navegador e nos testes (Node).
 
 const pct = (parte, total) => (total > 0 ? (parte / total) * 100 : 0);
@@ -18,6 +18,11 @@ export const METRICAS = {
     nome: 'Abstenção', curto: 'Abstenção',
     numerador: (r) => r.abstencao ?? 0, denominador: (r) => r.aptosTotalizadas ?? 0,
   },
+  pctComparecimento: {
+    nome: 'Comparecimento', curto: 'Compar.',
+    numerador: (r) => r.comparecimento ?? 0, denominador: (r) => r.aptosTotalizadas ?? 0,
+  },
+  pctValidos: { nome: 'Votos válidos', curto: 'Válidos', numerador: (r) => r.validos ?? 0, denominador: (r) => r.total },
 };
 
 export const valorMetrica = (linha, chave) => {

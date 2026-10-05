@@ -253,6 +253,34 @@ function montarVariaveis() {
       vars.push({ id: `${valor}:${k}`, nome: `${c.curto} · % ${m.nome.toLowerCase()}`, grupo, tipo: 'num', ...PCT,
         valor: (l) => (r(l) && m.denominador(r(l)) > 0 ? valorMetrica(r(l), k) : null) });
     }
+    // Candidatos e partidos: votação de cada um (% dos válidos), vencedor, margem e fragmentação.
+    const d = estado.dados.get(valor);
+    const nomes = d.nomes ?? {};
+    const consolidado = d.brasil ?? d.consolidado ?? {};
+    const propor = [6, 7, 8].includes(Number(c.codigo)) || (consolidado.candidatos ?? 0) > 30;
+    const nomeCand = (n) => (nomes[n] ? `${nomes[n][0]} (${nomes[n][1]})` : `nº ${n}`);
+    const pctV = (parte, rr) => (rr?.validos ? (parte / rr.validos) * 100 : null);
+    const ordenar = (m) => Object.entries(m ?? {}).sort((a, b) => b[1] - a[1]);
+    const gc = `Candidatos · ${c.nome}`;
+    vars.push(
+      { id: `${valor}:vencedor`, nome: `${c.curto} · candidato mais votado`, grupo: gc, tipo: 'cat',
+        valor: (l) => { const [p] = ordenar(r(l)?.cand); return p ? nomeCand(p[0]) : null; } },
+      { id: `${valor}:partidoVencedor`, nome: `${c.curto} · partido mais votado`, grupo: gc, tipo: 'cat',
+        valor: (l) => { const [p] = ordenar(r(l)?.par); return p ? p[0] : null; } },
+      { id: `${valor}:margem`, nome: `${c.curto} · margem do 1º sobre o 2º (p.p.)`, grupo: gc, tipo: 'num',
+        valor: (l) => { const [p, q] = ordenar(r(l)?.cand); return p ? pctV(p[1] - (q?.[1] ?? 0), r(l)) : null; } },
+      { id: `${valor}:efetivo`, nome: `${c.curto} · nº efetivo de ${propor ? 'partidos' : 'candidatos'}`, grupo: gc, tipo: 'num',
+        valor: (l) => (propor ? r(l)?.efetivoPar : r(l)?.efetivoCand) ?? null },
+    );
+    ordenar(consolidado.cand).slice(0, propor ? 10 : 15).forEach(([n], i) => {
+      // Apelidos "lider" e "segundo": as perguntas prontas valem para qualquer resultado.
+      vars.push({ id: `${valor}:c${n}`, apelido: i < 2 ? `${valor}:${i ? 'segundo' : 'lider'}` : null, nome: `${c.curto} · ${nomeCand(n)} (% válidos)`, grupo: gc, tipo: 'num', ...PCT,
+        valor: (l) => { const rr = r(l); if (!rr?.validos) return null; const v = rr.cand?.[n]; return v === undefined ? (propor ? null : 0) : pctV(v, rr); } });
+    });
+    for (const [sg] of ordenar(consolidado.par).slice(0, 12)) {
+      vars.push({ id: `${valor}:p${sg}`, nome: `${c.curto} · partido ${sg} (% válidos)`, grupo: gc, tipo: 'num', ...PCT,
+        valor: (l) => (r(l)?.validos ? pctV(r(l).par?.[sg] ?? 0, r(l)) : null) });
+    }
     vars.push(
       { id: `${valor}:votos`, nome: `${c.curto} · votos`, grupo, tipo: 'num', valor: (l) => r(l)?.total ?? null },
       { id: `${valor}:eleitorado`, nome: `${c.curto} · eleitorado`, grupo, tipo: 'num', valor: (l) => r(l)?.eleitorado ?? null },
@@ -438,8 +466,8 @@ let pedidoMapa = 0;
 async function renderizarMapa({ linhas, z }) {
   const v = z.y ?? z.x;
   const pedido = ++pedidoMapa;
-  if (!v || v.tipo !== 'num') {
-    el.mapaExplorar.querySelector('.mapa-area').innerHTML = '<p class="mudo">Escolha uma variável numérica em "quero entender" para ver o mapa.</p>';
+  if (!v) {
+    el.mapaExplorar.querySelector('.mapa-area').innerHTML = '<p class="mudo">Escolha uma variável em "quero entender" para ver o mapa.</p>';
     el.notaMapa.textContent = '';
     return;
   }
@@ -454,14 +482,15 @@ async function renderizarMapa({ linhas, z }) {
   if (pedido !== pedidoMapa) return;
   const valores = new Map();
   const rotulos = new Map();
+  const categorias = v.tipo === 'cat' ? new Map() : null;
   for (const l of linhas) {
     const cod = n === 'estados' ? CODIGO_IBGE_UF[l.uf] : l.ibge;
     const x = v.valor(l);
-    if (!cod || x === null) continue;
-    valores.set(cod, x);
+    if (!cod || x === null || x === undefined) continue;
+    if (categorias) categorias.set(cod, String(x)); else valores.set(cod, x);
     rotulos.set(cod, n === 'estados' ? l.nome : `${l.nome} · ${l.uf?.toUpperCase()}`);
   }
-  mapa.desenhar({ geo, valores, rotulos, titulo: v.nome, formato: (x) => fmtValor(x, v) });
+  mapa.desenhar({ geo, valores, rotulos, titulo: v.nome, formato: (x) => fmtValor(x, v), categorias });
   el.notaMapa.textContent = n === 'estados' ? 'Clique num estado para ver as cidades dele.' : 'Role para aproximar; arraste para mover.';
 }
 
@@ -511,7 +540,11 @@ function renderizarAnalise({ linhas, z }) {
   if (tipo === 'regressao') return analiseRegressao(linhas, y, z.matriz);
   if (tipo === 'ranking' && y) return analiseRanking(linhas, y);
   if (tipo === 'testet' && y) return analiseTesteT(linhas, y, grupo ?? (x?.tipo === 'cat' ? x : null));
-  if (tipo === 'mapa' && (y ?? x)) { mostrarAba('mapa'); return analiseUmaNumerica(linhas, y ?? x, null, null); }
+  if (tipo === 'mapa' && (y ?? x)) {
+    mostrarAba('mapa');
+    const v = y ?? x;
+    return v.tipo === 'cat' ? analiseUmaCategorica(linhas, v) : analiseUmaNumerica(linhas, v, null, null);
+  }
   if (tipo === 'distribuicao' && (y ?? x)) return analiseUmaNumerica(linhas, y ?? x, grupo, cat);
   if (tipo === 'grupos' && y) {
     const fator = grupo ?? (x?.tipo === 'cat' ? x : null);
@@ -569,11 +602,17 @@ function analiseUmaNumerica(linhas, v, grupo, cat) {
 function analiseUmaCategorica(linhas, v) {
   const { nomes, mapa } = organizarGrupos(linhas.map(v.valor), v);
   const itens = nomes.map((nome) => ({ nome, valor: linhas.filter((l) => mapa(v.valor(l)) === nome).length }));
-  el.tituloGrafico.textContent = `Contagem · ${v.nome}`;
+  el.tituloGrafico.textContent = `${estado.tipo === 'mapa' ? 'Mapa' : 'Contagem'} · ${v.nome}`;
   el.subGrafico.textContent = '';
   estado.itensGrafico = itens.map((i) => ({ titulo: i.nome, linhas: [`${fmtInt.format(i.valor)} locais`] }));
   el.grafico.innerHTML = svgBarras({ itens, rotuloX: 'nº de locais', cor: 'var(--cat-1)', fmtValor: fmtInt.format, largura: largura() });
   el.resultados.innerHTML = '<p class="mudo">Coloque uma variável numérica no Eixo Y para comparar os grupos (boxplot + ANOVA).</p>';
+  const total = itens.reduce((t, i) => t + i.valor, 0);
+  const ord = [...itens].sort((a, b) => b.valor - a.valor);
+  if (total && ord.length) {
+    estado.resumo = `<strong>${esc(ord[0].nome)}</strong> aparece em ${fmtInt.format(ord[0].valor)} de ${fmtInt.format(total)} locais (${fmtNum.format((ord[0].valor / total) * 100)}%)`
+      + (ord[1] ? `; em seguida, ${esc(ord[1].nome)}, com ${fmtInt.format(ord[1].valor)}.` : '.');
+  }
 }
 
 function analiseDispersao(linhas, x, y, grupo, cat, tamanho) {
@@ -832,8 +871,16 @@ el.explicativas.addEventListener('change', () => {
 
 const PRES = '6257:1';
 const SEN = '6259:5';
+const DEPF = '6259:6';
 const PERGUNTAS = [
-  { icone: '🗺️', titulo: 'Onde mais se votou nulo para presidente?', texto: 'Mapa das cidades do Brasil', nivel: 'todas', cargos: [PRES], y: `${PRES}:pctNulos`, tipo: 'mapa' },
+  { icone: '🏆', titulo: 'Quem venceu em cada cidade?', texto: 'Mapa do candidato mais votado', nivel: 'todas', cargos: [PRES], y: `${PRES}:vencedor`, tipo: 'mapa' },
+  { icone: '🗳️', titulo: 'Onde mais gente foi votar?', texto: 'Mapa do comparecimento', nivel: 'todas', cargos: [PRES], y: `${PRES}:pctComparecimento`, tipo: 'mapa' },
+  { icone: '📚', titulo: 'A alfabetização muda o voto no líder?', texto: 'Censo 2022 × votação do 1º colocado', nivel: 'todas', cargos: [PRES], censo: ['alfabetizacao'], x: 'censo:alfabetizacao', y: `${PRES}:lider`, tipo: 'dispersao' },
+  { icone: '🥊', titulo: 'Onde um cresce, o outro cai?', texto: '1º × 2º colocado por cidade', nivel: 'todas', cargos: [PRES], x: `${PRES}:lider`, y: `${PRES}:segundo`, tipo: 'dispersao' },
+  { icone: '🗺️', titulo: 'O voto no líder muda por região?', texto: 'Compara as cidades de cada região', nivel: 'todas', cargos: [PRES], y: `${PRES}:lider`, grupo: 'terr:regiao', tipo: 'grupos' },
+  { icone: '🧩', titulo: 'Onde o voto para deputado é mais dividido?', texto: 'Nº efetivo de partidos por região', nivel: 'todas', cargos: [DEPF], y: `${DEPF}:efetivo`, grupo: 'terr:regiao', tipo: 'grupos' },
+  { icone: '🔎', titulo: 'O que explica o voto no líder?', texto: 'Regressão: Censo, comparecimento e biometria', nivel: 'todas', cargos: [PRES], censo: ['alfabetizacao', 'densidade'], y: `${PRES}:lider`, explicativas: ['censo:alfabetizacao', 'censo:densidade', `${PRES}:pctComparecimento`, 'logs:biometria'], tipo: 'regressao' },
+  { icone: '❌', titulo: 'Onde mais se votou nulo para presidente?', texto: 'Mapa das cidades do Brasil', nivel: 'todas', cargos: [PRES], y: `${PRES}:pctNulos`, tipo: 'mapa' },
   { icone: '🧭', titulo: 'Brancos e nulos mudam de uma região para outra?', texto: 'Compara as cidades de cada região', nivel: 'todas', cargos: [PRES], y: `${PRES}:pctBrancosNulos`, grupo: 'terr:regiao', tipo: 'grupos' },
   { icone: '📚', titulo: 'Onde há mais alfabetização, há menos votos nulos?', texto: 'Censo 2022 × resultado', nivel: 'todas', cargos: [PRES], censo: ['alfabetizacao'], x: 'censo:alfabetizacao', y: `${PRES}:pctNulos`, tipo: 'dispersao' },
   { icone: '⏱️', titulo: 'O tempo na cabine tem a ver com os nulos?', texto: 'Logs das urnas × resultado', nivel: 'todas', cargos: [PRES], x: 'logs:cabine', y: `${PRES}:pctNulos`, tipo: 'dispersao' },
@@ -1009,9 +1056,9 @@ if (!estado.cargos.length) estado.cargos = [CARGOS[0].valor];
 for (const k of ['x', 'y', 'grupo', 'tamanho']) if (inicial[k]) estado.zonas[k] = inicial[k];
 if (inicial.matriz) estado.zonas.matriz = inicial.matriz.split(',');
 if (!inicial.x && !inicial.y) {
-  // Ponto de partida simples: mapa dos votos nulos do primeiro cargo, com a região ao lado.
+  // Ponto de partida simples: mapa de quem venceu em cada local, no primeiro cargo.
   const c = estado.cargos[0];
-  estado.zonas = { x: null, y: `${c}:pctNulos`, grupo: null, tamanho: null,
+  estado.zonas = { x: null, y: `${c}:vencedor`, grupo: null, tamanho: null,
     matriz: [`${c}:pctBrancos`, `${c}:pctNulos`, `${c}:pctAnulados`, `${c}:pctAbstencao`] };
   estado.tipo = 'mapa';
   estado.aba = 'mapa';

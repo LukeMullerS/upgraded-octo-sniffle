@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { criarColetor, marcasAcompanhamento } from '../src/coletor.js';
 import { criarBanco } from '../src/banco.js';
 import { createHash } from 'node:crypto';
-import { resumoVotos, somarResumos } from '../public/tse.js';
+import { candidatosDe, numeroEfetivo, resumoVotos, somarResumos } from '../public/tse.js';
 
 const resultado = ({ st = '0', c = '0', tv = '0', vb = '0', tvn = '0', van = '0', vansj = '0' } = {}) => ({
   dg: '04/10/2026', hg: '19:00:00',
@@ -79,6 +79,36 @@ test('resumoVotos usa total de nulos e soma anulados sub judice', () => {
   const s = somarResumos([r, r]);
   assert.equal(s.total, 2000);
   assert.equal(s.pctBrancos, 4);
+});
+
+const comCandidatos = (lista, vv) => ({
+  ...resultado({ tv: String(vv), c: String(vv) }),
+  v: { tv: String(vv), vv: String(vv), vb: '0', tvn: '0' },
+  carg: [{ agr: [{ par: [...new Set(lista.map((c) => c[1]))].map((sg) => ({ sg, cand: lista.filter((c) => c[1] === sg).map(([n, , vap, e]) => ({ n, nmu: `C${n}`, vap: String(vap), e })) })) }] }],
+});
+
+test('resumoVotos guarda candidatos, partidos e fragmentação', () => {
+  const r = resumoVotos(comCandidatos([['13', 'PT', 600, 's'], ['22', 'PL', 300], ['30', 'NOVO', 100]], 1000));
+  assert.deepEqual(r.cand, { 13: 600, 22: 300, 30: 100 });
+  assert.deepEqual(r.par, { PT: 600, PL: 300, NOVO: 100 });
+  assert.deepEqual(r.nomes['13'], ['C13', 'PT', 1]);
+  assert.equal(r.pctValidos, 100);
+  assert.ok(Math.abs(r.efetivoCand - 1 / (0.36 + 0.09 + 0.01)) < 1e-9);
+  const lista = candidatosDe(r);
+  assert.equal(lista[0].numero, '13');
+  assert.equal(lista[0].pct, 60);
+  const s = somarResumos([r, r]);
+  assert.equal(s.cand['22'], 600);
+  assert.equal(s.par.NOVO, 200);
+});
+
+test('nos cargos proporcionais guarda só os mais votados de cada local, mas todos os partidos', () => {
+  const lista = Array.from({ length: 40 }, (_, i) => [String(1000 + i), i % 2 ? 'A' : 'B', 40 - i]);
+  const r = resumoVotos(comCandidatos(lista, 820));
+  assert.equal(Object.keys(r.cand).length, 15);
+  assert.equal(r.candidatos, 40);
+  assert.equal(r.par.A + r.par.B, 820);
+  assert.equal(numeroEfetivo({}), null);
 });
 
 test('marcasAcompanhamento normaliza os números', () => {

@@ -611,3 +611,6 @@ input[type=number] {
 [data-tema="98"] .uf-progresso small, [data-tema="98"] .por-uf summary { color: #000; font-size: 11px; }
 [data-tema="98"] .mini-barra { background: #fff; box-shadow: var(--afundado); border-radius: 0; height: 6px; }
 [data-tema="98"] .mini-barra > span { background: #000080; }
+
+/* Mapa da votação */
+.ponto-cor { display: inline-block; width: .7em; height: .7em; border-radius: 50%; margin-right: .35em; vertical-align: baseline; }

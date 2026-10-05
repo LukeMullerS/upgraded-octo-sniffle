@@ -7,6 +7,8 @@ import { esc, fmtNum } from './comum.js';
 const SEQUENCIAL = ['#cde2fb', '#86b6ef', '#3987e5', '#1c5cab', '#0d366b'];
 const DIVERGENTE = ['#1c5cab', '#86b6ef', '#e6e5e0', '#f0a3a2', '#c8302f'];
 const SEM_DADO = 'url(#mapa-sem-dado)';
+// Categórica (vencedor de cada local etc.): cores bem distintas, na ordem de importância.
+export const CATEGORICA = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#9b59d0', '#e0457b', '#5e6b7d', '#14a3b8', '#8a6d3b', '#b5b800'];
 
 const cacheMalhas = new Map();
 
@@ -156,7 +158,11 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
       const v = estado.valores.get(cod);
       const nome = estado.rotulos.get(cod) ?? cod;
       const extra = estado.extra?.(cod) ?? '';
-      return `<strong>${esc(nome)}</strong><span>${esc(estado.titulo)}: ${Number.isFinite(v) ? esc(estado.formato(v)) : 'sem dado'}</span>${extra}`;
+      const cat = estado.categorias?.get(cod);
+      const linha = estado.categorias
+        ? `${esc(estado.titulo)}: ${cat ? esc(cat) : 'sem dado'}${Number.isFinite(v) ? ` (${esc(estado.formato(v))})` : ''}`
+        : `${esc(estado.titulo)}: ${Number.isFinite(v) ? esc(estado.formato(v)) : 'sem dado'}`;
+      return `<strong>${esc(nome)}</strong><span>${linha}</span>${extra}`;
     });
   }
 
@@ -171,8 +177,12 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
    * @param {'quantis'|'intervalos'} [o.modo]
    * @param {(cod: string) => string} [o.extra]  HTML extra na dica
    * @param {Set<string>} [o.destaques]  codareas com contorno reforçado
+   * @param {Map<string, string>} [o.categorias]  codarea → categoria: mapa categórico (ex.: vencedor);
+   *   `valores` passa a ser opcional e aparece só na dica
+   * @param {Map<string, string>} [o.cores]  categoria → cor (senão, a paleta categórica pela ordem de frequência)
+   * @param {Map<string, number>} [o.intensidade]  codarea → 0..1: cor mais forte onde é maior (ex.: margem)
    */
-  function desenhar({ geo, valores, rotulos = new Map(), titulo = '', formato = (v) => fmtNum.format(v), referencia = null, modo = 'quantis', extra = null, destaques = new Set() }) {
+  function desenhar({ geo, valores = new Map(), rotulos = new Map(), titulo = '', formato = (v) => fmtNum.format(v), referencia = null, modo = 'quantis', extra = null, destaques = new Set(), categorias = null, cores = null, intensidade = null }) {
     if (!geo?.features?.length) {
       area.innerHTML = '<p class="mudo">Mapa indisponível.</p>';
       legenda.innerHTML = '';
@@ -186,6 +196,18 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
     const px = (lon) => ((lon - lim.x0) * escala).toFixed(1);
     const py = (lat) => ((lim.y1 - mercatorY(lat)) * escala).toFixed(1);
     const cls = classificar([...valores.values()], { modo, referencia });
+    // Categórico: conta os locais por categoria e dá uma cor a cada uma.
+    let corCat = null;
+    let contagem = null;
+    if (categorias) {
+      contagem = new Map();
+      for (const f of geo.features) {
+        const c = categorias.get(f.properties.codarea);
+        if (c) contagem.set(c, (contagem.get(c) ?? 0) + 1);
+      }
+      const ordem = [...contagem.keys()].sort((a, b) => contagem.get(b) - contagem.get(a));
+      corCat = new Map(ordem.map((c, i) => [c, cores?.get(c) ?? CATEGORICA[i % CATEGORICA.length]]));
+    }
     const feicoes = new Map();
     let paths = '';
     for (const f of geo.features) {
@@ -195,15 +217,33 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
       for (const pol of f.geometry.coordinates) {
         for (const anel of pol) d += `M${anel.map(([lon, lat]) => `${px(lon)},${py(lat)}`).join('L')}Z`;
       }
-      const v = valores.get(cod);
-      const c = cls.classe(v);
-      paths += `<path data-cod="${esc(cod)}" d="${d}" fill="${c >= 0 ? cls.cores[c] : SEM_DADO}"${destaques.has(cod) ? ' class="destaque"' : ''}/>`;
+      let fill;
+      let opac = '';
+      if (corCat) {
+        const cat = categorias.get(cod);
+        fill = cat ? corCat.get(cat) : SEM_DADO;
+        const k = intensidade?.get(cod);
+        if (cat && Number.isFinite(k)) opac = ` fill-opacity="${(0.35 + 0.65 * Math.max(0, Math.min(1, k))).toFixed(2)}"`;
+      } else {
+        const c = cls.classe(valores.get(cod));
+        fill = c >= 0 ? cls.cores[c] : SEM_DADO;
+      }
+      paths += `<path data-cod="${esc(cod)}" d="${d}" fill="${fill}"${opac}${destaques.has(cod) ? ' class="destaque"' : ''}/>`;
     }
     area.innerHTML = `<svg viewBox="0 0 ${largura} ${altura.toFixed(1)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa: ${esc(titulo)}">
       <defs><pattern id="mapa-sem-dado" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f2f1ed"/><line x1="0" y1="0" x2="0" y2="6" stroke="#c9c8c2" stroke-width="2"/></pattern></defs>
       <g class="feicoes">${paths}</g></svg>`;
-    estado = { svg: area.querySelector('svg'), vb: [0, 0, largura, altura], inicial: [0, 0, largura, altura], feicoes, valores, rotulos, titulo, formato, extra };
+    estado = { svg: area.querySelector('svg'), vb: [0, 0, largura, altura], inicial: [0, 0, largura, altura], feicoes, valores, rotulos, titulo, formato, extra, categorias };
     aplicarVb();
+
+    if (corCat) {
+      const semCat = geo.features.some((f) => !categorias.get(f.properties.codarea));
+      legenda.innerHTML = `<span class="mapa-titulo">${esc(titulo)}</span>`
+        + [...corCat].map(([c, cor]) => `<span class="mapa-faixa"><i style="background:${cor}"></i>${esc(c)} <span class="mudo">(${contagem.get(c)})</span></span>`).join('')
+        + (intensidade ? '<span class="mapa-faixa mudo">cor mais forte = vitória mais folgada</span>' : '')
+        + (semCat ? '<span class="mapa-faixa"><i class="sem-dado"></i>sem dado</span>' : '');
+      return;
+    }
 
     // Legenda: faixas com os limites; divergente mostra a referência no meio.
     const ultimo = cls.cores.length - 1;

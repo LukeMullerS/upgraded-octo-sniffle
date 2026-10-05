@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mapa da votação 2026</title>
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0b5cad">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <script src="tema.js"></script>
+</head>
+<body class="painel">
+  <header class="topo">
+    <div>
+      <h1>Mapa da votação</h1>
+      <p class="sub">Candidatos, partidos, comparecimento e fragmentação por estado e por cidade · 1º turno 2026</p>
+    </div>
+    <div class="atualizacao">
+      <span id="status" class="status">carregando…</span>
+      <button id="exportar" type="button" class="secundario sem-margem">Exportar CSV</button>
+      <button id="atualizar" type="button">Atualizar</button>
+    </div>
+  </header>
+
+  <nav class="abas" aria-label="Páginas">
+    <a href="./">Apuração</a>
+    <a href="candidatos.html" aria-current="page">Mapa da votação</a>
+    <a href="brancos.html">Brancos e nulos</a>
+    <a href="explorar.html">Explorador</a>
+    <a href="urnas.html">Logs das urnas</a>
+  </nav>
+
+  <nav class="filtros filtros-painel" aria-label="Filtros">
+    <label>Cargo
+      <select id="cargo"></select>
+    </label>
+    <label>Local
+      <select id="nivel"></select>
+    </label>
+    <label>Mostrar no mapa
+      <select id="ver"></select>
+    </label>
+    <label>Comparar com
+      <select id="comparar"><option value="">—</option></select>
+    </label>
+  </nav>
+
+  <main>
+    <section id="erro" class="erro" hidden></section>
+
+    <section class="cartao" data-modulo-cartao="resumo">
+      <div class="linha"><h2 id="titulo">—</h2><span id="sub-titulo" class="mudo pequeno"></span></div>
+      <p id="resumo-texto" class="resumo-texto"></p>
+      <dl class="kpis kpis-5" id="kpis"></dl>
+    </section>
+
+    <section class="cartao" data-modulo-cartao="mapa">
+      <div class="linha"><h2 id="titulo-mapa">Mapa</h2><span class="mudo pequeno" id="sub-mapa">clique num estado para ver as cidades</span></div>
+      <div id="mapa"></div>
+    </section>
+
+    <div class="grade-painel">
+      <section class="cartao" data-modulo-cartao="ranking">
+        <div class="linha"><h2 id="titulo-ranking">Votação</h2><span class="mudo pequeno">% dos votos válidos</span></div>
+        <div id="ranking" class="grafico"></div>
+      </section>
+      <section class="cartao" data-modulo-cartao="vitorias">
+        <div class="linha"><h2 id="titulo-vitorias">Locais vencidos</h2><span class="mudo pequeno" id="sub-vitorias"></span></div>
+        <div id="vitorias" class="grafico"></div>
+      </section>
+      <section class="cartao" data-modulo-cartao="forte">
+        <div class="linha"><h2 id="titulo-forte">Onde é mais forte</h2></div>
+        <div id="forte" class="grafico"></div>
+      </section>
+      <section class="cartao" data-modulo-cartao="fraco">
+        <div class="linha"><h2 id="titulo-fraco">Onde é mais fraco</h2></div>
+        <div id="fraco" class="grafico"></div>
+      </section>
+      <section class="cartao" data-modulo-cartao="comparacao" id="comparacao-cartao" hidden>
+        <div class="linha"><h2 id="titulo-comparacao">Comparação</h2><span class="mudo pequeno" id="correlacao"></span></div>
+        <div id="comparacao" class="grafico"></div>
+        <p class="mudo pequeno" id="nota-comparacao"></p>
+      </section>
+      <section class="cartao" data-modulo-cartao="partidos" id="partidos-cartao">
+        <div class="linha"><h2>Partidos</h2><span class="mudo pequeno">votos nominais, % dos válidos</span></div>
+        <div id="partidos" class="grafico"></div>
+      </section>
+    </div>
+
+    <section class="cartao" data-modulo-cartao="tabela">
+      <div class="linha"><h2 id="titulo-tabela">Locais</h2><input id="busca" type="search" placeholder="Buscar"></div>
+      <div class="tabela-rolagem"><table class="tabela bn" id="tabela"></table></div>
+      <button id="mais" type="button" class="secundario" hidden>Mostrar mais</button>
+    </section>
+  </main>
+
+  <div id="dica" class="dica" role="tooltip" hidden></div>
+
+  <footer>
+    Fonte: <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">TSE</a> (ambiente oficial) · contornos: IBGE.
+    Nos cargos de deputado, cada local guarda os 15 candidatos mais votados e todos os partidos.
+  </footer>
+
+  <script type="module" src="candidatos.js"></script>
+</body>
+</html>
