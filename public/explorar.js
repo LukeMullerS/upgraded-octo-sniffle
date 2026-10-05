@@ -567,7 +567,7 @@ async function renderizarMapa({ linhas, z }) {
   const pedido = ++pedidoMapa;
   const especial = estado.mapaEspecial;
   if (!v && !especial) {
-    el.mapaExplorar.querySelector('.mapa-area').innerHTML = '<p class="mudo">Escolha uma variável em "quero entender" para ver o mapa.</p>';
+    el.mapaExplorar.querySelector('.mapa-area').innerHTML = '<p class="mudo">Escolha um dado em "Com quais dados?" para ver o mapa.</p>';
     el.notaMapa.textContent = '';
     return;
   }
@@ -865,7 +865,7 @@ function analiseRegressao(linhas, y, explicativas) {
   const xs = explicativas.filter((v) => v.tipo === 'num' && v !== y);
   el.tituloGrafico.textContent = y ? `O que explica ${y.nome}?` : 'Regressão múltipla';
   if (!y || !xs.length) {
-    el.grafico.innerHTML = '<p class="mudo">Escolha "quero entender" e marque ao menos uma variável explicativa.</p>';
+    el.grafico.innerHTML = '<p class="mudo">Escolha o dado a explicar e marque ao menos um fator.</p>';
     el.resultados.innerHTML = '';
     return;
   }
@@ -882,7 +882,7 @@ function analiseRegressao(linhas, y, explicativas) {
     .sort((a, b) => Math.abs(b.valor) - Math.abs(a.valor));
   estado.itensGrafico = itens.map((i) => ({ titulo: i.nome, linhas: [`peso padronizado ${fmtNum.format(i.valor)}`, textoP(i.p)] }));
   el.grafico.innerHTML = svgBarras({ itens, rotuloX: 'peso padronizado (beta): quanto muda Y, em desvios padrão, por +1 desvio padrão da variável', cor: 'var(--cat-7)', fmtValor: (v) => fmtNum.format(v), largura: largura() });
-  el.legenda.innerHTML = '<span class="mudo">Barras à direita aumentam "quero entender"; à esquerda, diminuem. Compare só as significativas (p &lt; 0,05).</span>';
+  el.legenda.innerHTML = '<span class="mudo">Barras à direita aumentam o dado escolhido; à esquerda, diminuem. Compare só as significativas (p &lt; 0,05).</span>';
   el.resultados.innerHTML = `<p class="resultado-destaque">R² = <strong>${fmtNum.format(r.r2)}</strong> (ajustado ${fmtNum.format(r.r2Ajustado)}) · F(${r.k}, ${r.glRes}) = ${fmtNum.format(r.f)}${estrelas(r.pF)} · ${textoP(r.pF)} · n = ${fmtInt.format(r.n)}</p>`
     + tabelaHtml(['Variável', 'Coeficiente', 'Erro padrão', 't', 'p', 'Beta'], [
       ['Intercepto', fmtCoef(r.coeficientes[0].coef), fmtCoef(r.coeficientes[0].se), fmtNum.format(r.coeficientes[0].t), fmtP(r.coeficientes[0].p), '—'],
@@ -921,7 +921,7 @@ const fonteDe = (id) => (/^\d+:\d+:/.test(id) ? id.split(':').slice(0, 2).join('
 function analiseDescobertas(linhas, y) {
   el.tituloGrafico.textContent = y ? `O que anda junto com ${y.nome}?` : 'Descobertas automáticas';
   if (!y || y.tipo !== 'num') {
-    el.grafico.innerHTML = '<p class="mudo">Escolha uma variável numérica em "quero entender".</p>';
+    el.grafico.innerHTML = '<p class="mudo">Escolha um dado numérico em "Com quais dados?".</p>';
     el.resultados.innerHTML = '';
     return;
   }
@@ -944,7 +944,7 @@ function analiseDescobertas(linhas, y) {
   el.subGrafico.textContent = `${fmtInt.format(achados.length)} variáveis testadas`;
   estado.itensGrafico = topo.map((a) => ({ titulo: a.v.nome, linhas: [`r = ${fmtR(a.r)}`, textoP(a.p)] }));
   el.grafico.innerHTML = topo.length
-    ? svgBarras({ itens: topo.map((a) => ({ nome: a.v.nome, valor: a.r, cor: a.r >= 0 ? 'var(--cat-2)' : 'var(--cat-1)' })), rotuloX: 'correlação de Pearson (r) com quero entender', fmtValor: (v) => fmtR(v), largura: largura() })
+    ? svgBarras({ itens: topo.map((a) => ({ nome: a.v.nome, valor: a.r, cor: a.r >= 0 ? 'var(--cat-2)' : 'var(--cat-1)' })), rotuloX: 'correlação (r) com o dado escolhido', fmtValor: (v) => fmtR(v), largura: largura() })
     : '<p class="mudo">Carregue mais variáveis (Censo, IPEA, logs, outros cargos) para comparar.</p>';
   el.legenda.innerHTML = '<span class="mudo">Laranja: sobem juntas · azul: uma sobe, a outra desce. Dados do mesmo cargo (votos, outros candidatos) aparecem só na tabela, para o gráfico mostrar o que vem de fora da eleição.</span>';
   // Fora da curva: locais a mais de 2,5 desvios padrão da média.
@@ -976,7 +976,7 @@ let pedidoEspacial = 0;
 function analiseEspacial(linhas, y) {
   el.tituloGrafico.textContent = y ? `${y.nome}: vizinhos parecidos?` : 'Autocorrelação espacial';
   if (!y || y.tipo !== 'num') {
-    el.grafico.innerHTML = '<p class="mudo">Escolha uma variável numérica em "quero entender".</p>';
+    el.grafico.innerHTML = '<p class="mudo">Escolha um dado numérico em "Com quais dados?".</p>';
     el.resultados.innerHTML = '';
     return;
   }
