@@ -46,6 +46,8 @@ const banco = criarBanco({
   base: TSE_BASE,
   cabecalhos: CABECALHOS_TSE,
   arquivoDisco: join(DADOS, 'banco.json'),
+  // Serverless: cada consulta precisa baixar muitas cidades de uma vez, dentro do prazo da função.
+  ...(SERVERLESS ? { concorrencia: 32 } : {}),
 });
 
 // Fotos dos candidatos: imagens, num cache simples à parte do banco.
@@ -87,7 +89,9 @@ async function buscarJson(caminho) {
   throw new Error(r.erro ?? 'falha ao consultar o TSE');
 }
 
-const coletor = criarColetor({ banco });
+const coletor = criarColetor({ banco, sobDemanda: SERVERLESS });
+// Quanto uma consulta espera pelas cidades: no serverless, quase todo o prazo da função (60 s).
+const ESPERA_MS = SERVERLESS ? 45_000 : 4_000;
 const censo = criarCenso({
   pasta: join(DADOS, 'censo'),
   ...(process.env.IBGE_BASE ? { base: process.env.IBGE_BASE.replace(/\/$/, '') } : {}),
@@ -178,7 +182,7 @@ async function apiCenso(res, pathname, params) {
     if (pathname === '/api/censo/presets') return json(res, 200, PRESETS.map(({ id, nome, tabela }) => ({ id, nome, tabela })));
     if (pathname === '/api/censo/metadados') return json(res, 200, await censo.metadados(params.get('tabela')));
     if (pathname === '/api/censo/serie') {
-      if (params.get('preset')) return json(res, 200, await censo.preset(params.get('preset')));
+      if (params.get('preset')) return json(res, 200, await censo.preset(params.get('preset')), true);
       // Categorias escolhidas vêm como c<id da classificação>=<id da categoria>.
       const classificacao = {};
       for (const [k, v] of params) if (/^c\d+$/.test(k) && /^\d+$/.test(v)) classificacao[k.slice(1)] = v;
@@ -193,10 +197,14 @@ async function apiCenso(res, pathname, params) {
   }
 }
 
-function json(res, status, dados) {
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+function json(res, status, dados, cacheCdn = false) {
+  // No Vercel, respostas completas ficam 1 min no CDN (e servem velhas por mais 5 enquanto
+  // renovam): quem abre a página depois não espera a função baixar tudo de novo.
+  const cache = SERVERLESS && cacheCdn && status === 200 ? 'public, max-age=0, s-maxage=60, stale-while-revalidate=300' : 'no-store';
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': cache });
   res.end(JSON.stringify(dados));
 }
+const completo = (d) => !d.pendentes && !d.lendo && (!d.total || d.lidos >= d.total);
 
 async function api(res, pathname, params) {
   const eleicao = ELEICOES[params.get('ele')];
@@ -206,15 +214,18 @@ async function api(res, pathname, params) {
     if (pathname === '/api/estados') {
       // fundo=1: painéis secundários (outros cargos) esperam na fila de baixa prioridade.
       const prioridade = params.get('fundo') === '1' ? 0 : 1;
-      return json(res, 200, await coletor.estados(eleicao.codigo, cargo.codigo, cargo.abrangencias, { prioridade }));
+      const d = await coletor.estados(eleicao.codigo, cargo.codigo, cargo.abrangencias, { prioridade, esperarMs: Math.max(4_000, ESPERA_MS / 3) });
+      return json(res, 200, d, completo(d));
     }
     if (pathname === '/api/municipios') {
       const uf = params.get('uf');
       if (uf === 'todas') {
-        return json(res, 200, await coletor.todas(eleicao.codigo, cargo.codigo, cargo.abrangencias.filter((a) => a !== 'br')));
+        const d = await coletor.todas(eleicao.codigo, cargo.codigo, cargo.abrangencias.filter((a) => a !== 'br'), { esperarMs: ESPERA_MS });
+        return json(res, 200, d, completo(d));
       }
       if (!cargo.abrangencias.includes(uf) || uf === 'br') return json(res, 400, { erro: 'UF inválida para este cargo' });
-      return json(res, 200, await coletor.municipios(eleicao.codigo, cargo.codigo, uf));
+      const d = await coletor.municipios(eleicao.codigo, cargo.codigo, uf, { esperarMs: ESPERA_MS });
+      return json(res, 200, d, completo(d));
     }
     return json(res, 404, { erro: 'rota desconhecida' });
   } catch (erro) {
@@ -301,7 +312,7 @@ export function tratar(req, res) {
     // Contornos para os mapas: sem uf = estados; uf=todas = municípios do Brasil; uf=sp = municípios de SP.
     const uf = searchParams.get('uf') || undefined;
     if (uf && uf !== 'todas' && !UFS[uf]) return json(res, 400, { erro: 'UF inválida' });
-    return mapas.malha({ uf }).then((g) => json(res, 200, g), (e) => json(res, 502, { erro: `falha ao obter o mapa do IBGE: ${e.message}` }));
+    return mapas.malha({ uf }).then((g) => json(res, 200, g, true), (e) => json(res, 502, { erro: `falha ao obter o mapa do IBGE: ${e.message}` }));
   }
   if (pathname.startsWith('/api/censo/')) return apiCenso(res, pathname, searchParams);
   if (pathname.startsWith('/api/urnas/')) return apiLogs(res, pathname, searchParams);

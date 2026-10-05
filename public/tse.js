@@ -86,6 +86,9 @@ const pct = (parte, total) => (total > 0 ? (parte / total) * 100 : 0);
 
 // `tvn` é o total de nulos que o app oficial mostra (nulos + nulos técnicos); arquivos
 // antigos ou simplificados trazem só `vn`.
+// O TSE marca com e='s' também quem vai ao 2º turno (st = '2º turno'): eleito é só quem não vai.
+const segundoTurno = (c) => /2[ºo°]?\s*turno/i.test(c.st ?? '');
+const eleito = (c) => c.e === 's' && !segundoTurno(c);
 const totalNulos = (v) => (v.tvn !== undefined ? num(v.tvn) : num(v.vn) + num(v.vnt));
 
 /** Converte o JSON bruto do TSE num objeto com números de verdade e candidatos ordenados. */
@@ -112,7 +115,8 @@ export function normalizar(bruto) {
           vice: (c.vs ?? []).find((x) => x.tp === 'v')?.nmu ?? null,
           votos,
           percentual: c.pvap ? num(c.pvap) : pct(votos, validos),
-          eleito: c.e === 's',
+          eleito: eleito(c),
+          segundoTurno: segundoTurno(c),
           situacao: c.st ?? '',
           destinacao: c.dvt ?? '',
         });
@@ -209,7 +213,7 @@ export function numeroEfetivo(votos) {
  *   anulados votos dados a candidatos com registro anulado, inclusive sub judice (v.van + v.vansj)
  *   cand     número do candidato → votos (todos, ou os mais votados nos cargos proporcionais)
  *   par      sigla do partido → votos nominais dos seus candidatos
- *   nomes    número → [nome na urna, partido, eleito (1/0)] dos candidatos guardados
+ *   nomes    número → [nome na urna, partido, situação (1 eleito, 2 vai ao 2º turno, 0)] dos candidatos guardados
  */
 export function resumoVotos(bruto) {
   const v = bruto.v ?? {};
@@ -226,7 +230,7 @@ export function resumoVotos(bruto) {
     for (const p of agr.par ?? []) {
       for (const c of p.cand ?? []) {
         const votos = num(c.vap);
-        todos.push({ n: String(c.n ?? ''), nome: c.nmu || c.nm || '', partido: p.sg ?? '', votos, eleito: c.e === 's' });
+        todos.push({ n: String(c.n ?? ''), nome: c.nmu || c.nm || '', partido: p.sg ?? '', votos, situacao: eleito(c) ? 1 : segundoTurno(c) ? 2 : 0 });
         if (p.sg) par[p.sg] = (par[p.sg] ?? 0) + votos;
       }
     }
@@ -237,7 +241,7 @@ export function resumoVotos(bruto) {
   const nomes = {};
   for (const c of guardados) {
     cand[c.n] = c.votos;
-    nomes[c.n] = [c.nome, c.partido, c.eleito ? 1 : 0];
+    nomes[c.n] = [c.nome, c.partido, c.situacao];
   }
   const comparecimento = num(e.c);
   const aptosTotalizadas = num(e.est);
@@ -322,7 +326,7 @@ export function somarResumos(lista) {
 /** Candidatos de um resumo, do mais votado ao menos: [{numero, nome, partido, votos, pct}]. */
 export function candidatosDe(r, nomes = r?.nomes ?? {}) {
   return Object.entries(r?.cand ?? {})
-    .map(([numero, votos]) => ({ numero, nome: nomes[numero]?.[0] ?? numero, partido: nomes[numero]?.[1] ?? '', eleito: !!nomes[numero]?.[2], votos, pct: pct(votos, r.validos) }))
+    .map(([numero, votos]) => ({ numero, nome: nomes[numero]?.[0] ?? numero, partido: nomes[numero]?.[1] ?? '', eleito: nomes[numero]?.[2] === 1, segundoTurno: nomes[numero]?.[2] === 2, votos, pct: pct(votos, r.validos) }))
     .sort((a, b) => b.votos - a.votos);
 }
 

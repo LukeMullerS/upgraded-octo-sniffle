@@ -61,6 +61,9 @@ export function criarColetor({
   agora = () => Date.now(),
   agendar = setInterval,
   cancelar = clearInterval,
+  // Função serverless (Vercel): o processo congela assim que responde, então não há leitura
+  // em segundo plano. Cada consulta faz a passada (se precisar) e espera por ela.
+  sobDemanda = false,
 } = {}) {
   const alvos = new Map(); // "ele:cargo:uf" → estado do acompanhamento
 
@@ -128,6 +131,11 @@ export function criarColetor({
     let alvo = alvos.get(chave);
     if (!alvo) {
       alvo = { chave, ele, cargo, uf, municipios: new Map(), lista: null, erro: null };
+      if (sobDemanda) {
+        alvos.set(chave, alvo);
+        alvo.ultimoPedido = agora();
+        return alvo;
+      }
       alvo.timer = agendar(() => {
         if (agora() - alvo.ultimoPedido > ociosoMs) parar(chave);
         else passada(alvo);
@@ -142,6 +150,16 @@ export function criarColetor({
 
   // Na primeira consulta espera um pouco pela primeira leitura, para não mostrar a tabela vazia.
   async function esperarPrimeira(alvos, esperarMs) {
+    if (sobDemanda) {
+      // Relê quando a última passada ficou velha ou não terminou de ler todos os municípios.
+      for (const a of alvos) {
+        const incompleto = !a.lista || a.municipios.size < a.lista.length;
+        if (!a.rodando && (incompleto || agora() - (a.ultimaPassada ?? 0) >= intervaloMs)) passada(a);
+      }
+      const rodando = alvos.map((a) => a.rodando).filter(Boolean);
+      if (rodando.length) await Promise.race([Promise.all(rodando), new Promise((r) => setTimeout(r, esperarMs))]);
+      return;
+    }
     const pendentes = alvos.filter((a) => a.primeira).map((a) => a.primeira);
     if (pendentes.length) await Promise.race([Promise.all(pendentes), new Promise((r) => setTimeout(r, esperarMs))]);
     for (const a of alvos) a.primeira = null;

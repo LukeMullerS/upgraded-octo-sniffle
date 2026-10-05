@@ -169,7 +169,7 @@ async function carregar() {
 function selo(c) {
   const st = c.situacao.trim();
   if (!st || /^n[ãa]o eleito$/i.test(st)) return '';
-  const classe = c.eleito || /^eleito/i.test(st) ? 'eleito' : /2º turno|2o turno/i.test(st) ? 'turno2' : 'outro';
+  const classe = c.segundoTurno ? 'turno2' : c.eleito || /^eleito/i.test(st) ? 'eleito' : 'outro';
   return `<span class="selo ${classe}">${esc(st)}</span>`;
 }
 

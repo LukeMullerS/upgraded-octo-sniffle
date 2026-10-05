@@ -92,6 +92,7 @@ test('resumoVotos guarda candidatos, partidos e fragmentação', () => {
   assert.deepEqual(r.cand, { 13: 600, 22: 300, 30: 100 });
   assert.deepEqual(r.par, { PT: 600, PL: 300, NOVO: 100 });
   assert.deepEqual(r.nomes['13'], ['C13', 'PT', 1]);
+  assert.equal(resumoVotos(comCandidatos([['13', 'PT', 1, 's']], 1)).nomes['13'][2], 1);
   assert.equal(r.pctValidos, 100);
   assert.ok(Math.abs(r.efetivoCand - 1 / (0.36 + 0.09 + 0.01)) < 1e-9);
   const lista = candidatosDe(r);
@@ -172,4 +173,35 @@ test('estados lê o arquivo de cada UF e o do Brasil', async () => {
   assert.equal(r.lidos, 2);
   assert.equal(r.estados.find((e) => e.uf === 'pe').nome, 'Pernambuco');
   assert.equal(r.brasil.brancos, 16, 'sem arquivo do Brasil, soma as UFs');
+});
+
+test('quem vai ao 2º turno não conta como eleito', () => {
+  const b = resultado({ tv: '10' });
+  b.v.vv = '10';
+  b.carg = [{ agr: [{ par: [{ sg: 'PL', cand: [{ n: '22', nmu: 'A', vap: '6', e: 's', st: '2º turno' }] }, { sg: 'PT', cand: [{ n: '13', nmu: 'B', vap: '4', e: 's', st: 'Eleito' }] }] }] }];
+  const r = resumoVotos(b);
+  assert.equal(r.nomes['22'][2], 2);
+  assert.equal(r.nomes['13'][2], 1);
+  const [a] = candidatosDe(r);
+  assert.equal(a.segundoTurno, true);
+  assert.equal(a.eleito, false);
+});
+
+test('sob demanda (serverless): a consulta faz a passada e espera por ela, sem timer', async () => {
+  const tse = cenario();
+  let timers = 0;
+  let relogio = 0;
+  const coletor = criarColetor({ banco: bancoDe(tse), sobDemanda: true, agora: () => relogio, agendar: () => { timers += 1; }, cancelar: () => {} });
+  const r = await coletor.municipios('6257', 1, 'pe', { esperarMs: 5_000 });
+  assert.equal(timers, 0);
+  assert.equal(r.lidos, 2);
+  assert.equal(r.lendo, false);
+  const antes = tse.pedidos.get(arqMun('25313'));
+  await coletor.municipios('6257', 1, 'pe', { esperarMs: 5_000 }); // passada recente: não relê
+  assert.equal(tse.pedidos.get(arqMun('25313')), antes);
+  relogio += 120_000;
+  tse.arquivos[AB].abr[0].s.st = '6';
+  tse.arquivos[arqMun('25313')] = resultado({ st: '6', c: '600', tv: '600', vb: '30', tvn: '30' });
+  const r2 = await coletor.municipios('6257', 1, 'pe', { esperarMs: 5_000 });
+  assert.equal(r2.consolidado.brancos, 35);
 });
