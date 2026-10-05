@@ -84,13 +84,17 @@ export function num(valor) {
 
 const pct = (parte, total) => (total > 0 ? (parte / total) * 100 : 0);
 
+// `tvn` é o total de nulos que o app oficial mostra (nulos + nulos técnicos); arquivos
+// antigos ou simplificados trazem só `vn`.
+const totalNulos = (v) => (v.tvn !== undefined ? num(v.tvn) : num(v.vn) + num(v.vnt));
+
 /** Converte o JSON bruto do TSE num objeto com números de verdade e candidatos ordenados. */
 export function normalizar(bruto) {
   const cargo = bruto.carg?.[0] ?? {};
   const v = bruto.v ?? {};
   const e = bruto.e ?? {};
   const s = bruto.s ?? {};
-  const validos = num(v.vv);
+  const validos = num(v.vv ?? v.vvc);
 
   const candidatos = [];
   for (const agr of cargo.agr ?? []) {
@@ -149,11 +153,11 @@ export function normalizar(bruto) {
       validos,
       nominais: num(v.vnom),
       brancos: num(v.vb),
-      nulos: num(v.vn),
-      anulados: num(v.van),
+      nulos: totalNulos(v),
+      anulados: num(v.van) + num(v.vansj),
       percValidos: v.pvv ? num(v.pvv) : pct(validos, total),
-      percBrancos: v.pvb ? num(v.pvb) : pct(num(v.vb), total),
-      percNulos: v.pvn ? num(v.pvn) : pct(num(v.vn), total),
+      percBrancos: pct(num(v.vb), total),
+      percNulos: pct(totalNulos(v), total),
     },
     candidatos,
   };
@@ -181,3 +185,63 @@ export function lerMunicipios(bruto) {
   }
   return porUf;
 }
+
+/**
+ * Só os totais de votos de um arquivo de resultado, sem a lista de candidatos: é o que a
+ * tela de brancos e nulos guarda de cada município. Percentuais sobre o total de votos.
+ *   brancos  votos em branco (v.vb)
+ *   nulos    nulos + nulos técnicos (v.tvn)
+ *   anulados votos dados a candidatos com registro anulado, inclusive sub judice (v.van + v.vansj)
+ */
+export function resumoVotos(bruto) {
+  const v = bruto.v ?? {};
+  const s = bruto.s ?? {};
+  const e = bruto.e ?? {};
+  const total = num(v.tv);
+  const brancos = num(v.vb);
+  const nulos = totalNulos(v);
+  const anulados = num(v.van) + num(v.vansj);
+  return {
+    atualizadoEm: [bruto.dg, bruto.hg].filter(Boolean).join(' '),
+    secoes: { total: num(s.ts), totalizadas: num(s.st) },
+    eleitorado: num(e.te),
+    comparecimento: num(e.c),
+    total,
+    validos: num(v.vv ?? v.vvc),
+    brancos,
+    nulos,
+    anulados,
+    pctBrancos: pct(brancos, total),
+    pctNulos: pct(nulos, total),
+    pctAnulados: pct(anulados, total),
+    pctBrancosNulos: pct(brancos + nulos, total),
+  };
+}
+
+/** Soma resumos (para consolidar o Brasil a partir das UFs). */
+export function somarResumos(lista) {
+  const soma = (f) => lista.reduce((t, r) => t + f(r), 0);
+  const total = soma((r) => r.total);
+  const brancos = soma((r) => r.brancos);
+  const nulos = soma((r) => r.nulos);
+  const anulados = soma((r) => r.anulados);
+  return {
+    atualizadoEm: lista.map((r) => r.atualizadoEm).sort(compararDataHora).at(-1) ?? '',
+    secoes: { total: soma((r) => r.secoes.total), totalizadas: soma((r) => r.secoes.totalizadas) },
+    eleitorado: soma((r) => r.eleitorado),
+    comparecimento: soma((r) => r.comparecimento),
+    total,
+    validos: soma((r) => r.validos),
+    brancos,
+    nulos,
+    anulados,
+    pctBrancos: pct(brancos, total),
+    pctNulos: pct(nulos, total),
+    pctAnulados: pct(anulados, total),
+    pctBrancosNulos: pct(brancos + nulos, total),
+  };
+}
+
+// "dd/mm/aaaa hh:mm:ss" em ordem cronológica.
+const chaveDataHora = (t) => String(t ?? '').replace(/^(\d{2})\/(\d{2})\/(\d{4})/, '$3$2$1');
+export const compararDataHora = (a, b) => chaveDataHora(a).localeCompare(chaveDataHora(b));

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Brancos e nulos 2026</title>
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0b5cad">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icone.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topo">
+    <div>
+      <h1>Brancos e nulos 2026</h1>
+      <p class="sub">1º turno · 04/10/2026 · por estado e por cidade · dados oficiais do TSE</p>
+    </div>
+    <div class="atualizacao">
+      <span id="status" class="status">carregando…</span>
+      <button id="atualizar" type="button">Atualizar</button>
+    </div>
+  </header>
+
+  <nav class="abas" aria-label="Páginas">
+    <a href="./">Apuração</a>
+    <a href="brancos.html" aria-current="page">Brancos e nulos</a>
+  </nav>
+
+  <nav class="filtros">
+    <label>Cargo
+      <select id="cargo"></select>
+    </label>
+    <label>Estado
+      <select id="uf"></select>
+    </label>
+    <label id="busca-rotulo" hidden>Cidade
+      <input id="busca" type="search" placeholder="Buscar cidade">
+    </label>
+    <label>Ordenar por
+      <select id="ordem">
+        <option value="pctBrancosNulos">% brancos + nulos</option>
+        <option value="pctBrancos">% brancos</option>
+        <option value="pctNulos">% nulos</option>
+        <option value="pctAnulados">% anulados</option>
+        <option value="total">total de votos</option>
+        <option value="secoes">% seções totalizadas</option>
+        <option value="nome">nome</option>
+      </select>
+    </label>
+  </nav>
+
+  <main>
+    <details class="cartao como">
+      <summary>Como é feito</summary>
+      <p>O servidor lê os arquivos de resultado que o TSE publica em
+        <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">resultados.tse.jus.br</a>.
+        Os totais por <strong>estado</strong> vêm do arquivo de cada UF. Para as <strong>cidades</strong>, a cada
+        2 minutos ele vê no arquivo de acompanhamento da UF quais municípios tiveram seções novas totalizadas e
+        baixa só o resultado desses municípios.</p>
+      <p>Os números cobrem apenas as seções já totalizadas, e as cidades aparecem à medida que são lidas.
+        Percentuais são sobre o total de votos (válidos + brancos + nulos + anulados).</p>
+      <ul>
+        <li><strong>Brancos</strong>: o eleitor apertou BRANCO.</li>
+        <li><strong>Nulos</strong>: número que não corresponde a candidato ou partido, inclusive nulos técnicos.</li>
+        <li><strong>Anulados</strong>: votos em candidatos cujo registro foi anulado ou está sub judice; não são
+          escolha do eleitor por anular.</li>
+      </ul>
+      <p class="mudo">O log da urna (logd.dat) não registra em quem nem como o eleitor votou, só que o voto foi
+        computado; por isso brancos e nulos vêm do resultado oficial, e não dos logs.</p>
+    </details>
+
+    <section id="erro" class="erro" hidden></section>
+
+    <section class="cartao">
+      <div class="linha">
+        <h2 id="titulo">—</h2>
+        <span id="horario" class="mudo"></span>
+      </div>
+      <div class="barra"><div id="barra-secoes"></div></div>
+      <p class="progresso-texto"><strong id="pct-secoes">0,00%</strong> das seções totalizadas
+        <span class="mudo" id="secoes"></span></p>
+      <p class="progresso-texto mudo" id="leitura" hidden></p>
+      <dl class="kpis" id="kpis"></dl>
+    </section>
+
+    <section class="cartao">
+      <div class="linha">
+        <h2 id="titulo-tabela">Por estado</h2>
+        <div class="legenda" aria-hidden="true">
+          <span><i class="amostra brancos"></i>Brancos</span>
+          <span><i class="amostra nulos"></i>Nulos</span>
+          <span><i class="amostra anulados"></i>Anulados</span>
+        </div>
+      </div>
+      <div class="tabela-rolagem">
+        <table class="tabela bn">
+          <thead>
+            <tr>
+              <th data-ordem="nome">Local</th>
+              <th class="num col-secoes" data-ordem="secoes">Seções</th>
+              <th class="num" data-ordem="pctBrancos">Brancos</th>
+              <th class="num" data-ordem="pctNulos">Nulos</th>
+              <th class="num col-anulados" data-ordem="pctAnulados">Anulados</th>
+              <th class="num" data-ordem="pctBrancosNulos">B + N</th>
+              <th class="col-barra"><span class="mudo" id="escala"></span></th>
+            </tr>
+          </thead>
+          <tbody id="linhas"></tbody>
+        </table>
+      </div>
+      <button id="mais" type="button" class="secundario" hidden>Mostrar mais</button>
+    </section>
+  </main>
+
+  <div id="dica" class="dica" role="tooltip" hidden></div>
+
+  <footer>
+    Fonte: <a href="https://resultados.tse.jus.br/oficial/app/index.html" target="_blank" rel="noopener">resultados.tse.jus.br</a>
+    (ambiente oficial). Este app apenas exibe os arquivos públicos publicados pelo TSE.
+  </footer>
+
+  <script type="module" src="brancos.js"></script>
+</body>
+</html>

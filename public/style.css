@@ -9,6 +9,10 @@
   --eleito: #1a7f37;
   --turno2: #9a6700;
   --erro: #b42318;
+  /* Séries categóricas (validadas para daltonismo, nesta ordem). */
+  --serie-brancos: #2a78d6;
+  --serie-nulos: #eb6834;
+  --serie-anulados: #1baf7a;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -23,9 +27,13 @@
     --eleito: #3fb950;
     --turno2: #d29922;
     --erro: #f97066;
+    --serie-brancos: #3987e5;
+    --serie-nulos: #d95926;
+    --serie-anulados: #199e70;
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   margin: 0;
   font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -110,6 +118,59 @@ main { max-width: 1100px; margin: 0 auto; padding: 0 16px 2rem; display: grid; g
 
 footer { text-align: center; color: var(--mudo); font-size: .8rem; padding: 1rem 16px 2rem; }
 
+/* ---------- abas ---------- */
+.abas { display: flex; gap: .25rem; max-width: 1100px; margin: 0 auto; padding: .75rem 16px 0; }
+.abas a {
+  padding: .45rem .9rem; border-radius: 999px; text-decoration: none; color: var(--mudo);
+  border: 1px solid var(--borda); background: var(--cartao); font-size: .9rem;
+}
+.abas a[aria-current="page"] { background: var(--destaque); border-color: var(--destaque); color: #fff; }
+
+/* ---------- brancos e nulos ---------- */
+.como summary { cursor: pointer; font-weight: 600; }
+.como p, .como ul { margin: .6rem 0 0; }
+.como li { margin: .2rem 0; }
+.progresso-texto { margin: 0 0 .25rem; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: .9rem 0 0; }
+.kpi { padding: .6rem .7rem; border: 1px solid var(--borda); border-radius: 8px; }
+.kpi dt { font-size: .82rem; color: var(--mudo); display: flex; align-items: center; gap: .4rem; }
+.kpi dd { margin: .2rem 0 0; }
+.kpi-pct { display: block; font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.kpi small { color: var(--mudo); font-variant-numeric: tabular-nums; }
+.amostra { display: inline-block; width: .75rem; height: .75rem; border-radius: 3px; flex: none; }
+.amostra.brancos { background: var(--serie-brancos); }
+.amostra.nulos { background: var(--serie-nulos); }
+.amostra.anulados { background: var(--serie-anulados); }
+.legenda { display: flex; flex-wrap: wrap; gap: .8rem; font-size: .82rem; color: var(--mudo); }
+.legenda span { display: inline-flex; align-items: center; gap: .35rem; }
+
+.tabela-rolagem { overflow-x: auto; }
+.bn th[data-ordem] { cursor: pointer; white-space: nowrap; }
+.bn th[data-ordem]:hover { color: var(--destaque); }
+.bn td small { display: block; font-size: .75rem; color: var(--mudo); }
+.bn .forte { font-weight: 700; }
+.bn tr.clicavel { cursor: pointer; }
+.bn tr.clicavel:hover td { background: color-mix(in srgb, var(--destaque) 6%, transparent); }
+.bn .local { font-weight: 600; }
+.bn .local small { font-weight: 400; }
+.col-barra { width: 32%; min-width: 120px; }
+.pilha { display: flex; gap: 2px; height: 14px; align-items: stretch; }
+.pilha span { display: block; min-width: 0; border-radius: 0; }
+.pilha span:first-child { border-radius: 4px 0 0 4px; }
+.pilha span:last-child { border-radius: 0 4px 4px 0; }
+.pilha .brancos { background: var(--serie-brancos); }
+.pilha .nulos { background: var(--serie-nulos); }
+.pilha .anulados { background: var(--serie-anulados); }
+.pilha.mini { display: none; height: 8px; margin-top: .3rem; }
+
+.dica {
+  position: fixed; z-index: 10; pointer-events: none; display: grid; gap: .15rem;
+  padding: .5rem .65rem; border-radius: 8px; font-size: .82rem; max-width: 260px;
+  background: var(--cartao); color: var(--texto); border: 1px solid var(--borda);
+  box-shadow: 0 4px 16px rgb(0 0 0 / .15);
+}
+.dica span { display: flex; align-items: center; gap: .35rem; font-variant-numeric: tabular-nums; }
+
 @media (max-width: 600px) {
   body { font-size: 14px; }
   h1 { font-size: 1.2rem; }
@@ -130,4 +191,14 @@ footer { text-align: center; color: var(--mudo); font-size: .8rem; padding: 1rem
   .grade div { padding: .5rem; }
   .tabela th, .tabela td { padding: .35rem .3rem; }
   .tabela td .mudo { display: block; font-size: .78rem; }
+  .abas { padding: .6rem 16px 0; }
+  .abas a { flex: 1; text-align: center; padding: .45rem .5rem; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+  .kpi-pct { font-size: 1.2rem; }
+  .col-secoes, .col-anulados { display: none; }
+  .col-barra { display: none; }
+  .pilha.mini { display: flex; }
+  .legenda { font-size: .75rem; gap: .5rem; }
+  .bn .local .mudo { display: inline; }
+  .bn .local small.mudo { display: block; }
 }

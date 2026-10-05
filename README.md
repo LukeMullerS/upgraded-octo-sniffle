@@ -61,6 +61,26 @@ e `TSE_BASE` (padrão `https://resultados.tse.jus.br/oficial`).
 - **Atualização automática** a cada 60 s (pausa com a aba em segundo plano) e botão de atualizar.
 - A seleção fica na URL (`#ele=6259&cargo=0&abr=sp`), então dá para compartilhar o link.
 
+## Brancos e nulos por estado e cidade
+
+A aba **Brancos e nulos** (`/brancos.html`) mostra, para cada cargo, os votos brancos, nulos e anulados:
+
+- **Por estado**: tabela com as UFs (e o exterior, para presidente), com percentuais sobre o total de votos e uma
+  barra empilhada brancos | nulos | anulados na mesma escala. Toque num estado para ver as cidades.
+- **Por cidade**: todas as cidades da UF, com busca e ordenação (% brancos + nulos, % brancos, % nulos, % anulados,
+  total de votos, seções totalizadas ou nome).
+
+Como é feito: o TSE publica um arquivo de resultado por município, sem um arquivo único por UF. O servidor
+(`src/coletor.js`) lê a lista de municípios e, a cada **2 minutos**, o arquivo de acompanhamento da UF
+(`{uf}-e{eleição}-ab.json`), que diz quantas seções cada município já totalizou; então baixa só os municípios que
+mudaram. Os números cobrem apenas as seções já totalizadas e as cidades aparecem à medida que são lidas. Uma UF só
+é acompanhada enquanto alguém a consulta (pára após 15 minutos sem acesso).
+
+- **Brancos** = `v.vb`; **nulos** = `v.tvn` (nulos + nulos técnicos, como no app oficial);
+  **anulados** = `v.van + v.vansj` (votos em candidatos com registro anulado ou sub judice).
+- O log da urna (`logd.dat`) não registra como o eleitor votou, só que o voto foi computado; por isso brancos e
+  nulos vêm do resultado oficial e não dos logs.
+
 ## Arquivos do TSE usados
 
 O TSE publica JSON estáticos num CDN (números como string em pt-BR, ex. `"1.234"` e `"45,67"`):
@@ -86,9 +106,11 @@ Antes de o TSE publicar um arquivo (ex.: antes da apuração), o app mostra "Arq
 ## Estrutura
 
 ```
-server.js          servidor estático + proxy com cache para o TSE
+server.js          servidor estático + proxy com cache para o TSE + API /api/estados e /api/municipios
 public/index.html  página
 public/app.js      filtros, consulta e renderização
 public/tse.js      configuração das eleições, URLs e normalização do JSON do TSE
+public/brancos.*   aba de brancos e nulos por estado e cidade
+src/coletor.js     coletor de brancos e nulos por município (acompanhamento a cada 2 min)
 test/              testes (npm test)
 ```
