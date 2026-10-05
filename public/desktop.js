@@ -26,6 +26,20 @@ const MODULOS = [
   ['tabela', 'Tabela de locais', 'tabela', 'Todos os locais com desvio, escore z e barras; ordenável.', 900, 560],
 ];
 
+// Painéis gerais: cada cartão da janela Mapa da votação numa janela própria (todos os dados,
+// não só brancos e nulos).
+const MODULOS_GERAL = [
+  ['resumo', 'Resumo geral', 'calculadora', 'Votos válidos, comparecimento, 1º e 2º colocados, margem e fragmentação do local.', 680, 380],
+  ['mapa', 'Mapa da votação', 'mapa', 'Vencedor em cada estado ou cidade, ou a votação de um candidato ou partido.', 780, 580],
+  ['ranking', 'Candidatos', 'podio', 'Votação de cada candidato, em % dos votos válidos.', 620, 440],
+  ['vitorias', 'Locais vencidos', 'balanca', 'Quantos estados ou cidades cada candidato (ou partido) venceu.', 620, 380],
+  ['forte', 'Onde é mais forte', 'grafico', 'Os 10 locais com a maior votação do candidato ou dado escolhido.', 620, 440],
+  ['fraco', 'Onde é mais fraco', 'grafico', 'Os 10 locais com a menor votação do candidato ou dado escolhido.', 620, 440],
+  ['partidos', 'Partidos', 'balanca', 'Votos nominais de cada partido, em % dos válidos.', 620, 440],
+  ['comparacao', 'Comparação', 'dispersao', 'Dois candidatos, partidos ou dados lado a lado, local por local.', 640, 500],
+  ['tabela', 'Tabela de locais', 'tabela', 'Todos os locais com 1º e 2º colocados, margem e comparecimento.', 900, 560],
+];
+
 const APPS = {
   apuracao: { titulo: 'Apuração', icone: 'computador', url: 'index.html', w: 760, h: 620, descricao: 'Resultado por cargo, estado e município.' },
   brancos: { titulo: 'Brancos e nulos', icone: 'pastaPainel', url: 'brancos.html', w: 1000, h: 660, descricao: 'Painel completo de brancos, nulos e anulados.' },
@@ -35,7 +49,10 @@ const APPS = {
   ...Object.fromEntries(MODULOS.map(([id, titulo, ic, descricao, w, h]) => [`brancos-${id}`, {
     titulo: `${titulo} — Brancos e nulos`, curto: titulo, icone: ic, url: 'brancos.html', modulo: id, w, h, descricao,
   }])),
-  paineis: { titulo: 'Painéis de brancos e nulos', icone: 'pasta', nativo: 'paineis', w: 640, h: 440 },
+  ...Object.fromEntries(MODULOS_GERAL.map(([id, titulo, ic, descricao, w, h]) => [`geral-${id}`, {
+    titulo: `${titulo} — Geral`, curto: titulo, icone: ic, url: 'candidatos.html', modulo: id, w, h, descricao,
+  }])),
+  paineis: { titulo: 'Painéis', icone: 'pasta', nativo: 'paineis', w: 680, h: 500 },
   leiame: { titulo: 'Leia-me.txt — Bloco de notas', icone: 'documento', nativo: 'leiame', w: 560, h: 440 },
   lixeira: { titulo: 'Lixeira', icone: 'lixeira', nativo: 'lixeira', w: 420, h: 280 },
   video: { titulo: 'Propriedades de Vídeo', icone: 'pintura', nativo: 'video', w: 380, h: 300, fixa: true },
@@ -369,7 +386,9 @@ const itemMenu = (ic, texto, attrs, sub = '') =>
   `<li${sub ? ' class="tem-sub"' : ''}><button type="button" ${attrs}>${icone(ic, sub || attrs.includes('grande') ? 24 : 16)}<span>${texto}</span>${sub ? '<i class="seta">▶</i>' : ''}</button>${sub}</li>`;
 
 function montarMenuIniciar() {
-  const subPaineis = `<ul class="menu sub">${MODULOS.map(([id, t, ic]) => itemMenu(ic, esc(t), `data-abrir="brancos-${id}"`)).join('')}
+  const subGeral = `<ul class="menu sub">${MODULOS_GERAL.map(([id, t, ic]) => itemMenu(ic, esc(t), `data-abrir="geral-${id}"`)).join('')}</ul>`;
+  const subBrancos = `<ul class="menu sub">${MODULOS.map(([id, t, ic]) => itemMenu(ic, esc(t), `data-abrir="brancos-${id}"`)).join('')}</ul>`;
+  const subPaineis = `<ul class="menu sub">${itemMenu('pasta', 'Geral', '', subGeral)}${itemMenu('pasta', 'Brancos e nulos', '', subBrancos)}
     <li class="sep"></li>${itemMenu('pasta', 'Abrir pasta Painéis', 'data-abrir="paineis"')}</ul>`;
   const subEleicoes = `<ul class="menu sub">
     ${itemMenu('computador', 'Apuração', 'data-abrir="apuracao"')}
@@ -525,12 +544,16 @@ const NATIVOS = {
         <p id="pasta-descricao">Selecione um item para ver sua descrição.</p>
         <p class="mudo">Cada painel abre numa janela própria. Os filtros (cargo, local, métrica…) ficam sincronizados entre as janelas.</p>
       </aside>
-      <div class="pasta-itens">
+      <div class="pasta-itens pasta-grupos">
+        <h3 class="pasta-grupo">Geral — todos os dados</h3>
+        ${MODULOS_GERAL.map(([id, t, ic]) => `<button type="button" class="item-pasta" data-modulo="geral-${id}">${icone(ic, 32)}<span>${esc(t)}</span></button>`).join('')}
+        <button type="button" class="item-pasta" data-modulo="candidatos">${icone('pastaPainel', 32)}<span>Painel geral completo</span></button>
+        <h3 class="pasta-grupo">Brancos e nulos</h3>
         ${MODULOS.map(([id, t, ic]) => `<button type="button" class="item-pasta" data-modulo="brancos-${id}">${icone(ic, 32)}<span>${esc(t)}</span></button>`).join('')}
         <button type="button" class="item-pasta" data-modulo="brancos">${icone('pastaPainel', 32)}<span>Painel completo</span></button>
       </div>
     </div>
-    <div class="status"><span class="status-campo">${MODULOS.length + 1} objeto(s)</span><span class="status-campo status-local">Meu computador</span></div>`,
+    <div class="status"><span class="status-campo">${MODULOS_GERAL.length + MODULOS.length + 2} objeto(s)</span><span class="status-campo status-local">Meu computador</span></div>`,
   leiame: () => `<div class="bloco-menu"><span><u>A</u>rquivo</span><span><u>E</u>ditar</span><span><u>P</u>esquisar</span><span>Aj<u>u</u>da</span></div>
     <textarea class="bloco" readonly spellcheck="false">ELEIÇÕES 2026 — APURAÇÃO, BRANCOS E NULOS
 ==========================================

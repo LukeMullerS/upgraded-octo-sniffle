@@ -195,3 +195,7 @@ legend { padding: 0 3px; }
   .pasta-web { display: none; }
   .status-local { display: none; }
 }
+.pasta-grupos { grid-auto-rows: auto; }
+.pasta-grupos .item-pasta { height: 80px; }
+.pasta-grupo { grid-column: 1 / -1; margin: 6px 0 0; padding-bottom: 2px; font-size: 11px; font-weight: bold; border-bottom: 1px solid #808080; box-shadow: 0 1px #fff; }
+.pasta-grupo:first-child { margin-top: 0; }

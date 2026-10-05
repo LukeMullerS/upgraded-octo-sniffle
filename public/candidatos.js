@@ -88,8 +88,41 @@ const inicial = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
 function gravarHash() {
   const p = new URLSearchParams({ cargo: el.cargo.value, nivel: nivel(), ver: el.ver.value });
   if (el.comparar.value) p.set('comparar', el.comparar.value);
-  history.replaceState(null, '', `#${p}`);
+  const hash = `#${p}`;
+  if (hash === location.hash) return;
+  history.replaceState(null, '', hash);
+  // Painéis gerais abertos na área de trabalho seguem os mesmos filtros.
+  if (!aplicandoRemoto) canal?.postMessage({ hash });
 }
+
+// Janelas dos painéis gerais (cada cartão desta página numa janela) compartilham os filtros.
+let aplicandoRemoto = false;
+const canal = 'BroadcastChannel' in window ? new BroadcastChannel('votolab:geral') : null;
+canal?.addEventListener('message', (ev) => {
+  const hash = ev.data?.hash;
+  if (!hash || hash === location.hash) return;
+  const p = new URLSearchParams(hash.slice(1));
+  aplicandoRemoto = true;
+  try {
+    history.replaceState(null, '', hash);
+    const mudouDados = p.get('cargo') !== el.cargo.value || p.get('nivel') !== nivel();
+    if (mudouDados) {
+      if (cargoPorValor(p.get('cargo'))) el.cargo.value = p.get('cargo');
+      preencherNiveis(p.get('nivel') ?? 'estados');
+      inicial.ver = p.get('ver') ?? '';
+      inicial.comparar = p.get('comparar') ?? '';
+      el.ver.value = '';
+      el.comparar.value = '';
+      carregar().finally(() => { aplicandoRemoto = false; });
+      return;
+    }
+    if ([...el.ver.options].some((o) => o.value === p.get('ver'))) el.ver.value = p.get('ver');
+    el.comparar.value = [...el.comparar.options].some((o) => o.value === p.get('comparar')) ? p.get('comparar') : '';
+    renderizar();
+  } finally {
+    if (!p.get('cargo') || p.get('cargo') === el.cargo.value) aplicandoRemoto = false;
+  }
+});
 
 // ---------- carga ----------
 
@@ -489,6 +522,19 @@ el.exportar.addEventListener('click', () => {
   ];
   baixarCsv(`votacao-${el.cargo.value.replace(':', '-')}-${nivel()}.csv`, cols, estado.linhasTabela ?? estado.locais);
 });
+
+// Janela de um só cartão (área de trabalho): filtros recolhidos atrás de um botão, já que
+// chegam sincronizados das outras janelas.
+if (document.documentElement.dataset.modulo) {
+  const botao = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Filtros…' });
+  botao.setAttribute('aria-expanded', 'false');
+  botao.addEventListener('click', () => {
+    const aberto = document.documentElement.classList.toggle('filtros-abertos');
+    botao.setAttribute('aria-expanded', String(aberto));
+  });
+  el.atualizar.before(botao);
+  if (document.documentElement.dataset.modulo !== 'tabela') el.exportar.hidden = true;
+}
 
 preencherCargos();
 if (inicial.cargo && cargoPorValor(inicial.cargo)) el.cargo.value = inicial.cargo;

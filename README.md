@@ -82,10 +82,13 @@ Todas as janelas (Apuração, Brancos e nulos, Explorador, Logs) leem do mesmo b
 Por padrão o app abre como uma área de trabalho do Windows 98 (`/desktop.html`): cada tela é uma janela que se
 arrasta pela barra de título, redimensiona pelas bordas, minimiza, maximiza (também com duplo clique) e fecha.
 
-- **Ícones** (duplo clique; no celular, um toque): Apuração, Brancos e nulos, Painéis, Explorador, Leia-me, TSE, IBGE.
-- **Menu Iniciar** → Programas → Eleições 2026 → **Painéis**: cada painel de brancos e nulos (resumo, estatísticas,
-  distribuição, dispersão, maiores e menores, por cargo, comparação, tabela) abre numa **janela própria**. Os filtros
-  ficam sincronizados entre as janelas do painel.
+- **Ícones** (duplo clique; no celular, um toque): Apuração, Brancos e nulos, Painéis, Mapa da votação, Análises, Logs das urnas, Leia-me, TSE, IBGE.
+- **Pasta Painéis** (ícone ou menu Iniciar → Programas → Eleições 2026 → Painéis), com dois grupos, e cada painel abre
+  numa **janela própria**, com os filtros sincronizados entre as janelas do mesmo grupo:
+  - **Geral — todos os dados**: resumo geral, mapa da votação, candidatos, locais vencidos, onde é mais forte e mais
+    fraco, partidos, comparação e tabela de locais;
+  - **Brancos e nulos**: mapa, resumo, estatísticas, distribuição, dispersão, maiores e menores, por cargo,
+    comparação e tabela.
 - **Botão direito** na área de trabalho: cascata, lado a lado, minimizar todas, atualizar, papel de parede.
 - As janelas abertas, posições e tamanhos ficam guardados no navegador.
 - Iniciar → Configurações → **Visual moderno** (ou Desligar… → Voltar ao visual moderno) troca para a interface
