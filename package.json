@@ -4,10 +4,15 @@
   "description": "App simples de apuração das Eleições 2026 com os dados oficiais do TSE",
   "type": "module",
   "private": true,
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.js",
     "celular": "node server.js --rede",
     "test": "node --test"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
   }
 }
