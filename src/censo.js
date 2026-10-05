@@ -73,6 +73,8 @@ export function criarCenso({ pasta = 'dados/censo', buscar = fetch, timeoutMs = 
   async function metadados(tabela) {
     if (!/^\d{1,6}$/.test(String(tabela))) throw new Error('número de tabela inválido');
     if (!metaCache.has(tabela)) {
+      // Qualquer número de tabela pode ser pedido: o cache em memória tem limite.
+      if (metaCache.size >= 200) metaCache.delete(metaCache.keys().next().value);
       const p = Promise.all([
         getJson(`${base}/${tabela}/metadados`),
         getJson(`${base}/${tabela}/periodos`).catch(() => []),
@@ -110,6 +112,7 @@ export function criarCenso({ pasta = 'dados/censo', buscar = fetch, timeoutMs = 
       .filter(([, cat]) => cat !== null && cat !== undefined);
     const chave = `${tabela}-${v.id}-${per ?? 'ultimo'}-${classif.map(([c, k]) => `${c}_${k}`).join('.') || 'sem'}`;
     if (memoria.has(chave)) return memoria.get(chave);
+    if (memoria.size >= 100) memoria.delete(memoria.keys().next().value);
 
     const arquivo = join(pasta, `${chave}.json`);
     try {

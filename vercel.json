@@ -4,18 +4,69 @@
   "buildCommand": "",
   "installCommand": "",
   "outputDirectory": "public",
-  "regions": ["gru1"],
+  "regions": [
+    "gru1"
+  ],
   "functions": {
-    "api/index.js": { "maxDuration": 60 }
+    "api/index.js": {
+      "maxDuration": 60
+    }
   },
   "redirects": [
-    { "source": "/logs.html", "destination": "/urnas.html", "permanent": true }
+    {
+      "source": "/logs.html",
+      "destination": "/urnas.html",
+      "permanent": true
+    }
   ],
   "rewrites": [
-    { "source": "/api/:caminho*", "destination": "/api/index?rota=/api/:caminho*" },
-    { "source": "/tse/:caminho*", "destination": "/api/index?rota=/tse/:caminho*" }
+    {
+      "source": "/api/:caminho*",
+      "destination": "/api/index?rota=/api/:caminho*"
+    },
+    {
+      "source": "/tse/:caminho*",
+      "destination": "/api/index?rota=/tse/:caminho*"
+    }
   ],
   "headers": [
-    { "source": "/(.*)\\.(js|css|html)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://resultados.tse.jus.br; connect-src 'self' https://resultados.tse.jus.br; font-src 'self'; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)\\.(js|css|html)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    }
   ]
 }

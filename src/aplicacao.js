@@ -7,6 +7,7 @@
 
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { brotliCompressSync, constants as zlib, gzipSync } from 'node:zlib';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { criarBanco } from './banco.js';
@@ -52,6 +53,7 @@ const banco = criarBanco({
 
 // Fotos dos candidatos: imagens, num cache simples à parte do banco.
 const cache = new Map(); // caminho → { expira, status, tipo, corpo }
+const MAX_FOTOS = 800;
 const emAndamento = new Map(); // caminho → Promise (evita consultas duplicadas simultâneas)
 
 async function buscarFoto(caminho) {
@@ -73,7 +75,11 @@ async function buscarFoto(caminho) {
       // 404 é comum antes da publicação de um arquivo; guarda por pouco tempo.
       expira: Date.now() + (res.ok ? (estatico ? CACHE_ESTATICO_MS : CACHE_DADOS_MS) : 15_000),
     };
-    if (res.ok || res.status === 404 || res.status === 403) cache.set(caminho, resposta);
+    if (res.ok || res.status === 404 || res.status === 403) {
+      // Limite de memória: as fotos mais antigas saem primeiro.
+      if (cache.size >= MAX_FOTOS) cache.delete(cache.keys().next().value);
+      cache.set(caminho, resposta);
+    }
     return resposta;
   })().finally(() => emAndamento.delete(caminho));
 
@@ -197,12 +203,68 @@ async function apiCenso(res, pathname, params) {
   }
 }
 
+// ---------- segurança ----------
+
+// Política de conteúdo: só scripts e dados do próprio app; estilos inline (atributos style
+// dos gráficos) e imagens data: liberados; o app pode se abrir em iframe só nele mesmo
+// (janelas da área de trabalho Windows 98).
+export const CABECALHOS_SEGURANCA = {
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://resultados.tse.jus.br; "
+    + "connect-src 'self' https://resultados.tse.jus.br; font-src 'self'; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+};
+function aplicarCabecalhosSeguranca(res) {
+  for (const [k, v] of Object.entries(CABECALHOS_SEGURANCA)) res.setHeader(k, v);
+}
+
+const relatos = new Map(); // endereço → { inicio, n }
+function permitirRelato(req) {
+  const ip = String(req.headers['x-forwarded-for'] ?? req.socket?.remoteAddress ?? '?').split(',')[0].trim();
+  const agora = Date.now();
+  if (relatos.size > 5000) relatos.clear();
+  const r = relatos.get(ip);
+  if (!r || agora - r.inicio > 60_000) { relatos.set(ip, { inicio: agora, n: 1 }); return true; }
+  r.n += 1;
+  return r.n <= 30;
+}
+
+// ---------- envio com compressão ----------
+
+// Texto (JSON, HTML, JS, CSS, SVG) vai comprimido quando o navegador aceita: as listas de
+// cidades têm alguns MB e caem para uma fração disso — faz diferença no celular. No Vercel o
+// CDN já comprime, então ali o corpo vai como está.
+const COMPRIMIVEL = /^(application\/json|text\/|image\/svg|application\/javascript)/;
+function enviar(res, status, cabecalhos, corpo, cacheComprimidos = null) {
+  const req = res.req;
+  const aceita = String(req?.headers?.['accept-encoding'] ?? '');
+  let codificacao = null;
+  if (!SERVERLESS && corpo.length > 1024 && COMPRIMIVEL.test(cabecalhos['content-type'] ?? '')) {
+    codificacao = /\bbr\b/.test(aceita) ? 'br' : /\bgzip\b/.test(aceita) ? 'gzip' : null;
+  }
+  if (codificacao) {
+    let c = cacheComprimidos?.get(codificacao);
+    if (!c) {
+      c = codificacao === 'br'
+        ? brotliCompressSync(corpo, { params: { [zlib.BROTLI_PARAM_QUALITY]: 5, [zlib.BROTLI_PARAM_SIZE_HINT]: corpo.length } })
+        : gzipSync(corpo, { level: 6 });
+      cacheComprimidos?.set(codificacao, c);
+    }
+    corpo = c;
+    cabecalhos = { ...cabecalhos, 'content-encoding': codificacao, vary: 'Accept-Encoding' };
+  }
+  res.writeHead(status, { ...cabecalhos, 'content-length': corpo.length });
+  res.end(req?.method === 'HEAD' ? undefined : corpo);
+}
+
 function json(res, status, dados, cacheCdn = false) {
   // No Vercel, respostas completas ficam 1 min no CDN (e servem velhas por mais 5 enquanto
   // renovam): quem abre a página depois não espera a função baixar tudo de novo.
   const cache = SERVERLESS && cacheCdn && status === 200 ? 'public, max-age=0, s-maxage=60, stale-while-revalidate=300' : 'no-store';
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': cache });
-  res.end(JSON.stringify(dados));
+  enviar(res, status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': cache }, Buffer.from(JSON.stringify(dados)));
 }
 const completo = (d) => !d.pendentes && !d.lendo && (!d.total || d.lidos >= d.total);
 
@@ -233,16 +295,21 @@ async function api(res, pathname, params) {
   }
 }
 
+const CAMINHO_PROXY = new RegExp(`^ele2026/(${Object.keys(ELEICOES).join('|')})/(`
+  + 'dados/[a-z]{2}/[a-z]{2}\\d{0,5}-c\\d{4}-e\\d{6}-u\\.json'
+  + '|config/mun-e\\d{6}-cm\\.json'
+  + '|fotos/[a-z]{2}/\\d{1,20}\\.jpe?g)$');
+
 async function proxy(req, res, caminho) {
-  // Só caminhos de arquivo simples do ciclo de resultados: nada de "..", query ou host arbitrário.
-  if (!/^(ele\d{4}|comum)\/[\w\-./]+$/.test(caminho) || caminho.includes('..')) {
+  // Só os arquivos que as páginas usam (resultados, lista de municípios e fotos das eleições
+  // configuradas): o proxy não serve para buscar qualquer coisa no TSE nem para encher a memória.
+  if (!CAMINHO_PROXY.test(caminho)) {
     res.writeHead(400).end('caminho inválido');
     return;
   }
   try {
     const r = caminho.includes('/fotos/') ? await buscarFoto(caminho) : await banco.bruto(caminho);
-    res.writeHead(r.status, { 'content-type': r.tipo, 'cache-control': 'no-cache' });
-    res.end(r.corpo);
+    enviar(res, r.status, { 'content-type': r.tipo, 'cache-control': 'no-cache' }, r.corpo);
   } catch (erro) {
     const mensagem = erro?.name === 'TimeoutError' ? 'TSE não respondeu a tempo' : `falha ao consultar o TSE: ${erro.message}`;
     res.writeHead(502, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({ erro: mensagem }));
@@ -264,6 +331,8 @@ async function versaoPublico() {
   return versaoCache.valor;
 }
 
+const estaticos = new Map(); // "versão:arquivo" → { corpo, comprimidos }
+
 async function estatico(req, res, caminho) {
   const relativo = normalize(caminho === '/' ? '/index.html' : caminho).replace(/^(\.\.[/\\])+/, '');
   const arquivo = join(PUBLICO, relativo);
@@ -281,9 +350,17 @@ async function estatico(req, res, caminho) {
       res.writeHead(304, cabecalhos).end();
       return;
     }
-    let corpo = await readFile(arquivo);
-    if (tipo === '.js' || tipo === '.html') corpo = Buffer.from(versionar(corpo.toString('utf8'), tipo, v));
-    res.writeHead(200, cabecalhos).end(corpo);
+    // Arquivo já versionado (e comprimido) fica em memória até a próxima mudança em public/.
+    const chave = `${v}:${arquivo}`;
+    let item = estaticos.get(chave);
+    if (!item) {
+      let corpo = await readFile(arquivo);
+      if (tipo === '.js' || tipo === '.html') corpo = Buffer.from(versionar(corpo.toString('utf8'), tipo, v));
+      item = { corpo, comprimidos: new Map() };
+      if (estaticos.size > 200) estaticos.clear();
+      estaticos.set(chave, item);
+    }
+    enviar(res, 200, cabecalhos, item.corpo, item.comprimidos);
   } catch {
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('não encontrado');
   }
@@ -291,20 +368,59 @@ async function estatico(req, res, caminho) {
 
 /** Trata um pedido HTTP (Node puro ou função serverless do Vercel). */
 export function tratar(req, res) {
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    res.writeHead(405).end();
-    return;
+  aplicarCabecalhosSeguranca(res);
+  try {
+    const r = rotear(req, res);
+    if (r && typeof r.catch === 'function') r.catch((erro) => falhaInterna(res, erro));
+  } catch (erro) {
+    falhaInterna(res, erro);
   }
+}
+
+function falhaInterna(res, erro) {
+  // URL malformada (ex.: "%E0") ou erro inesperado: responde sem derrubar o servidor.
+  if (res.headersSent) { res.end(); return; }
+  const status = erro instanceof URIError ? 400 : 500;
+  res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8' }).end(status === 400 ? 'endereço inválido' : 'erro interno');
+}
+
+// Ações que mudam o estado do servidor: só por POST e vindas do próprio app (sem CSRF).
+const ACOES_POST = new Set(['/api/urnas/pausar', '/api/urnas/retomar']);
+function mesmaOrigem(req) {
+  const origem = req.headers.origin ?? req.headers.referer;
+  if (!origem) return false;
+  try {
+    return new URL(origem).host === req.headers.host;
+  } catch {
+    return false;
+  }
+}
+
+function rotear(req, res) {
   let { pathname, searchParams } = new URL(req.url, 'http://localhost');
   // Vercel: as rotas /api/* e /tse/* chegam reescritas para /api/index?rota=<caminho original>.
   if (pathname.startsWith('/api/index') && searchParams.has('rota')) {
-    pathname = searchParams.get('rota');
+    const rota = searchParams.get('rota');
+    if (!/^\/(api|tse)\//.test(rota)) return json(res, 400, { erro: 'rota inválida' });
+    pathname = rota;
     searchParams.delete('rota');
+  }
+  if (req.method === 'POST') {
+    if (!ACOES_POST.has(pathname)) return res.writeHead(405).end();
+    if (!mesmaOrigem(req)) return json(res, 403, { erro: 'origem não permitida' });
+    req.resume(); // corpo ignorado
+  } else if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return res.writeHead(405).end();
+  } else if (ACOES_POST.has(pathname)) {
+    return json(res, 405, { erro: 'use POST' });
   }
   if (pathname === '/api/banco') return json(res, 200, banco.status());
   if (pathname === '/api/erro') {
     // Erros das páginas aparecem no terminal, para facilitar o diagnóstico.
-    const t = (k) => String(searchParams.get(k) ?? '').slice(0, 500).replace(/[\r\n]+/g, ' ');
+    // Sem quebras de linha nem códigos de controle (que mexeriam no terminal), e no máximo
+    // 30 relatos por minuto por endereço: ninguém enche o terminal de lixo.
+    if (!permitirRelato(req)) return json(res, 429, { erro: 'muitos relatos' });
+    const t = (k) => String(searchParams.get(k) ?? '').slice(0, 500).replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, ' ');
     console.error(`[navegador] ${t('pagina')} · ${t('tipo')}: ${t('msg')}${t('origem') ? ` (${t('origem')})` : ''}`);
     return json(res, 200, { ok: true });
   }

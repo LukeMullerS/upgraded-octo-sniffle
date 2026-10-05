@@ -136,8 +136,15 @@ function agendar(ms) {
 
 // ---------- contas por local ----------
 
-/** 1º e 2º colocados (candidatos) de um local. */
+/** 1º e 2º colocados (candidatos) de um local (guardado: a tabela e o mapa pedem várias vezes). */
+const memoColocados = new WeakMap();
 function colocados(r) {
+  if (memoColocados.has(r)) return memoColocados.get(r);
+  const v = calcularColocados(r);
+  if (r && typeof r === 'object') memoColocados.set(r, v);
+  return v;
+}
+function calcularColocados(r) {
   const lista = Object.entries(r.cand ?? {}).sort((a, b) => b[1] - a[1]);
   const [p, s] = lista;
   return {

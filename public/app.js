@@ -173,12 +173,20 @@ function selo(c) {
   return `<span class="selo ${classe}">${esc(st)}</span>`;
 }
 
+// Foto que não carrega vira um marcador vazio. Ouvinte único (fase de captura, porque o
+// evento "error" de imagem não sobe): a política de segurança não permite onerror="…".
+document.addEventListener('error', (ev) => {
+  const img = ev.target;
+  if (img instanceof HTMLImageElement && img.classList.contains('foto-candidato')) {
+    img.replaceWith(Object.assign(document.createElement('span'), { className: 'sem-foto' }));
+  }
+}, true);
+
 function itemCandidato(c, posicao, d, compacto) {
   const largura = Math.max(0, Math.min(100, c.percentual));
   const foto = compacto
     ? `<span class="posicao">${posicao}º</span>`
-    : `<img loading="lazy" alt="" src="${esc(urlFoto(BASE, d.eleicao || el.eleicao.value, d.fotoAbr, c.sqcand))}"
-         onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'sem-foto'}))">`;
+    : `<img class="foto-candidato" loading="lazy" alt="" src="${esc(urlFoto(BASE, d.eleicao || el.eleicao.value, d.fotoAbr, c.sqcand))}">`;
   const extra = [c.partido, c.vice && `vice: ${c.vice}`, c.federacao].filter(Boolean).map(esc).join(' · ');
   return `<li class="candidato">
     ${foto}

@@ -440,11 +440,17 @@ function lerStreams(l) {
 }
 
 /** Descompacta uma pasta (um único coder LZMA, LZMA2 ou Copy). */
+// Um logd.dat tem poucos MB. Limite contra "bombas" de compressão: um arquivo pequeno que
+// declara um tamanho descompactado enorme faria o servidor reservar gigabytes de memória.
+export const MAX_DESCOMPACTADO = 256 * 1024 * 1024;
+
 function decodificarPasta(arquivo, pasta, inicioPacote, tamanhoPacote) {
   if (pasta.coders.length !== 1) throw new Error('7z: cadeia de métodos não suportada');
   const { id, props } = pasta.coders[0];
+  if (!Number.isSafeInteger(tamanhoPacote) || tamanhoPacote < 0 || inicioPacote + tamanhoPacote > arquivo.length) throw new Error('7z: pacote fora do arquivo');
   const dados = arquivo.subarray(inicioPacote, inicioPacote + tamanhoPacote);
   const tamanho = tamanhoFinal(pasta);
+  if (!Number.isSafeInteger(tamanho) || tamanho < 0 || tamanho > MAX_DESCOMPACTADO) throw new Error('7z: tamanho descompactado inválido ou grande demais');
   if (id === '00') return dados.slice(0, tamanho);
   if (id === '030101') return lzma(props, dados, tamanho);
   if (id === '21') return lzma2(dados, tamanho);
@@ -508,7 +514,9 @@ export function abrir7z(arquivo) {
   let l = new Leitor(cab);
   let id = l.numero();
   // Cabeçalho compactado: descreve onde está o cabeçalho de verdade, ele mesmo comprimido.
+  let voltas = 0;
   while (id === ID.cabecalhoCodificado) {
+    if ((voltas += 1) > 4) throw new Error('7z: cabeçalho compactado aninhado demais');
     const info = lerStreams(l);
     cab = extrairStreams(d, info)[0];
     l = new Leitor(cab);

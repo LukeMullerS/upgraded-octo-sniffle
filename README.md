@@ -183,6 +183,24 @@ TSE. É só importar o repositório no Vercel, sem build. Diferenças em relaç�
 - para acompanhar tudo em tempo real (inclusive todos os logs), prefira rodar `npm start` num computador ou num
   servidor sempre ligado (Render, Railway, Fly.io, uma VPS).
 
+## Segurança
+
+- **Sem dependências** externas (nada de npm para auditar ou atualizar): só Node.js 18+.
+- **Proxy restrito**: `/tse/*` só busca os arquivos que as páginas usam (resultados, lista de municípios e fotos
+  das eleições configuradas); não serve para acessar outros endereços.
+- **Arquivos**: só o que está em `public/` é servido (tentativas de `../` são barradas).
+- **Robustez**: URLs malformadas respondem 400 em vez de derrubar o servidor; caches em memória têm limite; o leitor
+  de 7z recusa arquivos que declaram tamanhos absurdos ("bombas" de compressão).
+- **Ações**: pausar/retomar a leitura dos logs só por POST vindo do próprio app (proteção contra CSRF); os demais
+  endereços só aceitam GET.
+- **Navegador**: Content-Security-Policy (só scripts do próprio app), `nosniff`, `X-Frame-Options: SAMEORIGIN`,
+  `Referrer-Policy` e `Permissions-Policy`, no servidor local e no Vercel (`vercel.json`). Todo texto vindo do TSE é
+  escapado antes de entrar na página.
+- **Relatos de erro** (`/api/erro`): sem códigos de controle e no máximo 30 por minuto por endereço.
+- **Segredos**: o app não usa chaves. Se algum dia usar, guarde em variáveis de ambiente (`.env` está no
+  `.gitignore`) e nunca no código ou no chat.
+- Os testes em `test/seguranca.test.js` conferem tudo isso (`npm test`).
+
 ## Brancos e nulos por estado e cidade
 
 A aba **Brancos e nulos** (`/brancos.html`) mostra, para cada cargo, os votos brancos, nulos e anulados:
@@ -230,7 +248,7 @@ Antes de o TSE publicar um arquivo (ex.: antes da apuração), o app mostra "Arq
 ```
 server.js          servidor local (porta, rede, gravação ao sair)
 src/aplicacao.js   rotas: estáticos, proxy para o TSE e APIs (/api/estados, /api/municipios, /api/banco, …)
-api/index.js, vercel.json   a mesma aplicação como função serverless no Vercel
+api/index.js, vercel.json   a mesma aplicação como função serverless no Vercel (com os cabeçalhos de segurança)
 src/banco.js       banco único dos arquivos do TSE (GET condicional, fila com prioridade, disco)
 public/index.html  página
 public/app.js      filtros, consulta e renderização

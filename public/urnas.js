@@ -129,7 +129,8 @@ el.pausar.addEventListener('click', async () => {
   const n = estado.nacional;
   el.pausar.disabled = true;
   try {
-    estado.nacional = await getJson(`api/urnas/${n?.pausado || !n?.ativo ? 'retomar' : 'pausar'}`);
+    const res = await fetch(`api/urnas/${n?.pausado || !n?.ativo ? 'retomar' : 'pausar'}`, { method: 'POST', cache: 'no-store' });
+    if (res.ok) estado.nacional = await res.json();
   } catch { /* o próximo ciclo mostra o estado */ }
   el.pausar.disabled = false;
   renderizarNacional();
