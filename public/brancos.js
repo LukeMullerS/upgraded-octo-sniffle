@@ -1,51 +1,81 @@
-import { ABRANGENCIAS, ELEICOES } from './tse.js';
+import {
+  CARGOS, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, criarDica, esc, fmtInt, fmtNum,
+  nomeUf, pct, pctSecoes, porteDe, pp, regiaoDe, semAcento,
+} from './comum.js';
+import { METRICAS, escoreZ, histograma, regressaoLinear, resumoEstatistico, valorMetrica } from './estatistica.js';
+import { svgDispersao, svgHistograma } from './graficos.js';
 
 // O servidor relê o TSE a cada 2 minutos; a página consulta o servidor a cada 30 s
-// para mostrar logo as cidades que forem sendo lidas.
+// (a cada 5 s enquanto a primeira leitura das cidades ainda está em andamento).
 const INTERVALO_MS = 30_000;
 const PAGINA = 50;
+const MAX_COMPARAR = 8;
 
 const $ = (id) => document.getElementById(id);
-const el = {
-  cargo: $('cargo'), uf: $('uf'), busca: $('busca'), buscaRotulo: $('busca-rotulo'), ordem: $('ordem'),
-  status: $('status'), atualizar: $('atualizar'), erro: $('erro'),
-  titulo: $('titulo'), horario: $('horario'), barra: $('barra-secoes'), pctSecoes: $('pct-secoes'),
-  secoes: $('secoes'), leitura: $('leitura'), kpis: $('kpis'),
-  tituloTabela: $('titulo-tabela'), escala: $('escala'), linhas: $('linhas'), mais: $('mais'), dica: $('dica'),
+const el = Object.fromEntries([
+  'cargo', 'uf', 'metrica', 'referencia', 'porte', 'apuracao', 'mostrar', 'busca', 'chips', 'status', 'atualizar',
+  'exportar', 'erro', 'titulo', 'horario', 'barra-secoes', 'pct-secoes', 'secoes', 'leitura', 'kpis', 'titulo-estat',
+  'estat', 'titulo-hist', 'hist', 'legenda-hist', 'dispersao', 'legenda-disp', 'correlacao', 'titulo-extremos',
+  'maiores', 'menores', 'titulo-cargos', 'cargos', 'comparacao-cartao', 'comparacao', 'limpar-comparacao',
+  'titulo-tabela', 'contagem', 'th-metrica', 'escala', 'linhas', 'mais', 'dica',
+].map((id) => [id.replace(/-(\w)/g, (_, l) => l.toUpperCase()), $(id)]));
+
+const estado = {
+  estados: null, // resposta de /api/estados do cargo atual
+  municipios: null, // resposta de /api/municipios (quando há UF ou "todas")
+  porCargo: new Map(), // valor do cargo → resposta de /api/estados (painel "Por cargo")
+  limite: PAGINA,
+  ordem: 'metrica',
+  direcao: -1,
+  faixa: null, // [início, fim) escolhida no histograma
+  fixados: [], // ids comparados lado a lado
+  pedido: 0,
+  vista: null, // último cálculo (linhas, estatísticas…) usado pelas dicas e pelo CSV
 };
 
-const fmtInt = new Intl.NumberFormat('pt-BR');
-const fmtPct = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const pct = (v) => `${fmtPct.format(v)}%`;
-const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-
-// Cargos com código conhecido (o Conselho Distrital, só em Noronha, fica na tela de apuração).
-const CARGOS = Object.values(ELEICOES).flatMap((e) =>
-  e.cargos.filter((c) => c.codigo !== null).map((c) => ({ ...c, eleicao: e.codigo, valor: `${e.codigo}:${c.codigo}` })));
-
-const estado = { dados: null, limite: PAGINA, timer: null, pedido: 0 };
-
-const cargoAtual = () => CARGOS.find((c) => c.valor === el.cargo.value) ?? CARGOS[0];
+const dica = criarDica(el.dica);
+const cargoAtual = () => cargoPorValor(el.cargo.value) ?? CARGOS[0];
+const nivel = () => (el.uf.value === '' ? 'estados' : el.uf.value === 'todas' ? 'todas' : 'municipios');
+const metrica = () => el.metrica.value;
+const nomeMetrica = () => METRICAS[metrica()].nome;
 
 // ---------- filtros ----------
 
-function preencherUfs(valor) {
-  const ufs = cargoAtual().abrangencias.filter((a) => a !== 'br');
-  const opcoes = [['', 'Todos os estados'], ...ufs.map((u) => [u, ABRANGENCIAS[u]])]
-    .sort((a, b) => (a[0] === '' ? -1 : b[0] === '' ? 1 : a[1].localeCompare(b[1], 'pt-BR')));
-  el.uf.innerHTML = opcoes.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join('');
-  el.uf.value = ufs.includes(valor) ? valor : '';
+function opcoes(select, lista, valor) {
+  select.innerHTML = lista.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join('');
+  if (lista.some(([v]) => v === valor)) select.value = valor;
+}
+
+function preencherLocais(valor) {
+  const ufs = cargoAtual().abrangencias.filter((a) => a !== 'br').sort((a, b) => nomeUf(a).localeCompare(nomeUf(b), 'pt-BR'));
+  const lista = [['', 'Brasil — por estado']];
+  if (ufs.length > 1) lista.push(['todas', 'Brasil — todas as cidades']);
+  lista.push(...ufs.map((u) => [u, `${nomeUf(u)} — cidades`]));
+  opcoes(el.uf, lista, valor ?? '');
+}
+
+function preencherReferencias(valor) {
+  const lista = [['brasil', 'Média do Brasil']];
+  if (nivel() !== 'estados') lista.push(['uf', 'Média do estado de cada cidade']);
+  lista.push(['grupo', 'Média ponderada da seleção'], ['media', 'Média simples da seleção'], ['mediana', 'Mediana da seleção']);
+  const padrao = nivel() === 'estados' ? 'brasil' : 'uf';
+  opcoes(el.referencia, lista, lista.some(([v]) => v === valor) ? valor : padrao);
 }
 
 function lerHash() {
   const p = new URLSearchParams(location.hash.slice(1));
-  return { cargo: p.get('cargo'), uf: p.get('uf') ?? '', ordem: p.get('ordem') };
+  return Object.fromEntries(p);
 }
 
 function gravarHash() {
   const p = new URLSearchParams({ cargo: el.cargo.value });
-  if (el.uf.value) p.set('uf', el.uf.value);
-  if (el.ordem.value !== 'pctBrancosNulos') p.set('ordem', el.ordem.value);
+  const extra = {
+    uf: el.uf.value, metrica: metrica() !== 'pctBrancosNulos' ? metrica() : '', ref: el.referencia.value,
+    porte: el.porte.value, apur: el.apuracao.value !== '0' ? el.apuracao.value : '', mostrar: el.mostrar.value,
+    ordem: estado.ordem !== 'metrica' ? estado.ordem : '', dir: estado.direcao === 1 ? 'asc' : '',
+    faixa: estado.faixa ? estado.faixa.join('-') : '', sel: estado.fixados.join(','),
+  };
+  for (const [k, v] of Object.entries(extra)) if (v) p.set(k, v);
   history.replaceState(null, '', `#${p}`);
 }
 
@@ -53,28 +83,27 @@ function gravarHash() {
 
 async function carregar() {
   const cargo = cargoAtual();
-  const uf = el.uf.value;
   const pedido = ++estado.pedido;
-  gravarHash();
   el.status.textContent = 'consultando…';
   el.status.className = 'status';
   el.atualizar.disabled = true;
   try {
-    const params = new URLSearchParams({ ele: cargo.eleicao, cargo: cargo.codigo });
-    if (uf) params.set('uf', uf);
-    const res = await fetch(`api/${uf ? 'municipios' : 'estados'}?${params}`, { cache: 'no-store' });
-    const dados = await res.json();
-    if (!res.ok) throw new Error(dados.erro || `HTTP ${res.status}`);
+    const n = nivel();
+    const [estados, municipios] = await Promise.all([
+      carregarEstados(cargo),
+      n === 'estados' ? null : carregarMunicipios(cargo, el.uf.value),
+    ]);
     if (pedido !== estado.pedido) return; // o usuário já trocou de filtro
-    dados.nivel = uf ? 'municipios' : 'estados';
-    estado.dados = dados;
-    el.erro.hidden = !dados.erro;
-    el.erro.textContent = dados.erro ? `Aviso: ${dados.erro}` : '';
+    estado.estados = estados;
+    estado.municipios = municipios;
+    estado.porCargo.set(cargo.valor, estados);
+    const aviso = municipios?.erro;
+    el.erro.hidden = !aviso;
+    el.erro.textContent = aviso ? `Aviso: ${aviso}` : '';
     renderizar();
     el.status.textContent = `consultado às ${new Date().toLocaleTimeString('pt-BR')}`;
     el.status.className = 'status ok';
-    // Enquanto o servidor ainda lê a primeira passada, consulta de novo mais cedo.
-    if (dados.lendo) setTimeout(() => pedido === estado.pedido && carregar(), 5_000);
+    if (municipios?.lendo) setTimeout(() => pedido === estado.pedido && carregar(), 5_000);
   } catch (erro) {
     if (pedido !== estado.pedido) return;
     el.erro.hidden = false;
@@ -86,168 +115,569 @@ async function carregar() {
   }
 }
 
-// ---------- renderização ----------
-
-function linhasOrdenadas() {
-  const d = estado.dados;
-  const lista = d.nivel === 'estados'
-    ? d.estados.map((e) => ({ ...e, id: e.uf }))
-    : d.municipios.map((m) => ({ ...m, id: m.codigo }));
-  const termo = el.busca.value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  const filtrada = termo && d.nivel === 'municipios'
-    ? lista.filter((l) => l.nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(termo))
-    : lista;
-  const chave = el.ordem.value;
-  return filtrada.sort((a, b) => {
-    if (chave === 'nome') return a.nome.localeCompare(b.nome, 'pt-BR');
-    if (chave === 'secoes') return pctSecoes(b) - pctSecoes(a);
-    return (b[chave] ?? 0) - (a[chave] ?? 0) || a.nome.localeCompare(b.nome, 'pt-BR');
-  });
+// Painel "Por cargo": um /api/estados para cada cargo que existe no local escolhido.
+async function carregarCargos() {
+  const uf = nivel() === 'municipios' ? el.uf.value : null;
+  const cargos = CARGOS.filter((c) => (uf ? c.abrangencias.includes(uf) : c.abrangencias.length > 1));
+  await Promise.all(cargos.map(async (c) => {
+    try {
+      estado.porCargo.set(c.valor, await carregarEstados(c));
+    } catch {
+      // cargo sem dados ainda: a linha aparece vazia
+    }
+  }));
+  renderizarCargos();
 }
 
-const pctSecoes = (r) => (r.secoes.total ? (r.secoes.totalizadas / r.secoes.total) * 100 : 0);
+// ---------- cálculo ----------
 
-function kpi(classe, rotulo, valor, percentual) {
-  return `<div class="kpi ${classe}"><dt>${classe ? `<i class="amostra ${classe}"></i>` : ''}${rotulo}</dt>
-    <dd><span class="kpi-pct">${pct(percentual)}</span><small>${fmtInt.format(valor)} votos</small></dd></div>`;
+const ESTADO_DE = () => new Map((estado.estados?.estados ?? []).map((e) => [e.uf, e]));
+
+/** Todas as linhas do nível atual, com campos derivados. */
+function linhasBase() {
+  const n = nivel();
+  const bruto = n === 'estados'
+    ? (estado.estados?.estados ?? []).map((e) => ({ ...e, id: e.uf }))
+    : (estado.municipios?.municipios ?? []).map((m) => ({ ...m, id: m.codigo }));
+  return bruto.map((l) => ({ ...l, secoesPct: pctSecoes(l), regiao: regiaoDe(l.uf), porte: porteDe(l.total) }));
+}
+
+function filtrar(linhas) {
+  const [pMin, pMax] = el.porte.value ? el.porte.value.split('-').map((v) => (v === '' ? Infinity : Number(v))) : [0, Infinity];
+  const apur = Number(el.apuracao.value);
+  const chave = metrica();
+  return linhas.filter((l) => l.total >= pMin && l.total < pMax && l.secoesPct >= apur
+    && METRICAS[chave].denominador(l) > 0);
+}
+
+/** Valor de referência (em %) para uma linha, conforme "Comparar com". */
+function referenciaPara(l, chave, estat) {
+  switch (el.referencia.value) {
+    case 'uf': {
+      const e = ESTADO_DE().get(l.uf);
+      return e ? valorMetrica(e, chave) : null;
+    }
+    case 'grupo': return estat?.ponderada ?? null;
+    case 'media': return estat?.media ?? null;
+    case 'mediana': return estat?.mediana ?? null;
+    default: return estado.estados?.brasil ? valorMetrica(estado.estados.brasil, chave) : null;
+  }
+}
+
+const NOME_REF = {
+  brasil: 'média do Brasil', uf: 'média do estado', grupo: 'média ponderada da seleção',
+  media: 'média simples da seleção', mediana: 'mediana da seleção',
+};
+
+function calcular() {
+  const chave = metrica();
+  const todas = linhasBase();
+  const base = filtrar(todas);
+  const estat = resumoEstatistico(base, chave);
+  const enriquecidas = base.map((l) => {
+    const valor = valorMetrica(l, chave);
+    const ref = referenciaPara(l, chave, estat);
+    return {
+      ...l,
+      valor,
+      ref,
+      delta: ref === null ? null : valor - ref,
+      z: escoreZ(valor, estat),
+      atipico: estat ? valor < estat.cercaInferior || valor > estat.cercaSuperior : false,
+    };
+  });
+
+  const termo = semAcento(el.busca.value.trim());
+  const visiveis = enriquecidas.filter((l) => {
+    if (estado.faixa && !(l.valor >= estado.faixa[0] && (l.valor < estado.faixa[1] || (estado.faixa[2] && l.valor <= estado.faixa[1])))) return false;
+    if (termo && !semAcento(l.nome).includes(termo)) return false;
+    switch (el.mostrar.value) {
+      case 'acima': return l.delta > 0;
+      case 'abaixo': return l.delta < 0;
+      case 'atipicos': return l.atipico;
+      case 'z2': return Math.abs(l.z) >= 2;
+      default: return true;
+    }
+  });
+
+  const campo = { metrica: 'valor', secoes: 'secoesPct' }[estado.ordem] ?? estado.ordem;
+  visiveis.sort((a, b) => {
+    if (campo === 'nome') return estado.direcao * -a.nome.localeCompare(b.nome, 'pt-BR');
+    const va = campo.startsWith('pct') ? valorMetrica(a, campo) : a[campo] ?? -Infinity;
+    const vb = campo.startsWith('pct') ? valorMetrica(b, campo) : b[campo] ?? -Infinity;
+    return estado.direcao * (va - vb) || a.nome.localeCompare(b.nome, 'pt-BR');
+  });
+
+  estado.vista = { chave, todas, base: enriquecidas, visiveis, estat, porId: new Map(enriquecidas.map((l) => [String(l.id), l])) };
+  return estado.vista;
+}
+
+// ---------- renderização ----------
+
+function renderizar() {
+  if (!estado.estados) return;
+  const v = calcular();
+  gravarHash();
+  renderizarResumo();
+  renderizarChips();
+  renderizarEstatisticas(v);
+  renderizarHistograma(v);
+  renderizarDispersao(v);
+  renderizarExtremos(v);
+  renderizarCargos();
+  renderizarComparacao(v);
+  renderizarTabela(v);
+}
+
+function resumoAtual() {
+  const n = nivel();
+  if (n === 'estados') return { r: estado.estados?.brasil, nome: 'Brasil' };
+  if (n === 'todas') return { r: estado.estados?.brasil, nome: 'Brasil (todas as cidades)' };
+  return { r: ESTADO_DE().get(el.uf.value) ?? estado.municipios?.consolidado, nome: nomeUf(el.uf.value) };
+}
+
+function kpi(classe, chave, r, brasil) {
+  const m = METRICAS[chave];
+  const valor = valorMetrica(r, chave);
+  const delta = brasil && brasil !== r ? valor - valorMetrica(brasil, chave) : null;
+  const deltaHtml = delta === null ? '' : `<small class="delta">${pp(delta)} p.p. vs Brasil</small>`;
+  return `<div class="kpi${metrica() === chave ? ' kpi-ativo' : ''}" data-metrica="${chave}">
+    <dt>${classe ? `<i class="amostra ${classe}"></i>` : ''}${m.nome}</dt>
+    <dd><span class="kpi-pct">${pct(valor)}</span><small>${fmtInt.format(m.numerador(r))} ${chave === 'pctAbstencao' ? 'eleitores' : 'votos'}</small>${deltaHtml}</dd></div>`;
 }
 
 function renderizarResumo() {
-  const d = estado.dados;
-  const r = d.nivel === 'estados' ? d.brasil : d.consolidado;
-  const nomeLocal = d.nivel === 'estados' ? 'Brasil' : ABRANGENCIAS[d.uf];
-  el.titulo.textContent = `${cargoAtual().nome} · ${nomeLocal}`;
+  const { r, nome } = resumoAtual();
+  const n = nivel();
+  el.titulo.textContent = `${cargoAtual().nome} · ${nome}`;
   el.horario.textContent = r?.atualizadoEm ? `Atualizado pelo TSE em ${r.atualizadoEm}` : '';
   const pSec = r ? pctSecoes(r) : 0;
-  el.barra.style.width = `${Math.min(100, pSec)}%`;
+  el.barraSecoes.style.width = `${Math.min(100, pSec)}%`;
   el.pctSecoes.textContent = pct(pSec);
-  el.secoes.textContent = r ? `(${fmtInt.format(r.secoes.totalizadas)} de ${fmtInt.format(r.secoes.total)}${d.nivel === 'municipios' ? ' nas cidades já lidas' : ''})` : '';
+  el.secoes.textContent = r ? `(${fmtInt.format(r.secoes.totalizadas)} de ${fmtInt.format(r.secoes.total)})` : '';
 
-  if (d.nivel === 'municipios') {
-    const total = d.total ?? '?';
-    const proxima = d.proximaEmSegundos != null ? ` · próxima leitura em ${Math.ceil(d.proximaEmSegundos / 60)} min` : '';
-    el.leitura.textContent = d.lendo
-      ? `Lendo cidades no TSE… ${fmtInt.format(d.lidos)} de ${total} já lidas.`
-      : `${fmtInt.format(d.lidos)} de ${total} cidades lidas${proxima}.`;
+  const m = estado.municipios;
+  if (n !== 'estados' && m) {
+    const total = m.total ?? '?';
+    const proxima = m.proximaEmSegundos != null ? ` · próxima leitura em ${Math.max(1, Math.ceil(m.proximaEmSegundos / 60))} min` : '';
+    el.leitura.textContent = m.lendo
+      ? `Lendo cidades no TSE… ${fmtInt.format(m.lidos)} de ${fmtInt.format(total)} já lidas${n === 'todas' ? ' (o Brasil inteiro leva alguns minutos na primeira vez)' : ''}.`
+      : `${fmtInt.format(m.lidos)} de ${fmtInt.format(total)} cidades lidas${proxima}.`;
     el.leitura.hidden = false;
   } else {
-    const faltam = d.total - d.lidos;
+    const faltam = (estado.estados?.total ?? 0) - (estado.estados?.lidos ?? 0);
     el.leitura.textContent = faltam > 0 ? `${faltam} UF(s) ainda sem resultado publicado pelo TSE.` : '';
-    el.leitura.hidden = d.lidos >= d.total;
+    el.leitura.hidden = faltam <= 0;
   }
 
+  const brasil = estado.estados?.brasil;
   el.kpis.innerHTML = r
     ? [
-      kpi('brancos', 'Brancos', r.brancos, r.pctBrancos),
-      kpi('nulos', 'Nulos', r.nulos, r.pctNulos),
-      kpi('anulados', 'Anulados', r.anulados, r.pctAnulados),
-      kpi('', 'Brancos + nulos', r.brancos + r.nulos, r.pctBrancosNulos),
+      kpi('brancos', 'pctBrancos', r, brasil),
+      kpi('nulos', 'pctNulos', r, brasil),
+      kpi('anulados', 'pctAnulados', r, brasil),
+      kpi('bn', 'pctBrancosNulos', r, brasil),
+      kpi('abst', 'pctAbstencao', r, brasil),
     ].join('')
     : '<p class="mudo">Ainda sem dados publicados.</p>';
 }
 
-function renderizarTabela() {
-  const d = estado.dados;
-  const linhas = linhasOrdenadas();
-  const visiveis = linhas.slice(0, estado.limite);
-  // A escala das barras é comum a todas as linhas: o maior brancos + nulos + anulados da lista.
-  const maximo = Math.max(1, ...linhas.map((l) => l.pctBrancos + l.pctNulos + l.pctAnulados));
-  const escala = Math.ceil(maximo / 5) * 5;
-  el.escala.textContent = `escala 0–${escala}%`;
-  el.tituloTabela.textContent = d.nivel === 'estados' ? 'Por estado' : `Cidades de ${ABRANGENCIAS[d.uf]}`;
+function renderizarChips() {
+  const chips = [];
+  if (estado.faixa) chips.push(['faixa', `${nomeMetrica()} entre ${fmtNum.format(estado.faixa[0])}% e ${fmtNum.format(estado.faixa[1])}%`]);
+  if (el.porte.value) chips.push(['porte', `Porte: ${el.porte.selectedOptions[0].textContent}`]);
+  if (el.apuracao.value !== '0') chips.push(['apuracao', `Apuração ≥ ${el.apuracao.value}%`]);
+  if (el.mostrar.value) chips.push(['mostrar', el.mostrar.selectedOptions[0].textContent]);
+  if (el.busca.value.trim()) chips.push(['busca', `Busca: "${el.busca.value.trim()}"`]);
+  el.chips.hidden = !chips.length;
+  el.chips.innerHTML = chips.map(([k, t]) => `<button type="button" class="chip" data-limpar="${k}">${esc(t)} <span aria-hidden="true">×</span></button>`).join('')
+    + (chips.length > 1 ? '<button type="button" class="chip chip-todos" data-limpar="todos">Limpar filtros</button>' : '');
+}
 
-  const largura = (v) => `${(v / escala) * 100}%`;
-  el.linhas.innerHTML = visiveis.length ? visiveis.map((l) => {
-    // Barra empilhada brancos | nulos | anulados, na escala comum da tabela.
-    const pilha = (extra) => `<div class="pilha ${extra}" data-dica="${esc(l.id)}">`
-      + `<span class="brancos" style="width:${largura(l.pctBrancos)}"></span>`
-      + `<span class="nulos" style="width:${largura(l.pctNulos)}"></span>`
-      + `<span class="anulados" style="width:${largura(l.pctAnulados)}"></span></div>`;
-    return `
-    <tr data-id="${esc(l.id)}" class="${d.nivel === 'estados' ? 'clicavel' : ''}">
-      <td class="local">${esc(l.nome)}${d.nivel === 'estados' ? ` <span class="mudo">${esc(l.uf.toUpperCase())}</span>` : ''}
-        <small class="mudo">${fmtInt.format(l.total)} votos</small>${pilha('mini')}</td>
-      <td class="num col-secoes">${pct(pctSecoes(l))}</td>
-      <td class="num">${pct(l.pctBrancos)}<small>${fmtInt.format(l.brancos)}</small></td>
-      <td class="num">${pct(l.pctNulos)}<small>${fmtInt.format(l.nulos)}</small></td>
+function linhaEstat(rotulo, valor, extra = '') {
+  return `<div><dt>${rotulo}</dt><dd>${valor}${extra ? ` <small>${extra}</small>` : ''}</dd></div>`;
+}
+
+function renderizarEstatisticas({ estat, base }) {
+  const unidade = nivel() === 'estados' ? 'estados' : 'cidades';
+  el.tituloEstat.textContent = `Estatísticas · ${nomeMetrica()}`;
+  if (!estat) {
+    el.estat.innerHTML = '<p class="mudo">Sem locais na seleção.</p>';
+    return;
+  }
+  const atipicos = base.filter((l) => l.atipico).length;
+  const ref = el.referencia.value === 'uf' ? null : referenciaPara(base[0] ?? {}, metrica(), estat);
+  el.estat.innerHTML = [
+    linhaEstat(`Locais (${unidade})`, fmtInt.format(estat.n)),
+    linhaEstat('Média ponderada', pct(estat.ponderada), 'soma dos votos'),
+    linhaEstat('Média simples', pct(estat.media), 'cada local pesa igual'),
+    linhaEstat('Mediana', pct(estat.mediana)),
+    linhaEstat('Desvio padrão', `${fmtNum.format(estat.desvio)} p.p.`),
+    linhaEstat('Quartis (Q1–Q3)', `${fmtNum.format(estat.q1)}% – ${fmtNum.format(estat.q3)}%`),
+    linhaEstat('Mínimo', pct(estat.min.valor), esc(estat.min.linha.nome)),
+    linhaEstat('Máximo', pct(estat.max.valor), esc(estat.max.linha.nome)),
+    linhaEstat('Atípicos', fmtInt.format(atipicos), `fora de ${fmtNum.format(Math.max(0, estat.cercaInferior))}%–${fmtNum.format(estat.cercaSuperior)}%`),
+    ref === null ? '' : linhaEstat(`Referência`, pct(ref), NOME_REF[el.referencia.value]),
+  ].join('');
+}
+
+const COR_METRICA = {
+  pctBrancos: 'var(--serie-brancos)', pctNulos: 'var(--serie-nulos)', pctAnulados: 'var(--serie-anulados)',
+  pctBrancosNulos: 'var(--serie-bn)', pctAbstencao: 'var(--serie-abst)',
+};
+
+function renderizarHistograma({ base, estat }) {
+  el.tituloHist.textContent = `Distribuição · ${nomeMetrica()}`;
+  const hist = histograma(base.map((l) => l.valor), base.length > 200 ? 24 : 14);
+  estado.hist = hist;
+  const selecionada = estado.faixa ? hist.faixas.findIndex((f) => Math.abs(f.inicio - estado.faixa[0]) < 1e-9) : null;
+  const ref = el.referencia.value === 'uf' ? null : referenciaPara({}, metrica(), estat);
+  const linhas = [];
+  if (estat) linhas.push({ valor: estat.mediana, classe: 'ref-mediana', rotulo: 'mediana' });
+  if (ref !== null && Number.isFinite(ref)) linhas.push({ valor: ref, classe: 'ref-principal', rotulo: 'referência' });
+  el.hist.innerHTML = svgHistograma({
+    faixas: hist.faixas,
+    linhas,
+    selecionada: selecionada === -1 ? null : selecionada,
+    rotuloX: `% ${nomeMetrica().toLowerCase()}`,
+    cor: COR_METRICA[metrica()],
+  });
+  el.legendaHist.innerHTML = `<span><i class="amostra" style="background:${COR_METRICA[metrica()]}"></i>Nº de ${nivel() === 'estados' ? 'estados' : 'cidades'}</span>`
+    + '<span><i class="marca-ref"></i>Referência</span><span><i class="marca-ref mediana"></i>Mediana</span>';
+}
+
+// Cor de cada ponto/linha pela posição em relação à referência: azul abaixo, vermelho acima,
+// cinza quando a diferença é menor que meio desvio padrão.
+function classeDesvio(l, estat) {
+  if (l.delta === null || !estat) return 'neutro';
+  if (Math.abs(l.delta) < estat.desvio * 0.5) return 'neutro';
+  return l.delta > 0 ? 'acima' : 'abaixo';
+}
+
+function renderizarDispersao({ base, visiveis, estat }) {
+  const visivel = new Set(visiveis.map((l) => l.id));
+  const maxVotos = Math.max(1, ...base.map((l) => l.total));
+  const pontos = base.map((l) => ({
+    x: valorMetrica(l, 'pctBrancos'),
+    y: valorMetrica(l, 'pctNulos'),
+    r: 2.5 + Math.sqrt(l.total / maxVotos) * (base.length > 300 ? 8 : 14),
+    classe: classeDesvio(l, estat),
+    apagado: !visivel.has(l.id),
+    destacado: estado.fixados.includes(String(l.id)),
+  }));
+  estado.pontosDispersao = base;
+  const brasil = estado.estados?.brasil;
+  const reg = regressaoLinear(pontos.map((p) => p.x), pontos.map((p) => p.y));
+  el.dispersao.innerHTML = svgDispersao({
+    pontos,
+    rotuloX: '% brancos',
+    rotuloY: '% nulos',
+    refX: brasil ? valorMetrica(brasil, 'pctBrancos') : null,
+    refY: brasil ? valorMetrica(brasil, 'pctNulos') : null,
+    regressao: reg,
+  });
+  el.correlacao.textContent = reg?.r != null ? `correlação r = ${fmtNum.format(reg.r)} · ${fmtInt.format(pontos.length)} locais` : '';
+  el.legendaDisp.innerHTML = `<span><i class="amostra ponto-acima"></i>Acima da referência (${esc(nomeMetrica())})</span>`
+    + '<span><i class="amostra ponto-abaixo"></i>Abaixo</span><span><i class="amostra ponto-neutro"></i>Próximo</span>'
+    + '<span><i class="marca-ref"></i>Média do Brasil</span><span><i class="marca-regressao"></i>Tendência</span>'
+    + '<span class="mudo">tamanho = votos</span>';
+}
+
+function itemRanking(l) {
+  const uf = nivel() !== 'municipios' && l.uf && nivel() !== 'estados' ? ` <span class="mudo">${esc(l.uf.toUpperCase())}</span>` : '';
+  return `<li data-id="${esc(l.id)}" class="clicavel"><span class="ranking-nome">${esc(l.nome)}${uf}</span>
+    <span class="ranking-valor">${pct(l.valor)}${l.delta === null ? '' : ` <small class="delta ${l.delta > 0 ? 'acima' : 'abaixo'}">${pp(l.delta)}</small>`}</span></li>`;
+}
+
+function renderizarExtremos({ base }) {
+  el.tituloExtremos.textContent = `Maiores e menores · ${nomeMetrica()}`;
+  const ord = [...base].sort((a, b) => b.valor - a.valor);
+  el.maiores.innerHTML = ord.slice(0, 10).map(itemRanking).join('') || '<li class="mudo">—</li>';
+  el.menores.innerHTML = ord.slice(-10).reverse().map(itemRanking).join('') || '<li class="mudo">—</li>';
+}
+
+function renderizarCargos() {
+  const uf = nivel() === 'municipios' ? el.uf.value : null;
+  el.tituloCargos.textContent = `Por cargo · ${uf ? nomeUf(uf) : 'Brasil'}`;
+  const linhas = CARGOS.filter((c) => (uf ? c.abrangencias.includes(uf) : c.abrangencias.length > 1)).map((c) => {
+    const d = estado.porCargo.get(c.valor);
+    const r = uf ? d?.estados.find((e) => e.uf === uf) : d?.brasil;
+    return { cargo: c, r };
+  });
+  const maximo = Math.max(1, ...linhas.filter((l) => l.r).map((l) => valorMetrica(l.r, 'pctBrancosNulos') + valorMetrica(l.r, 'pctAnulados')));
+  const escalaMax = Math.ceil(maximo / 5) * 5;
+  el.cargos.innerHTML = linhas.map(({ cargo, r }) => {
+    const atual = cargo.valor === el.cargo.value ? ' class="linha-atual"' : '';
+    if (!r) return `<tr${atual}><td class="local">${esc(cargo.nome)}</td><td colspan="7" class="mudo">sem dados ainda</td></tr>`;
+    return `<tr${atual} data-cargo="${cargo.valor}" class="clicavel">
+      <td class="local">${esc(cargo.nome)}</td>
+      <td class="num col-secoes">${pct(pctSecoes(r))}</td>
+      <td class="num">${pct(r.pctBrancos)}</td><td class="num">${pct(r.pctNulos)}</td>
+      <td class="num col-anulados">${pct(r.pctAnulados)}</td><td class="num col-abst">${pct(valorMetrica(r, 'pctAbstencao'))}</td>
+      <td class="num forte">${pct(r.pctBrancosNulos)}</td>
+      <td class="col-barra">${pilha(r, escalaMax, null)}</td></tr>`;
+  }).join('');
+}
+
+function pilha(l, escalaMax, ref, extra = '') {
+  const w = (v) => `${(v / escalaMax) * 100}%`;
+  const marca = ref !== null && ref !== undefined && Number.isFinite(ref) && ['pctBrancosNulos', 'pctBrancos'].includes(metrica())
+    ? `<i class="pilha-ref" style="left:${Math.min(100, (ref / escalaMax) * 100)}%"></i>` : '';
+  return `<div class="pilha ${extra}" data-id="${esc(l.id ?? '')}">`
+    + `<span class="brancos" style="width:${w(l.pctBrancos)}"></span>`
+    + `<span class="nulos" style="width:${w(l.pctNulos)}"></span>`
+    + `<span class="anulados" style="width:${w(l.pctAnulados)}"></span>${marca}</div>`;
+}
+
+function celulaDelta(l) {
+  if (l.delta === null) return '<td class="num mudo">—</td>';
+  const forca = Math.min(1, Math.abs(l.z) / 3);
+  const cor = l.delta > 0 ? 'var(--div-acima)' : 'var(--div-abaixo)';
+  return `<td class="num"><span class="desvio" style="--forca:${(forca * 38).toFixed(0)}%;--cor:${cor}">${pp(l.delta)}</span></td>`;
+}
+
+function renderizarTabela({ visiveis, base }) {
+  const n = nivel();
+  el.tituloTabela.textContent = n === 'estados' ? 'Estados' : n === 'todas' ? 'Todas as cidades do Brasil' : `Cidades de ${nomeUf(el.uf.value)}`;
+  el.thMetrica.textContent = METRICAS[metrica()].curto;
+  el.contagem.textContent = `${fmtInt.format(visiveis.length)} de ${fmtInt.format(base.length)} locais · Δ e cores em relação à ${NOME_REF[el.referencia.value]}`;
+  for (const th of document.querySelectorAll('#tabela th[data-ordem]')) {
+    th.classList.toggle('ordenada', th.dataset.ordem === estado.ordem);
+    th.dataset.dir = th.dataset.ordem === estado.ordem ? (estado.direcao === 1 ? '▲' : '▼') : '';
+  }
+
+  const mostrar = visiveis.slice(0, estado.limite);
+  const maximo = Math.max(1, ...visiveis.map((l) => l.pctBrancos + l.pctNulos + l.pctAnulados));
+  const escalaMax = Math.ceil(maximo / 5) * 5;
+  el.escala.textContent = `escala 0–${escalaMax}%`;
+  const comUf = n === 'estados' || n === 'todas';
+  el.linhas.innerHTML = mostrar.length ? mostrar.map((l) => {
+    const fixado = estado.fixados.includes(String(l.id));
+    return `<tr data-id="${esc(l.id)}" class="${n === 'estados' ? 'clicavel' : ''}${fixado ? ' fixada' : ''}">
+      <td class="col-fixar"><button type="button" class="fixar" data-fixar="${esc(l.id)}" aria-pressed="${fixado}" title="Comparar">${fixado ? '★' : '☆'}</button></td>
+      <td class="local">${esc(l.nome)}${comUf ? ` <span class="mudo">${esc(l.uf.toUpperCase())}</span>` : ''}${l.atipico ? ' <span class="selo outro" title="Fora das cercas de Tukey">atípico</span>' : ''}
+        <small class="mudo">${esc(l.porte)} votos<span class="so-celular"> · ${pct(l.secoesPct)} apurado</span></small>${pilha(l, escalaMax, l.ref, 'mini')}</td>
+      <td class="num col-votos">${fmtInt.format(l.total)}</td>
+      <td class="num col-secoes">${pct(l.secoesPct)}</td>
+      <td class="num col-brancos">${pct(l.pctBrancos)}<small>${fmtInt.format(l.brancos)}</small></td>
+      <td class="num col-nulos">${pct(l.pctNulos)}<small>${fmtInt.format(l.nulos)}</small></td>
       <td class="num col-anulados">${pct(l.pctAnulados)}<small>${fmtInt.format(l.anulados)}</small></td>
-      <td class="num forte">${pct(l.pctBrancosNulos)}</td>
-      <td class="col-barra">${pilha('')}</td>
+      <td class="num col-abst">${pct(valorMetrica(l, 'pctAbstencao'))}</td>
+      <td class="num col-metrica forte">${pct(l.valor)}</td>
+      ${celulaDelta(l)}
+      <td class="num col-z">${fmtNum.format(l.z)}</td>
+      <td class="col-barra">${pilha(l, escalaMax, l.ref)}</td>
     </tr>`;
   }).join('')
-    : `<tr><td colspan="7" class="mudo">${d.nivel === 'municipios' && !d.lidos ? 'Lendo as cidades no TSE…' : 'Nada encontrado.'}</td></tr>`;
-
-  el.mais.hidden = visiveis.length >= linhas.length;
-  el.mais.textContent = `Mostrar mais (${fmtInt.format(linhas.length - visiveis.length)} restantes)`;
-  estado.porId = new Map(linhas.map((l) => [String(l.id), l]));
+    : `<tr><td colspan="12" class="mudo">${estado.municipios?.lendo && !estado.municipios.lidos ? 'Lendo as cidades no TSE…' : 'Nada encontrado com esses filtros.'}</td></tr>`;
+  el.mais.hidden = mostrar.length >= visiveis.length;
+  el.mais.textContent = `Mostrar mais (${fmtInt.format(visiveis.length - mostrar.length)} restantes)`;
 }
 
-function renderizar() {
-  const d = estado.dados;
-  el.buscaRotulo.hidden = d.nivel !== 'municipios';
-  renderizarResumo();
-  renderizarTabela();
+function renderizarComparacao({ porId, estat }) {
+  const lista = estado.fixados.map((id) => porId.get(id)).filter(Boolean);
+  el.comparacaoCartao.hidden = !lista.length;
+  if (!lista.length) return;
+  const linhasMet = [
+    ['Votos', (l) => fmtInt.format(l.total)],
+    ['Seções apuradas', (l) => pct(l.secoesPct)],
+    ...Object.keys(METRICAS).map((k) => [METRICAS[k].nome, (l) => pct(valorMetrica(l, k)), k]),
+    [`Δ ${METRICAS[metrica()].curto} vs referência`, (l) => (l.delta === null ? '—' : `${pp(l.delta)} p.p.`)],
+    ['z (seleção)', (l) => fmtNum.format(l.z)],
+  ];
+  // Em cada métrica, destaca o maior valor entre os comparados.
+  el.comparacao.innerHTML = `<thead><tr><th></th>${lista.map((l) => `<th class="num">${esc(l.nome)}${l.uf && nivel() !== 'municipios' ? ` <span class="mudo">${esc(l.uf.toUpperCase())}</span>` : ''}
+      <button type="button" class="fixar" data-fixar="${esc(l.id)}" title="Remover">×</button></th>`).join('')}
+      ${estat ? '<th class="num mudo">Média da seleção</th>' : ''}</tr></thead>
+    <tbody>${linhasMet.map(([rotulo, f, k]) => {
+    const maior = k ? Math.max(...lista.map((l) => valorMetrica(l, k))) : null;
+    return `<tr><th>${esc(rotulo)}</th>${lista.map((l) => `<td class="num${k && valorMetrica(l, k) === maior && lista.length > 1 ? ' forte' : ''}">${f(l)}</td>`).join('')}
+      ${estat ? `<td class="num mudo">${k ? pct(resumoEstatistico(estado.vista.base, k)?.ponderada ?? 0) : ''}</td>` : ''}</tr>`;
+  }).join('')}</tbody>`;
 }
 
-// ---------- dica (hover/toque nas barras) ----------
+// ---------- dicas ----------
 
-function mostrarDica(alvo, x, y) {
-  const l = estado.porId?.get(alvo.dataset.dica);
-  if (!l) return;
-  el.dica.innerHTML = `<strong>${esc(l.nome)}</strong>
+function htmlDicaLocal(l) {
+  if (!l) return null;
+  return `<strong>${esc(l.nome)}${l.uf && nivel() !== 'municipios' ? ` · ${esc(l.uf.toUpperCase())}` : ''}</strong>
     <span><i class="amostra brancos"></i>Brancos ${pct(l.pctBrancos)} · ${fmtInt.format(l.brancos)}</span>
     <span><i class="amostra nulos"></i>Nulos ${pct(l.pctNulos)} · ${fmtInt.format(l.nulos)}</span>
     <span><i class="amostra anulados"></i>Anulados ${pct(l.pctAnulados)} · ${fmtInt.format(l.anulados)}</span>
+    <span><i class="amostra abst"></i>Abstenção ${pct(valorMetrica(l, 'pctAbstencao'))}</span>
+    ${l.delta === null || l.delta === undefined ? '' : `<span>${esc(METRICAS[metrica()].curto)} ${pp(l.delta)} p.p. vs ${esc(NOME_REF[el.referencia.value])} · z ${fmtNum.format(l.z)}</span>`}
     <span class="mudo">${pct(pctSecoes(l))} das seções · ${fmtInt.format(l.total)} votos</span>`;
-  el.dica.hidden = false;
-  const { width, height } = el.dica.getBoundingClientRect();
-  el.dica.style.left = `${Math.max(8, Math.min(innerWidth - width - 8, x + 12))}px`;
-  el.dica.style.top = `${Math.max(8, y - height - 12)}px`;
 }
 
-el.linhas.addEventListener('pointermove', (ev) => {
-  const alvo = ev.target.closest('.pilha');
-  if (alvo) mostrarDica(alvo, ev.clientX, ev.clientY);
-  else el.dica.hidden = true;
+dica.ligar(el.dispersao, '[data-dica]', (alvo) => htmlDicaLocal(estado.pontosDispersao?.[Number(alvo.dataset.dica)]));
+dica.ligar(el.linhas, '.pilha', (alvo) => htmlDicaLocal(estado.vista?.porId.get(alvo.dataset.id)));
+dica.ligar(el.hist, '[data-dica]', (alvo) => {
+  const f = estado.hist?.faixas[Number(alvo.dataset.dica)];
+  if (!f) return null;
+  return `<strong>${fmtNum.format(f.inicio)}% a ${fmtNum.format(f.fim)}%</strong>
+    <span>${fmtInt.format(f.contagem)} ${nivel() === 'estados' ? 'estado(s)' : 'cidade(s)'}</span><span class="mudo">clique para filtrar</span>`;
 });
-el.linhas.addEventListener('pointerleave', () => { el.dica.hidden = true; });
 
 // ---------- eventos ----------
 
-el.linhas.addEventListener('click', (ev) => {
-  const tr = ev.target.closest('tr.clicavel');
-  if (!tr) return;
-  el.uf.value = tr.dataset.id;
-  trocarFiltro();
-  scrollTo({ top: 0, behavior: 'smooth' });
-});
-
-function trocarFiltro() {
-  estado.limite = PAGINA;
-  el.busca.value = '';
-  estado.dados = null;
-  el.linhas.innerHTML = '<tr><td colspan="7" class="mudo">Carregando…</td></tr>';
-  carregar();
+function alternarFixado(id) {
+  const i = estado.fixados.indexOf(id);
+  if (i >= 0) estado.fixados.splice(i, 1);
+  else if (estado.fixados.length < MAX_COMPARAR) estado.fixados.push(id);
+  renderizar();
 }
 
-el.cargo.addEventListener('change', () => { preencherUfs(el.uf.value); trocarFiltro(); });
-el.uf.addEventListener('change', trocarFiltro);
-el.ordem.addEventListener('change', () => { gravarHash(); if (estado.dados) renderizarTabela(); });
-el.busca.addEventListener('input', () => { estado.limite = PAGINA; if (estado.dados) renderizarTabela(); });
-el.mais.addEventListener('click', () => { estado.limite += PAGINA; renderizarTabela(); });
-el.atualizar.addEventListener('click', carregar);
-document.querySelector('.bn thead').addEventListener('click', (ev) => {
+function abrirLocal(id) {
+  if (nivel() === 'estados') {
+    el.uf.value = id;
+    trocarNivel();
+    scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    alternarFixado(String(id));
+  }
+}
+
+el.linhas.addEventListener('click', (ev) => {
+  const botao = ev.target.closest('[data-fixar]');
+  if (botao) return alternarFixado(botao.dataset.fixar);
+  const tr = ev.target.closest('tr.clicavel');
+  if (tr) abrirLocal(tr.dataset.id);
+});
+el.comparacao.addEventListener('click', (ev) => {
+  const botao = ev.target.closest('[data-fixar]');
+  if (botao) alternarFixado(botao.dataset.fixar);
+});
+for (const lista of [el.maiores, el.menores]) {
+  lista.addEventListener('click', (ev) => {
+    const li = ev.target.closest('li[data-id]');
+    if (li) abrirLocal(li.dataset.id);
+  });
+}
+el.dispersao.addEventListener('click', (ev) => {
+  const p = ev.target.closest('[data-dica]');
+  const l = p && estado.pontosDispersao?.[Number(p.dataset.dica)];
+  if (l) abrirLocal(l.id);
+});
+el.hist.addEventListener('click', (ev) => {
+  const g = ev.target.closest('[data-dica]');
+  const f = g && estado.hist?.faixas[Number(g.dataset.dica)];
+  if (!f) return;
+  const ultima = Number(g.dataset.dica) === estado.hist.faixas.length - 1;
+  estado.faixa = estado.faixa && Math.abs(estado.faixa[0] - f.inicio) < 1e-9 ? null : [f.inicio, f.fim, ultima ? 1 : 0];
+  estado.limite = PAGINA;
+  renderizar();
+});
+el.kpis.addEventListener('click', (ev) => {
+  const k = ev.target.closest('[data-metrica]');
+  if (!k) return;
+  el.metrica.value = k.dataset.metrica;
+  estado.faixa = null;
+  renderizar();
+});
+el.cargos.addEventListener('click', (ev) => {
+  const tr = ev.target.closest('tr[data-cargo]');
+  if (!tr || tr.dataset.cargo === el.cargo.value) return;
+  el.cargo.value = tr.dataset.cargo;
+  trocarCargo();
+});
+el.chips.addEventListener('click', (ev) => {
+  const c = ev.target.closest('[data-limpar]')?.dataset.limpar;
+  if (!c) return;
+  if (c === 'faixa' || c === 'todos') estado.faixa = null;
+  if (c === 'porte' || c === 'todos') el.porte.value = '';
+  if (c === 'apuracao' || c === 'todos') el.apuracao.value = '0';
+  if (c === 'mostrar' || c === 'todos') el.mostrar.value = '';
+  if (c === 'busca' || c === 'todos') el.busca.value = '';
+  estado.limite = PAGINA;
+  renderizar();
+});
+document.querySelector('#tabela thead').addEventListener('click', (ev) => {
   const th = ev.target.closest('th[data-ordem]');
   if (!th) return;
-  el.ordem.value = th.dataset.ordem;
-  gravarHash();
-  if (estado.dados) renderizarTabela();
+  if (estado.ordem === th.dataset.ordem) estado.direcao *= -1;
+  else {
+    estado.ordem = th.dataset.ordem;
+    estado.direcao = th.dataset.ordem === 'nome' ? 1 : -1;
+  }
+  renderizar();
 });
 
+function trocarNivel() {
+  estado.limite = PAGINA;
+  estado.faixa = null;
+  estado.fixados = [];
+  estado.municipios = null;
+  el.busca.value = '';
+  preencherReferencias(el.referencia.value);
+  el.linhas.innerHTML = '<tr><td colspan="12" class="mudo">Carregando…</td></tr>';
+  carregar();
+  carregarCargos();
+}
+
+function trocarCargo() {
+  preencherLocais(el.uf.value);
+  trocarNivel();
+}
+
+el.cargo.addEventListener('change', trocarCargo);
+el.uf.addEventListener('change', trocarNivel);
+el.metrica.addEventListener('change', () => { estado.faixa = null; renderizar(); });
+for (const s of [el.referencia, el.porte, el.apuracao, el.mostrar]) {
+  s.addEventListener('change', () => { estado.limite = PAGINA; estado.faixa = s === el.porte || s === el.apuracao ? null : estado.faixa; renderizar(); });
+}
+el.busca.addEventListener('input', () => { estado.limite = PAGINA; if (estado.estados) renderizar(); });
+el.mais.addEventListener('click', () => { estado.limite += PAGINA * 2; renderizarTabela(estado.vista); });
+el.atualizar.addEventListener('click', () => { carregar(); carregarCargos(); });
+el.limparComparacao.addEventListener('click', () => { estado.fixados = []; renderizar(); });
+
+el.exportar.addEventListener('click', () => {
+  const v = estado.vista;
+  if (!v) return;
+  const nome = `brancos-nulos-${cargoAtual().nome.toLowerCase().replace(/\s+/g, '-')}-${el.uf.value || 'estados'}.csv`;
+  baixarCsv(nome, [
+    { nome: 'Local', valor: (l) => l.nome },
+    { nome: 'UF', valor: (l) => l.uf?.toUpperCase() },
+    { nome: 'Código TSE', valor: (l) => (nivel() === 'estados' ? '' : l.codigo) },
+    { nome: 'Código IBGE', valor: (l) => l.ibge ?? '' },
+    { nome: 'Região', valor: (l) => l.regiao },
+    { nome: 'Votos', valor: (l) => l.total },
+    { nome: '% seções totalizadas', valor: (l) => l.secoesPct },
+    { nome: 'Brancos', valor: (l) => l.brancos },
+    { nome: '% brancos', valor: (l) => l.pctBrancos },
+    { nome: 'Nulos', valor: (l) => l.nulos },
+    { nome: '% nulos', valor: (l) => l.pctNulos },
+    { nome: 'Anulados', valor: (l) => l.anulados },
+    { nome: '% anulados', valor: (l) => l.pctAnulados },
+    { nome: '% brancos + nulos', valor: (l) => l.pctBrancosNulos },
+    { nome: 'Abstenção', valor: (l) => l.abstencao ?? '' },
+    { nome: '% abstenção', valor: (l) => valorMetrica(l, 'pctAbstencao') },
+    { nome: `Referência ${METRICAS[metrica()].curto} (${NOME_REF[el.referencia.value]})`, valor: (l) => l.ref ?? '' },
+    { nome: 'Δ p.p.', valor: (l) => l.delta ?? '' },
+    { nome: 'z', valor: (l) => l.z },
+    { nome: 'Atípico', valor: (l) => (l.atipico ? 'sim' : 'não') },
+  ], v.visiveis);
+});
+
+// ---------- início ----------
+
 const inicial = lerHash();
-el.cargo.innerHTML = CARGOS.map((c) => `<option value="${c.valor}">${esc(c.nome)}</option>`).join('');
-if (CARGOS.some((c) => c.valor === inicial.cargo)) el.cargo.value = inicial.cargo;
-if (inicial.ordem && [...el.ordem.options].some((o) => o.value === inicial.ordem)) el.ordem.value = inicial.ordem;
-preencherUfs(inicial.uf);
+opcoes(el.cargo, CARGOS.map((c) => [c.valor, c.nome]), inicial.cargo);
+opcoes(el.metrica, Object.entries(METRICAS).map(([k, m]) => [k, m.nome]),
+  inicial.metrica ?? (METRICAS[inicial.ordem] ? inicial.ordem : 'pctBrancosNulos'));
+preencherLocais(inicial.uf);
+preencherReferencias(inicial.ref);
+for (const [campo, chave] of [[el.porte, 'porte'], [el.apuracao, 'apur'], [el.mostrar, 'mostrar']]) {
+  if (inicial[chave] && [...campo.options].some((o) => o.value === inicial[chave])) campo.value = inicial[chave];
+}
+// Link antigo "ordem=pctNulos" vira métrica Nulos ordenada pela própria métrica.
+if (inicial.ordem && !METRICAS[inicial.ordem]) estado.ordem = inicial.ordem;
+if (inicial.dir === 'asc') estado.direcao = 1;
+if (inicial.faixa) {
+  const [a, b] = inicial.faixa.split('-').map(Number);
+  if (Number.isFinite(a) && Number.isFinite(b)) estado.faixa = [a, b, 0];
+}
+if (inicial.sel) estado.fixados = inicial.sel.split(',').filter(Boolean).slice(0, MAX_COMPARAR);
 carregar();
-estado.timer = setInterval(() => { if (!document.hidden) carregar(); }, INTERVALO_MS);
+carregarCargos();
+setInterval(() => { if (!document.hidden) carregar(); }, INTERVALO_MS);
+setInterval(() => { if (!document.hidden) carregarCargos(); }, 120_000);

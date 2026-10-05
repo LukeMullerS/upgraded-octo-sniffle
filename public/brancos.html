@@ -12,14 +12,15 @@
   <link rel="apple-touch-icon" href="icone.svg">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="painel">
   <header class="topo">
     <div>
       <h1>Brancos e nulos 2026</h1>
-      <p class="sub">1º turno · 04/10/2026 · por estado e por cidade · dados oficiais do TSE</p>
+      <p class="sub">1º turno · 04/10/2026 · painel de análise por estado e por cidade · dados oficiais do TSE</p>
     </div>
     <div class="atualizacao">
       <span id="status" class="status">carregando…</span>
+      <button id="exportar" type="button" class="secundario sem-margem">Exportar CSV</button>
       <button id="atualizar" type="button">Atualizar</button>
     </div>
   </header>
@@ -29,47 +30,77 @@
     <a href="brancos.html" aria-current="page">Brancos e nulos</a>
   </nav>
 
-  <nav class="filtros">
+  <nav class="filtros filtros-painel" aria-label="Filtros">
     <label>Cargo
       <select id="cargo"></select>
     </label>
-    <label>Estado
+    <label>Local
       <select id="uf"></select>
     </label>
-    <label id="busca-rotulo" hidden>Cidade
-      <input id="busca" type="search" placeholder="Buscar cidade">
+    <label>Métrica
+      <select id="metrica"></select>
     </label>
-    <label>Ordenar por
-      <select id="ordem">
-        <option value="pctBrancosNulos">% brancos + nulos</option>
-        <option value="pctBrancos">% brancos</option>
-        <option value="pctNulos">% nulos</option>
-        <option value="pctAnulados">% anulados</option>
-        <option value="total">total de votos</option>
-        <option value="secoes">% seções totalizadas</option>
-        <option value="nome">nome</option>
+    <label>Comparar com
+      <select id="referencia"></select>
+    </label>
+    <label>Porte (votos)
+      <select id="porte">
+        <option value="">Todos</option>
+        <option value="0-5000">Até 5 mil</option>
+        <option value="5000-20000">5 a 20 mil</option>
+        <option value="20000-100000">20 a 100 mil</option>
+        <option value="100000-500000">100 a 500 mil</option>
+        <option value="500000-">Mais de 500 mil</option>
       </select>
+    </label>
+    <label>Apuração mínima
+      <select id="apuracao">
+        <option value="0">Qualquer</option>
+        <option value="25">25% das seções</option>
+        <option value="50">50% das seções</option>
+        <option value="75">75% das seções</option>
+        <option value="90">90% das seções</option>
+        <option value="100">100% (concluída)</option>
+      </select>
+    </label>
+    <label>Mostrar
+      <select id="mostrar">
+        <option value="">Todos</option>
+        <option value="acima">Acima da referência</option>
+        <option value="abaixo">Abaixo da referência</option>
+        <option value="atipicos">Atípicos (fora das cercas)</option>
+        <option value="z2">Muito distantes (|z| ≥ 2)</option>
+      </select>
+    </label>
+    <label>Buscar
+      <input id="busca" type="search" placeholder="Nome do local">
     </label>
   </nav>
 
   <main>
+    <div id="chips" class="chips" hidden></div>
+
     <details class="cartao como">
-      <summary>Como é feito</summary>
+      <summary>Como é feito e como ler</summary>
       <p>O servidor lê os arquivos de resultado que o TSE publica em
         <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">resultados.tse.jus.br</a>.
         Os totais por <strong>estado</strong> vêm do arquivo de cada UF. Para as <strong>cidades</strong>, a cada
         2 minutos ele vê no arquivo de acompanhamento da UF quais municípios tiveram seções novas totalizadas e
-        baixa só o resultado desses municípios.</p>
-      <p>Os números cobrem apenas as seções já totalizadas, e as cidades aparecem à medida que são lidas.
-        Percentuais são sobre o total de votos (válidos + brancos + nulos + anulados).</p>
+        baixa só esses. Os números cobrem apenas as seções já totalizadas.</p>
       <ul>
-        <li><strong>Brancos</strong>: o eleitor apertou BRANCO.</li>
-        <li><strong>Nulos</strong>: número que não corresponde a candidato ou partido, inclusive nulos técnicos.</li>
-        <li><strong>Anulados</strong>: votos em candidatos cujo registro foi anulado ou está sub judice; não são
-          escolha do eleitor por anular.</li>
+        <li><strong>Brancos</strong>: o eleitor apertou BRANCO. <strong>Nulos</strong>: número sem candidato ou
+          partido, inclusive nulos técnicos. <strong>Anulados</strong>: votos em candidatos com registro anulado ou
+          sub judice. Percentuais sobre o total de votos.</li>
+        <li><strong>Abstenção</strong>: eleitores aptos que não votaram, sobre os aptos das seções já totalizadas.</li>
+        <li><strong>Média ponderada</strong> soma os votos de todos os locais (é a conta do TSE para o total);
+          <strong>média simples</strong> dá o mesmo peso a cada local; a <strong>mediana</strong> é o local do meio.</li>
+        <li><strong>Δ p.p.</strong> é a diferença, em pontos percentuais, para a referência escolhida em
+          "Comparar com". <strong>z</strong> diz a quantos desvios padrão o local está da média simples da seleção.</li>
+        <li><strong>Atípico</strong>: fora das cercas de Tukey (abaixo de Q1 − 1,5·IQR ou acima de Q3 + 1,5·IQR).
+          Cidades pequenas variam mais por acaso; use o filtro de porte para comparar cidades parecidas.</li>
       </ul>
-      <p class="mudo">O log da urna (logd.dat) não registra em quem nem como o eleitor votou, só que o voto foi
-        computado; por isso brancos e nulos vêm do resultado oficial, e não dos logs.</p>
+      <p class="mudo">O log da urna (logd.dat) não registra como o eleitor votou, só que o voto foi computado; por
+        isso brancos e nulos vêm do resultado oficial, e não dos logs.</p>
     </details>
 
     <section id="erro" class="erro" hidden></section>
@@ -83,28 +114,93 @@
       <p class="progresso-texto"><strong id="pct-secoes">0,00%</strong> das seções totalizadas
         <span class="mudo" id="secoes"></span></p>
       <p class="progresso-texto mudo" id="leitura" hidden></p>
-      <dl class="kpis" id="kpis"></dl>
+      <dl class="kpis kpis-5" id="kpis"></dl>
+    </section>
+
+    <div class="grade-painel">
+      <section class="cartao">
+        <div class="linha"><h2 id="titulo-estat">Estatísticas</h2></div>
+        <dl class="estat" id="estat"></dl>
+      </section>
+
+      <section class="cartao">
+        <div class="linha">
+          <h2 id="titulo-hist">Distribuição</h2>
+          <span class="mudo pequeno">clique numa faixa para filtrar</span>
+        </div>
+        <div id="hist" class="grafico" role="img"></div>
+        <div class="legenda" id="legenda-hist"></div>
+      </section>
+
+      <section class="cartao">
+        <div class="linha">
+          <h2>Brancos × nulos</h2>
+          <span class="mudo pequeno" id="correlacao"></span>
+        </div>
+        <div id="dispersao" class="grafico" role="img"></div>
+        <div class="legenda" id="legenda-disp"></div>
+      </section>
+
+      <section class="cartao">
+        <div class="linha"><h2 id="titulo-extremos">Maiores e menores</h2></div>
+        <div class="extremos">
+          <div><h3>Maiores</h3><ol id="maiores" class="ranking"></ol></div>
+          <div><h3>Menores</h3><ol id="menores" class="ranking"></ol></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="cartao">
+      <div class="linha">
+        <h2 id="titulo-cargos">Por cargo</h2>
+        <span class="mudo pequeno">o mesmo eleitor vota em vários cargos: compare onde ele mais anula ou deixa em branco</span>
+      </div>
+      <div class="tabela-rolagem">
+        <table class="tabela bn">
+          <thead><tr>
+            <th>Cargo</th><th class="num col-secoes">Seções</th><th class="num">Brancos</th><th class="num">Nulos</th>
+            <th class="num col-anulados">Anulados</th><th class="num col-abst">Abstenção</th><th class="num">B + N</th>
+            <th class="col-barra"></th>
+          </tr></thead>
+          <tbody id="cargos"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="cartao" id="comparacao-cartao" hidden>
+      <div class="linha">
+        <h2>Comparação</h2>
+        <button id="limpar-comparacao" type="button" class="secundario sem-margem">Limpar</button>
+      </div>
+      <div class="tabela-rolagem"><table class="tabela comparacao" id="comparacao"></table></div>
     </section>
 
     <section class="cartao">
       <div class="linha">
-        <h2 id="titulo-tabela">Por estado</h2>
+        <h2 id="titulo-tabela">Locais</h2>
         <div class="legenda" aria-hidden="true">
           <span><i class="amostra brancos"></i>Brancos</span>
           <span><i class="amostra nulos"></i>Nulos</span>
           <span><i class="amostra anulados"></i>Anulados</span>
+          <span><i class="marca-ref"></i>Referência</span>
         </div>
       </div>
+      <p class="mudo pequeno" id="contagem"></p>
       <div class="tabela-rolagem">
-        <table class="tabela bn">
+        <table class="tabela bn" id="tabela">
           <thead>
             <tr>
+              <th class="col-fixar" title="Comparar">☆</th>
               <th data-ordem="nome">Local</th>
+              <th class="num col-votos" data-ordem="total">Votos</th>
               <th class="num col-secoes" data-ordem="secoes">Seções</th>
-              <th class="num" data-ordem="pctBrancos">Brancos</th>
-              <th class="num" data-ordem="pctNulos">Nulos</th>
+              <th class="num col-brancos" data-ordem="pctBrancos">Brancos</th>
+              <th class="num col-nulos" data-ordem="pctNulos">Nulos</th>
               <th class="num col-anulados" data-ordem="pctAnulados">Anulados</th>
-              <th class="num" data-ordem="pctBrancosNulos">B + N</th>
+              <th class="num col-abst" data-ordem="pctAbstencao">Abstenção</th>
+              <th class="num col-metrica" data-ordem="metrica" id="th-metrica">B + N</th>
+              <th class="num" data-ordem="delta">Δ p.p.</th>
+              <th class="num col-z" data-ordem="z">z</th>
               <th class="col-barra"><span class="mudo" id="escala"></span></th>
             </tr>
           </thead>

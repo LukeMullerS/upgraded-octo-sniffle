@@ -94,6 +94,9 @@ async function api(res, pathname, params) {
     }
     if (pathname === '/api/municipios') {
       const uf = params.get('uf');
+      if (uf === 'todas') {
+        return json(res, 200, await coletor.todas(eleicao.codigo, cargo.codigo, cargo.abrangencias.filter((a) => a !== 'br')));
+      }
       if (!cargo.abrangencias.includes(uf) || uf === 'br') return json(res, 400, { erro: 'UF inválida para este cargo' });
       return json(res, 200, await coletor.municipios(eleicao.codigo, cargo.codigo, uf));
     }

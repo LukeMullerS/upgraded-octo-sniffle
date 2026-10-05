@@ -180,7 +180,7 @@ export function lerMunicipios(bruto) {
   const porUf = {};
   for (const a of bruto.abr ?? []) {
     porUf[String(a.cd).toLowerCase()] = (a.mu ?? [])
-      .map((m) => ({ codigo: String(m.cd), nome: m.nm }))
+      .map((m) => ({ codigo: String(m.cd), nome: m.nm, ibge: m.cdi ? String(m.cdi) : null }))
       .sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR'));
   }
   return porUf;
@@ -205,7 +205,11 @@ export function resumoVotos(bruto) {
     atualizadoEm: [bruto.dg, bruto.hg].filter(Boolean).join(' '),
     secoes: { total: num(s.ts), totalizadas: num(s.st) },
     eleitorado: num(e.te),
+    // Eleitores aptos só das seções já totalizadas: base da abstenção parcial.
+    aptosTotalizadas: num(e.est),
     comparecimento: num(e.c),
+    abstencao: num(e.a),
+    pctAbstencao: pct(num(e.a), num(e.est)),
     total,
     validos: num(v.vv ?? v.vvc),
     brancos,
@@ -229,7 +233,10 @@ export function somarResumos(lista) {
     atualizadoEm: lista.map((r) => r.atualizadoEm).sort(compararDataHora).at(-1) ?? '',
     secoes: { total: soma((r) => r.secoes.total), totalizadas: soma((r) => r.secoes.totalizadas) },
     eleitorado: soma((r) => r.eleitorado),
+    aptosTotalizadas: soma((r) => r.aptosTotalizadas ?? 0),
     comparecimento: soma((r) => r.comparecimento),
+    abstencao: soma((r) => r.abstencao ?? 0),
+    pctAbstencao: pct(soma((r) => r.abstencao ?? 0), soma((r) => r.aptosTotalizadas ?? 0)),
     total,
     validos: soma((r) => r.validos),
     brancos,

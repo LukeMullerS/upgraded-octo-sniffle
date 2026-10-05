@@ -17,7 +17,11 @@ const caminhoAcompanhamento = (ele, uf) => `${CICLO}/${ele}/dados/${uf}/${uf}-e$
 // urlResultado com base vazia gera "/ele2026/..."; o coletor trabalha com caminhos relativos.
 const caminhoResultado = (ele, uf, cargo, mun = '') => urlResultado('', ele, uf, cargo, mun).slice(1);
 
-/** Limita quantas requisições ao TSE ficam abertas ao mesmo tempo. */
+/**
+ * Limita quantas requisições ao TSE ficam abertas ao mesmo tempo. Tarefas com prioridade
+ * (arquivos de UF e de acompanhamento) furam a fila dos municípios, para a tabela por estado
+ * não esperar atrás de milhares de cidades quando "todas as cidades do Brasil" está carregando.
+ */
 function criarLimitador(maximo) {
   let ativos = 0;
   const fila = [];
@@ -30,8 +34,8 @@ function criarLimitador(maximo) {
       proximo();
     });
   };
-  return (tarefa) => new Promise((ok, falha) => {
-    fila.push({ tarefa, ok, falha });
+  return (tarefa, { prioridade = false } = {}) => new Promise((ok, falha) => {
+    fila[prioridade ? 'unshift' : 'push']({ tarefa, ok, falha });
     proximo();
   });
 }
@@ -88,7 +92,7 @@ export function criarColetor({
 
         let marcas = null;
         try {
-          const ab = await limitar(() => buscarJson(caminhoAcompanhamento(ele, uf)));
+          const ab = await limitar(() => buscarJson(caminhoAcompanhamento(ele, uf)), { prioridade: true });
           if (ab) marcas = marcasAcompanhamento(ab);
         } catch {
           // Sem acompanhamento, recai em reler tudo, mas no máximo a cada 10 minutos.
@@ -112,6 +116,8 @@ export function criarColetor({
             alvo.municipios.set(m.codigo, {
               codigo: m.codigo,
               nome: m.nome,
+              uf,
+              ibge: m.ibge ?? null,
               // A marca vem do próprio arquivo: se ele estiver atrás do acompanhamento
               // (os dois são gerados em momentos diferentes), é relido na próxima passada.
               marca: marca(bruto.s, bruto.e),
@@ -156,30 +162,46 @@ export function criarColetor({
     return alvo;
   }
 
-  /** Brancos e nulos de cada município da UF (só os já lidos). */
-  async function municipios(ele, cargo, uf, { esperarMs = 8_000 } = {}) {
-    const alvo = acompanhar(ele, cargo, uf);
-    // Na primeira consulta espera um pouco pela primeira leitura, para não mostrar a tabela vazia.
-    if (alvo.primeira) {
-      await Promise.race([alvo.primeira, new Promise((r) => setTimeout(r, esperarMs))]);
-      alvo.primeira = null;
-    }
-    const lidos = [...alvo.municipios.values()].map(({ marca, ...m }) => m);
+  // Na primeira consulta espera um pouco pela primeira leitura, para não mostrar a tabela vazia.
+  async function esperarPrimeira(alvos, esperarMs) {
+    const pendentes = alvos.filter((a) => a.primeira).map((a) => a.primeira);
+    if (pendentes.length) await Promise.race([Promise.all(pendentes), new Promise((r) => setTimeout(r, esperarMs))]);
+    for (const a of alvos) a.primeira = null;
+  }
+
+  function retrato(ele, cargo, uf, lista) {
+    const lidos = lista.flatMap((a) => [...a.municipios.values()].map(({ marca, ...m }) => m));
+    const passadas = lista.map((a) => a.ultimaPassada).filter(Boolean);
+    const ultima = passadas.length ? Math.min(...passadas) : null;
+    const erros = lista.map((a) => a.erro).filter(Boolean);
+    const semLista = lista.some((a) => !a.lista);
     return {
       eleicao: ele,
       cargo,
       uf,
-      total: alvo.lista?.length ?? null,
+      total: semLista ? null : lista.reduce((t, a) => t + a.lista.length, 0),
       lidos: lidos.length,
-      lendo: Boolean(alvo.rodando),
-      ultimaPassada: alvo.ultimaPassada ? new Date(alvo.ultimaPassada).toISOString() : null,
-      proximaEmSegundos: alvo.ultimaPassada
-        ? Math.max(0, Math.round((alvo.ultimaPassada + intervaloMs - agora()) / 1000))
-        : null,
-      erro: alvo.erro,
+      lendo: lista.some((a) => a.rodando),
+      ultimaPassada: ultima ? new Date(ultima).toISOString() : null,
+      proximaEmSegundos: ultima ? Math.max(0, Math.round((ultima + intervaloMs - agora()) / 1000)) : null,
+      erro: erros.length ? [...new Set(erros)].join(' · ') : null,
       consolidado: lidos.length ? somarResumos(lidos) : null,
       municipios: lidos,
     };
+  }
+
+  /** Brancos e nulos de cada município da UF (só os já lidos). */
+  async function municipios(ele, cargo, uf, { esperarMs = 8_000 } = {}) {
+    const alvo = acompanhar(ele, cargo, uf);
+    await esperarPrimeira([alvo], esperarMs);
+    return retrato(ele, cargo, uf, [alvo]);
+  }
+
+  /** Todas as cidades de várias UFs (o Brasil inteiro): cada UF é acompanhada como em `municipios`. */
+  async function todas(ele, cargo, ufs, { esperarMs = 8_000 } = {}) {
+    const lista = ufs.map((uf) => acompanhar(ele, cargo, uf));
+    await esperarPrimeira(lista, esperarMs);
+    return retrato(ele, cargo, 'todas', lista);
   }
 
   /** Brancos e nulos por UF, direto dos arquivos de cada UF (27 arquivos, mais o Brasil quando existe). */
@@ -192,7 +214,7 @@ export function criarColetor({
       } catch {
         return null;
       }
-    })));
+    }, { prioridade: true })));
     const lista = lidos.filter(Boolean);
     let brasil = null;
     if (abrangencias.includes('br')) {
@@ -207,5 +229,5 @@ export function criarColetor({
     return { eleicao: ele, cargo, total: ufs.length, lidos: lista.length, brasil, estados: lista };
   }
 
-  return { estados, municipios, parar, alvos };
+  return { estados, municipios, todas, parar, alvos };
 }
