@@ -149,6 +149,40 @@ A janela **Logs das urnas** mede o tempo de votação a partir do log de cada ur
 - No Explorador, as variáveis do grupo "Logs das urnas" (tempo médio na cabine, mediana, atendimento, % biometria…)
   aparecem para os locais com logs lidos.
 
+## Mapa da votação (todos os dados de cada local)
+
+O servidor guarda, para cada estado e cidade, não só brancos e nulos, mas também **os votos de cada candidato e
+de cada partido**, comparecimento, abstenção, votos válidos e o **número efetivo** de candidatos e de partidos
+(fragmentação do voto, 1/Σp²). Nos cargos de deputado, cada local guarda os 15 candidatos mais votados e todos os
+partidos (votos nominais).
+
+A janela **Mapa da votação** (`/candidatos.html`) mostra, por estado, pelas cidades de uma UF ou por todas as
+cidades do Brasil:
+
+- **mapa interativo** do candidato (ou partido) mais votado em cada local, com a cor mais forte onde a vitória foi
+  mais folgada; ou a votação de qualquer candidato/partido, a margem do 1º sobre o 2º, o comparecimento, os votos
+  válidos ou a fragmentação. Clique num estado para ver as cidades;
+- "Em resumo" em português, indicadores, ranking dos candidatos e partidos, locais vencidos por cada um,
+  onde cada um é mais forte e mais fraco e a **comparação** entre dois (dispersão com correlação);
+- tabela com 1º e 2º colocados, margem e comparecimento, e CSV com os votos de todos os candidatos guardados.
+
+No Explorador, essas variáveis aparecem no grupo "Candidatos" de cada cargo (vencedor, partido mais votado,
+margem, nº efetivo e a votação de cada candidato e partido), com perguntas prontas como "Quem venceu em cada
+cidade?", "A alfabetização muda o voto no líder?" e "Onde o voto para deputado é mais dividido?".
+
+## Publicar no Vercel
+
+O projeto já vem pronto para o Vercel (`vercel.json` + `api/index.js`): os arquivos de `public/` são servidos como
+estáticos e as rotas `/api/*` e `/tse/*` rodam numa função serverless na região de São Paulo (`gru1`), perto do
+TSE. É só importar o repositório no Vercel, sem build. Diferenças em relação ao servidor no seu computador:
+
+- uma função serverless não fica ligada o tempo todo: a **compilação nacional dos logs** fica desligada (na janela
+  Logs, escolha um município e use "Ler este município agora");
+- o cache fica em `/tmp`, apagado de tempos em tempos, então a primeira consulta depois de um tempo parado é mais
+  lenta; as cidades de um estado vão se completando a cada atualização da página;
+- para acompanhar tudo em tempo real (inclusive todos os logs), prefira rodar `npm start` num computador ou num
+  servidor sempre ligado (Render, Railway, Fly.io, uma VPS).
+
 ## Brancos e nulos por estado e cidade
 
 A aba **Brancos e nulos** (`/brancos.html`) mostra, para cada cargo, os votos brancos, nulos e anulados:
@@ -194,12 +228,15 @@ Antes de o TSE publicar um arquivo (ex.: antes da apuração), o app mostra "Arq
 ## Estrutura
 
 ```
-server.js          servidor estático + proxy para o TSE + APIs (/api/estados, /api/municipios, /api/banco, …)
+server.js          servidor local (porta, rede, gravação ao sair)
+src/aplicacao.js   rotas: estáticos, proxy para o TSE e APIs (/api/estados, /api/municipios, /api/banco, …)
+api/index.js, vercel.json   a mesma aplicação como função serverless no Vercel
 src/banco.js       banco único dos arquivos do TSE (GET condicional, fila com prioridade, disco)
 public/index.html  página
 public/app.js      filtros, consulta e renderização
 public/tse.js      configuração das eleições, URLs e normalização do JSON do TSE
 public/brancos.*   aba de brancos e nulos por estado e cidade
+public/candidatos.*  mapa da votação: candidatos, partidos, vencedor, comparecimento
 src/coletor.js     coletor de brancos e nulos por município (acompanhamento a cada 2 min)
 src/censo.js       séries do Censo/IBGE (API de agregados), guardadas em dados/censo
 src/logs.js        compilação nacional dos logs das urnas (cache em dados/logs)

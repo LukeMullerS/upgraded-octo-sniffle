@@ -101,8 +101,9 @@ function renderizarNacional() {
     el.pausar.hidden = true;
     return;
   }
-  el.pausar.hidden = false;
-  el.pausar.textContent = n.pausado || !n.ativo ? 'Retomar' : 'Pausar';
+  // Desligada (LOGS_NACIONAL=0 ou servidor serverless, como o Vercel): sem botão.
+  el.pausar.hidden = !n.ativo;
+  el.pausar.textContent = n.pausado ? 'Retomar' : 'Pausar';
   const pctN = n.total ? (n.lidas / n.total) * 100 : 0;
   el.barraNacional.style.width = `${Math.min(100, pctN)}%`;
   el.pctNacional.textContent = n.total ? `${fmtNum.format(pctN)}%` : fmtInt.format(n.lidas);
@@ -110,7 +111,7 @@ function renderizarNacional() {
   el.textoNacional.textContent = n.total
     ? `das seções lidas: ${fmtInt.format(n.lidas)} de ${fmtInt.format(n.total)}${conhecidas < n.porUf.length ? ` (lista de seções de ${conhecidas} de ${n.porUf.length} UFs)` : ''}`
     : 'aguardando a lista de seções do TSE…';
-  el.estadoCompilacao.textContent = !n.ativo ? 'desligada (LOGS_NACIONAL=0)'
+  el.estadoCompilacao.textContent = !n.ativo ? 'leitura automática desligada neste servidor — escolha um município e use "Ler este município agora"'
     : n.pausado ? 'pausada'
       : n.ufAtual ? `lendo ${nomeUf(n.ufAtual)}…`
         : n.proximaEmSegundos !== null ? `próxima passada em ${Math.max(1, Math.ceil(n.proximaEmSegundos / 60))} min`

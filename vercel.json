@@ -1,0 +1,21 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "",
+  "installCommand": "",
+  "outputDirectory": "public",
+  "regions": ["gru1"],
+  "functions": {
+    "api/index.js": { "maxDuration": 60 }
+  },
+  "redirects": [
+    { "source": "/logs.html", "destination": "/urnas.html", "permanent": true }
+  ],
+  "rewrites": [
+    { "source": "/api/:caminho*", "destination": "/api/index?rota=/api/:caminho*" },
+    { "source": "/tse/:caminho*", "destination": "/api/index?rota=/tse/:caminho*" }
+  ],
+  "headers": [
+    { "source": "/(.*)\\.(js|css|html)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+  ]
+}
