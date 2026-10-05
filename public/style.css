@@ -280,6 +280,10 @@ body.painel main, body.painel .filtros, body.painel .abas { max-width: 1280px; }
 .comparacao th, .comparacao td { white-space: nowrap; }
 .comparacao tbody th { font-weight: 400; color: var(--mudo); }
 
+/* ---------- logs das urnas ---------- */
+.acoes { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 0 0 .6rem; }
+.acao-amostra { display: inline-flex; gap: .4rem; align-items: center; font-size: .88rem; }
+
 /* ---------- explorador ---------- */
 .embutido { padding: 0; margin: .25rem 0 .75rem; }
 .check-linha { flex-direction: row !important; align-items: center; gap: .4rem; align-self: end; padding-bottom: .5rem; }

@@ -93,6 +93,25 @@ taxa de alfabetização (Censo 2022); qualquer outra tabela do SIDRA entra pelo 
 instrução), escolhendo a variável e as categorias. Também dá para **importar um CSV** (primeira coluna: código IBGE,
 código TSE, sigla da UF ou nome do local). A ligação com as cidades usa o código IBGE que o TSE publica.
 
+## Logs das urnas (tempo de votação)
+
+A janela **Logs das urnas** mede o tempo de votação a partir do log de cada urna:
+
+- Para cada seção, o servidor vê se o TSE já publicou os arquivos da urna (`aux.json` da seção), baixa o log
+  (`logd.dat`, dentro do `.jez`, que é um 7z) e lê os eventos de cada eleitor.
+- **Tempo na cabine**: de "Eleitor foi habilitado" até "O voto do eleitor foi computado". **Atendimento**: do
+  "Título digitado pelo mesário" até o voto computado (inclui a biometria). Também: habilitação biométrica, manual ou
+  sem biometria, teclas indevidas, votos por hora, horário de abertura e encerramento, urnas que usaram bateria.
+- Os números cobrem só as seções já lidas; horários são os do relógio de cada urna; durações acima de 30 min ficam
+  fora das médias. O log não registra em quem nem como o eleitor votou: brancos e nulos vêm do resultado oficial e
+  são cruzados com o tempo médio por município ou por estado (dispersão com regressão).
+- Ler o Brasil inteiro seriam centenas de milhares de logs, então a leitura é **por município** (todas as seções) ou
+  por **amostra do estado** (1 a 10 seções por cidade). Cada log é lido uma vez; os resumos ficam em `dados/logs` e
+  sobrevivem a reinícios. Seções ainda não publicadas são tentadas de novo a cada 2 minutos.
+- O 7z é aberto por um leitor próprio em JavaScript (`src/sete-zip.js`, LZMA/LZMA2), sem precisar do 7-Zip.
+- No Explorador, as variáveis do grupo "Logs das urnas" (tempo médio na cabine, mediana, atendimento, % biometria…)
+  aparecem para os locais com logs lidos.
+
 ## Brancos e nulos por estado e cidade
 
 A aba **Brancos e nulos** (`/brancos.html`) mostra, para cada cargo, os votos brancos, nulos e anulados:
@@ -145,6 +164,10 @@ public/tse.js      configuração das eleições, URLs e normalização do JSON 
 public/brancos.*   aba de brancos e nulos por estado e cidade
 src/coletor.js     coletor de brancos e nulos por município (acompanhamento a cada 2 min)
 src/censo.js       séries do Censo/IBGE (API de agregados), guardadas em dados/censo
+src/logs.js        coletor dos logs das urnas (seções publicadas, amostra, cache em dados/logs)
+src/log-urna.js    leitura do logd.dat: tempos por eleitor e resumo da seção
+src/sete-zip.js    leitor de 7z (LZMA/LZMA2) em JavaScript puro
+public/logs.*      janela Logs das urnas
 public/desktop.*   área de trabalho Windows 98 (gerenciador de janelas, menu Iniciar, barra de tarefas)
 public/tema.js     escolhe o visual (98 ou moderno) e o modo "janela" das páginas
 public/explorar.*  explorador de variáveis

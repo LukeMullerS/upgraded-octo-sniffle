@@ -1,0 +1,1087 @@
+26/09/2022 10:08:11	INFO	2122186	LOGD	Início das operações do logd	5E45ED8289C549D0
+26/09/2022 10:08:11	INFO	2122186	LOGD	Urna ligada em 26/09/2022 às 10:07:37	12B79A749F772711
+26/09/2022 10:08:11	INFO	2122186	SCUE	Iniciando aplicação - Oficial - 1º turno	F9BD6A073E5A4AC8
+26/09/2022 10:08:11	INFO	2122186	SCUE	Versão da aplicação: 8.26.0.0 - Onça-pintada	62E98ABE863A254A
+26/09/2022 10:08:13	INFO	2122186	SCUE	Urna operando com rede elétrica	399656DA91AA250A
+26/09/2022 10:08:13	INFO	2122186	SCUE	Bateria interna com carga parcial	5E9179A98336C09C
+26/09/2022 10:08:19	INFO	2122186	SCUE	Tamanho da mídia interna: 3.7 GB	F4E9E1CC16A4BDA5
+26/09/2022 10:08:22	INFO	2122186	SCUE	Tamanho da memória: 829.0 MB	13FC6771F1A10010
+26/09/2022 10:08:22	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [1] - [/bin/avbin.vst] - [SUCESSO]	59715CE65ED06BEF
+26/09/2022 10:08:22	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [2] - [/uenux/bin/avusrbin.vst] - [SUCESSO]	9B9AE026ACFEB196
+26/09/2022 10:08:22	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [3] - [/uenux/lib/avusrlib.vst] - [SUCESSO]	03D45AF3DB2E7B01
+26/09/2022 10:08:22	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [4] - [/uenux/lib/avusrlibue2020.vst] - [SUCESSO]	E99777D6E375E03A
+26/09/2022 10:08:23	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [5] - [/boot/boot/avboot.vst] - [SUCESSO]	7A851A295AFEDAE3
+26/09/2022 10:08:23	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [6] - [/boot/boot/avbootcfg.vst] - [SUCESSO]	5531E810BB69A7B8
+26/09/2022 10:08:23	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [7] - [/etc/avetc.vst] - [SUCESSO]	48B2A7A3418535F7
+26/09/2022 10:08:23	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [8] - [/lib/avlib.vst] - [SUCESSO]	4297E127A673A8C0
+26/09/2022 10:08:23	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [9] - [/lib/modules/avmod.vst] - [SUCESSO]	4CC21C66FE9843F8
+26/09/2022 10:08:24	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [10] - [/lib/modules/ue2020/avmodue2020.vst] - [SUCESSO]	C976D1FBEFD5A78A
+26/09/2022 10:08:24	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [11] - [/lib/plugins/generic/avlibqtgeneric.vst] - [SUCESSO]	120CDE0F6F4CE119
+26/09/2022 10:08:24	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [12] - [/lib/plugins/imageformats/avlibqtimageformats.vst] - [SUCESSO]	65D05D78A6E30790
+26/09/2022 10:08:24	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [13] - [/lib/plugins/platforms/avlibqtplatforms.vst] - [SUCESSO]	4675E63859035040
+26/09/2022 10:08:24	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [14] - [/uenux/lib/avusrlibue2013.vst] - [SUCESSO]	9596C61B77E8E55F
+26/09/2022 10:08:24	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [15] - [/uenux/lib/avusrlibue2006.vst] - [SUCESSO]	69FE59BBE4E146C7
+26/09/2022 10:08:24	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [16] - [/uenux/lib/avusrlib.vst] - [SUCESSO]	17120B36671DF7DA
+26/09/2022 10:08:24	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [17] - [/uenux/lib/avusrlibue2009.vst] - [SUCESSO]	FB91A1A734171329
+26/09/2022 10:08:25	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [18] - [/uenux/lib/avusrlibue2010.vst] - [SUCESSO]	7682FE30AAC9183C
+26/09/2022 10:08:25	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [19] - [/uenux/lib/avusrlibue2015.vst] - [SUCESSO]	F9738FEE565E8256
+26/09/2022 10:08:25	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [20] - [/uenux/lib/avusrlibue2020.vst] - [SUCESSO]	0CE125A590E8E113
+26/09/2022 10:08:25	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [21] - [/uenux/lib/avusrlibue2011.vst] - [SUCESSO]	F0C3C33DB7C25C62
+26/09/2022 10:08:25	INFO	2122186	SCUE	Verificação de assinatura de aplicação por etapa [22] - [/uenux/lib/avusrlibue2008.vst] - [SUCESSO]	143D478CC9C9F0BF
+02/10/2022 07:21:04	INFO	2122186	LOGD	Início das operações do logd	561C34C26B2FAC5B
+02/10/2022 07:21:04	INFO	2122186	LOGD	Urna ligada em 02/10/2022 às 07:20:43	53B0057B09FA3927
+02/10/2022 07:21:21	INFO	2122186	GAP	Estrutura de diretórios da ME criada com sucesso	A63BD7F5F08ECF69
+02/10/2022 07:21:23	INFO	2122186	GAP	Iniciando aplicação - Oficial - 1º turno	E906D38216FA8F4F
+02/10/2022 07:21:23	INFO	2122186	GAP	Versão da aplicação: 8.26.0.0 - Onça-pintada	3F9D0C2649AEC7FD
+02/10/2022 07:21:23	INFO	2122186	GAP	Identificação do Modelo de Urna: UE2020	B19EC7764BE6443B
+02/10/2022 07:21:23	INFO	2122186	LOGD	Iniciando registro do log na MI e na ME	179222D7F57DB906
+02/10/2022 07:21:23	INFO	2122186	GAP	Resultado da verificação da mídia externa estática : NORMAL	DAF24C880CF4361C
+02/10/2022 07:21:23	INFO	2122186	GAP	Resultado da verificação da mídia externa dinâmica : NORMAL	F3C3D59D60D88012
+02/10/2022 07:21:27	INFO	2122186	GAP	Tamanho da partição dinâmica de dados da MI: 3.5 GB	1FE4BF7B167EB4DF
+02/10/2022 07:21:29	INFO	2122186	GAP	Turno da UE: 1º turno	29604DD7592D7B9B
+02/10/2022 07:21:31	INFO	2122186	GAP	Identificação do Modelo de Urna: UE2020	9B15A1F0A411EAE5
+02/10/2022 07:21:33	INFO	2122186	GAP	Fase da UE: Oficial	8455CA114FD69D34
+02/10/2022 07:21:35	INFO	2122186	GAP	Modo de carga da UE - Votação	BC19B26E0C907B03
+02/10/2022 07:21:35	INFO	2122186	GAP	Município: 70050	4C53D941436D9AF2
+02/10/2022 07:21:35	INFO	2122186	GAP	Zona Eleitoral: 0221	8FBDD17F63F3842C
+02/10/2022 07:21:35	INFO	2122186	GAP	Seção Eleitoral: 0001	E18EF8D211ED3802
+02/10/2022 07:21:37	INFO	2122186	GAP	Urna operando com rede elétrica	115936F78155CA62
+02/10/2022 07:21:37	INFO	2122186	GAP	Bateria interna com carga plena	230778C6257CC000
+02/10/2022 07:21:37	INFO	2122186	GAP	Impressora OK	994CF48BF7235AF0
+02/10/2022 07:21:39	INFO	2122186	GAP	Mídia externa presente	6CC98A8E6422644A
+02/10/2022 07:21:39	INFO	2122186	GAP	Tamanho da partição estática de dados da MV: 30.6 MB	A60F8852434E9E69
+02/10/2022 07:21:39	INFO	2122186	GAP	Tamanho da partição dinâmica de dados da MV: 439.3 MB	442F1FEDFE5A25A2
+02/10/2022 07:21:39	INFO	2122186	GAP	Lendo serial da MI	DB8DAAE8DAF57D83
+02/10/2022 07:21:39	INFO	2122186	GAP	Serial da MI copiada da MV da urna original: BBB3F12F	70E0FC156C4B485F
+02/10/2022 07:21:40	INFO	2122186	GAP	Lendo serial da MV	E9744D73856C09A0
+02/10/2022 07:21:40	INFO	2122186	GAP	Serial de votação da MV: BBB3F12F 23/09/2022 às 14:18:15 em ZSP221STD12	EB21EBAFEA34785D
+02/10/2022 07:21:42	INFO	2122186	GAP	Verificação de assinatura - Etapa [1]	2C6E75145283B24F
+02/10/2022 07:21:42	INFO	2122186	GAP	Verificação de assinatura - Etapa [2]	E9E99D7706C5A3A0
+02/10/2022 07:21:42	INFO	2122186	GAP	Verificação de assinatura - Etapa [3]	AFEA0514A80FEE11
+02/10/2022 07:21:42	INFO	2122186	GAP	Verificação de assinatura - Etapa [4]	3E65B6F45A5F0617
+02/10/2022 07:21:42	INFO	2122186	GAP	Verificação de assinatura - Etapa [5]	C517D4A96BBD8F2C
+02/10/2022 07:21:42	INFO	2122186	GAP	Verificação de assinatura - Etapa [6]	E483E2F815721449
+02/10/2022 07:21:42	INFO	2122186	GAP	Verificação de assinatura - Etapa [7]	03C8633E6928F23C
+02/10/2022 07:21:43	INFO	2122186	GAP	Verificação de assinatura - Etapa [8]	924B2085DEDD503B
+02/10/2022 07:21:43	INFO	2122186	GAP	Verificação de assinatura - Etapa [9]	B92CB8B03481F49D
+02/10/2022 07:21:43	INFO	2122186	GAP	Verificação de assinatura - Etapa [10]	073A23C2F58E8AE2
+02/10/2022 07:21:43	INFO	2122186	GAP	Verificação de assinatura - Etapa [11]	BFA338CECC76FAE0
+02/10/2022 07:21:43	INFO	2122186	GAP	Verificação de assinatura - Etapa [12]	9CB8542BE8896C14
+02/10/2022 07:21:43	INFO	2122186	GAP	Verificação de assinatura - Etapa [13]	95BA986303D05952
+02/10/2022 07:21:44	INFO	2122186	GAP	Verificação de assinatura - Etapa [14]	CF4A8FF1B190EFF9
+02/10/2022 07:21:44	INFO	2122186	GAP	Verificação de assinatura - Etapa [15]	3FD4FDF78A27CD2C
+02/10/2022 07:21:44	INFO	2122186	GAP	Verificação de assinatura - Etapa [16]	42ACE87927075BE9
+02/10/2022 07:21:44	INFO	2122186	GAP	Verificação de assinatura - Etapa [17]	18EB60B00F3B5062
+02/10/2022 07:21:44	INFO	2122186	GAP	Verificação de assinatura - Etapa [18]	CCE2FF02DD6A23E4
+02/10/2022 07:21:44	INFO	2122186	GAP	Verificação de assinatura - Etapa [19]	57D55557ACCFB574
+02/10/2022 07:21:44	INFO	2122186	GAP	Verificação de assinatura - Etapa [20]	E85EF2111D2E417F
+02/10/2022 07:21:44	INFO	2122186	GAP	Verificação de assinatura - Etapa [21]	EEE3D8BBEB4FC233
+02/10/2022 07:21:45	INFO	2122186	GAP	Verificação de assinatura - Etapa [22]	58B77CE708692D00
+02/10/2022 07:21:45	INFO	2122186	GAP	Verificação de assinatura - Etapa [23]	E60C0F9FB24E1E9C
+02/10/2022 07:21:45	INFO	2122186	GAP	Verificação de assinatura - Etapa [24]	6DDEFC02547E1CB3
+02/10/2022 07:21:45	INFO	2122186	GAP	Verificação de assinatura - Etapa [25]	91C9AD1F0403C00E
+02/10/2022 07:21:45	INFO	2122186	GAP	Verificação de assinatura - Etapa [26]	2017DDDA7CE6DC49
+02/10/2022 07:21:54	INFO	2122186	GAP	Iniciando aplicação - ELEIÇÃO OFICIAL PRIMEIRO TURNO - Oficial - 1º turno	329B4B6C65CB1C3D
+02/10/2022 07:22:02	INFO	2122186	GAP	Solicitação ao INIT para executar o aplicativo - ELEIÇÃO OFICIAL PRIMEIRO TURNO	38EF67A68E834E0E
+02/10/2022 07:22:02	INFO	2122186	GAP	Finalização de aplicativo	506EE4CACE8CB815
+02/10/2022 07:22:11	INFO	2122186	VOTA	Iniciando aplicação - Oficial - 1º turno	EFC563CF53F3D2FA
+02/10/2022 07:22:11	INFO	2122186	VOTA	Versão da aplicação: 8.26.0.0 - Onça-pintada	BB251CAEFD798DA5
+02/10/2022 07:22:11	INFO	2122186	VOTA	Urna operando na rede elétrica	F562D49472E7A1EB
+02/10/2022 07:25:25	INFO	2122186	VOTA	Aguardando confirmação para emissão da zerésima	FD34A0EECAC8D1AE
+02/10/2022 07:26:22	INFO	2122186	VOTA	Gerando relatório [ZERÉSIMA] [INÍCIO]	C5C90275063D4D7E
+02/10/2022 07:26:23	INFO	2122186	VOTA	Gerando relatório [ZERÉSIMA] [TÉRMINO]	4DCEA98B27F41FFB
+02/10/2022 07:26:23	INFO	2122186	VOTA	Gerando relatório [RESUMO DA ZERÉSIMA] [INÍCIO]	5AC4C92EA66A6A31
+02/10/2022 07:26:23	INFO	2122186	VOTA	Gerando relatório [RESUMO DA ZERÉSIMA] [TÉRMINO]	637857723EFED06D
+02/10/2022 07:30:49	INFO	2122186	VOTA	Imprimindo relatório [ZERÉSIMA] via nº [1]	3ADB74FF90380C5D
+02/10/2022 07:30:57	INFO	2122186	VOTA	Imprimindo relatório [RESUMO DA ZERÉSIMA] via nº [1]	9FE3E5702CF64506
+02/10/2022 07:30:58	INFO	2122186	VOTA	Operador indagado se ocorrerá registro de mesários	060B1B1237975C5D
+02/10/2022 07:33:13	INFO	2122186	VOTA	Operador confirmou para registrar mesários	9D12A9A6AAAF1AF1
+02/10/2022 07:33:13	INFO	2122186	VOTA	Registrando mesários antes da votação	6B517959D743639F
+02/10/2022 07:34:31	INFO	2122186	VOTA	Pedido de leitura da biometria do mesário 247886180116	898B41D1D00061A2
+02/10/2022 07:34:47	INFO	2122186	VOTA	Realizada a conferência da biometria do mesário	7A1CB40368D3D249
+02/10/2022 07:34:47	INFO	2122186	VOTA	Mesário 247886180116 é eleitor da seção	B22DBCE9310D0E74
+02/10/2022 07:34:49	INFO	2122186	VOTA	Mesário 247886180116 registrado	050ACD5F5D9D0D24
+02/10/2022 07:35:27	INFO	2122186	VOTA	Pedido de leitura da biometria do mesário 072161250167	782447132C20B81A
+02/10/2022 07:35:38	INFO	2122186	VOTA	Mesário 072161250167 não é eleitor da seção	30BDA611E3051E5D
+02/10/2022 07:35:40	INFO	2122186	VOTA	Mesário 072161250167 registrado	43F551D864AE0EC9
+02/10/2022 07:36:06	INFO	2122186	VOTA	Pedido de leitura da biometria do mesário 247928370124	FB2D3721B6FEB555
+02/10/2022 07:37:04	INFO	2122186	VOTA	Pedido de leitura da biometria do mesário 247928370124	0A941A502EC10E7C
+02/10/2022 07:37:56	INFO	2122186	VOTA	Pedido de leitura da biometria do mesário 247928370124	C9C3A2EF954588B9
+02/10/2022 07:38:01	INFO	2122186	VOTA	Mesário 247928370124 não é eleitor da seção	A32BE8DB19C48938
+02/10/2022 07:38:03	INFO	2122186	VOTA	Mesário 247928370124 registrado	3BAF4115C765E4CB
+02/10/2022 07:38:24	INFO	2122186	VOTA	Pedido de leitura da biometria do mesário 358072860175	93F1A211C89D1FA9
+02/10/2022 07:38:34	INFO	2122186	VOTA	Mesário 358072860175 não é eleitor da seção	7529BE6059D89DF0
+02/10/2022 07:38:36	INFO	2122186	VOTA	Mesário 358072860175 registrado	0543118597B76AAC
+02/10/2022 07:39:07	INFO	2122186	VOTA	Operador encerrou ciclo de registro de mesários	0811058F9EF0E7AA
+02/10/2022 08:00:01	INFO	2122186	VOTA	Urna pronta para receber votos	4FF0A3A2B4B81DAE
+02/10/2022 08:00:01	INFO	2122186	VOTA	Aguardando digitação do título	53D8D505C80E38E3
+02/10/2022 08:00:25	INFO	2122186	VOTA	Título digitado pelo mesário	280AE65CEAE69B30
+02/10/2022 08:00:26	INFO	2122186	VOTA	Quantidade de memória livre [504.8 MB]	8933BAD47E879D95
+02/10/2022 08:00:26	INFO	2122186	VOTA	Espaço livre na MI [3.5 GB]	A335E6D5DB125280
+02/10/2022 08:00:26	INFO	2122186	VOTA	Espaço livre na MV [438.0 MB]	0BEAA13D5E495D6D
+02/10/2022 08:00:26	INFO	2122186	VOTA	Espaço utilizado na MI [1.3 MB]	9EBD1BF70418BF88
+02/10/2022 08:00:26	INFO	2122186	VOTA	Espaço Utilizado na MV [1.3 MB]	9AB1D8F7DC131B5E
+02/10/2022 08:00:30	ALERTA	2122186	VOTA	O eleitor não possui biometria	669CC6859039F6F6
+02/10/2022 08:00:37	INFO	2122186	VOTA	Eleitor foi habilitado	34A359F1E58D1837
+02/10/2022 08:01:06	INFO	2122186	VOTA	Tecla indevida pressionada	88F720514B42CCFE
+02/10/2022 08:01:06	INFO	2122186	VOTA	Tecla indevida pressionada	85F01C256877FBE5
+02/10/2022 08:01:13	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	D3578A62A6FB7B42
+02/10/2022 08:01:22	INFO	2122186	VOTA	Tecla indevida pressionada	8E24AF98819AFE89
+02/10/2022 08:01:23	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	CA6134944D9D579D
+02/10/2022 08:01:27	INFO	2122186	VOTA	Tecla indevida pressionada	66218B28DF2763A6
+02/10/2022 08:01:28	INFO	2122186	VOTA	Tecla indevida pressionada	9FD719D79659C299
+02/10/2022 08:01:31	INFO	2122186	VOTA	Tecla indevida pressionada	5E38C31EA90C9CB3
+02/10/2022 08:01:35	INFO	2122186	VOTA	Voto confirmado para [Senador]	6A41B6F87590BAAD
+02/10/2022 08:01:40	INFO	2122186	VOTA	Tecla indevida pressionada	84A64642D4220C28
+02/10/2022 08:01:41	INFO	2122186	VOTA	Voto confirmado para [Governador]	117C461F50B04A66
+02/10/2022 08:01:55	INFO	2122186	VOTA	Tecla indevida pressionada	8E07FA6CEDB9B578
+02/10/2022 08:01:58	INFO	2122186	VOTA	Tecla indevida pressionada	B0765FC220127FD7
+02/10/2022 08:02:03	INFO	2122186	VOTA	Tecla indevida pressionada	353A541A04EFD2E3
+02/10/2022 08:02:06	INFO	2122186	VOTA	Tecla indevida pressionada	2D0E375525AA2870
+02/10/2022 08:02:10	INFO	2122186	VOTA	Tecla indevida pressionada	9E29065BD27E7C14
+02/10/2022 08:02:17	INFO	2122186	VOTA	Tecla indevida pressionada	99C8658C636BAC54
+02/10/2022 08:02:19	INFO	2122186	VOTA	Voto confirmado para [Presidente]	74D60212956C8CFE
+02/10/2022 08:02:19	INFO	2122186	VOTA	O voto do eleitor foi computado	8D3A6BB7C53A07E3
+02/10/2022 08:02:20	INFO	2122186	VOTA	Aguardando digitação do título	919B8E62A80B40D7
+02/10/2022 08:04:08	INFO	2122186	VOTA	Título digitado pelo mesário	7D2F4B8EE7AC0FE3
+02/10/2022 08:04:18	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	39D3394F3B80AA37
+02/10/2022 08:04:22	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	E7DFBD1664C54658
+02/10/2022 08:04:24	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [20]	1D81E37BC916D679
+02/10/2022 08:04:29	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	382183A236C740FD
+02/10/2022 08:04:29	INFO	2122186	VOTA	Eleitor foi habilitado	89B0D2923AAA473F
+02/10/2022 08:04:40	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	787AF881815A39C8
+02/10/2022 08:04:48	INFO	2122186	VOTA	Tecla indevida pressionada	4B12025F3D70DD87
+02/10/2022 08:04:51	INFO	2122186	VOTA	Tecla indevida pressionada	312800BF1F7AD334
+02/10/2022 08:04:53	INFO	2122186	VOTA	Tecla indevida pressionada	609BD26BB5605C77
+02/10/2022 08:04:53	INFO	2122186	VOTA	Tecla indevida pressionada	C80C3D22D005F754
+02/10/2022 08:04:54	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	57DEB7075B138090
+02/10/2022 08:04:57	INFO	2122186	VOTA	Tecla indevida pressionada	8A63E3E0D0CF3D01
+02/10/2022 08:05:01	INFO	2122186	VOTA	Tecla indevida pressionada	CB61A346186940FF
+02/10/2022 08:05:02	INFO	2122186	VOTA	Voto confirmado para [Senador]	DBEC7B98ED29E26A
+02/10/2022 08:05:04	INFO	2122186	VOTA	Tecla indevida pressionada	F27B28061B4604A3
+02/10/2022 08:05:09	INFO	2122186	VOTA	Voto confirmado para [Governador]	108C5A8AFF5C63CC
+02/10/2022 08:05:15	INFO	2122186	VOTA	Voto confirmado para [Presidente]	E541FE339418C10A
+02/10/2022 08:05:15	INFO	2122186	VOTA	O voto do eleitor foi computado	6C51BD7035BBF6F7
+02/10/2022 08:05:16	INFO	2122186	VOTA	Aguardando digitação do título	D599CB0D7423E7BD
+02/10/2022 08:06:49	INFO	2122186	VOTA	Título digitado pelo mesário	7C6F2A8C07FAF62D
+02/10/2022 08:06:54	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	860B88DB7055ED63
+02/10/2022 08:07:00	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	D54AAD5E89A5B3FF
+02/10/2022 08:07:02	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [22]	FDA752E05F937A34
+02/10/2022 08:07:06	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	81EB06E0219E0CA8
+02/10/2022 08:07:06	INFO	2122186	VOTA	Eleitor foi habilitado	568E9B72BC189EC9
+02/10/2022 08:07:47	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	AD50B5607AA8294E
+02/10/2022 08:08:04	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	7EBCA84853478C9A
+02/10/2022 08:08:15	INFO	2122186	VOTA	Voto confirmado para [Senador]	3D23B11738B2C3D6
+02/10/2022 08:08:21	INFO	2122186	VOTA	Tecla indevida pressionada	B3F37A0FD5655E34
+02/10/2022 08:08:24	INFO	2122186	VOTA	Voto confirmado para [Governador]	986D81C7AF494365
+02/10/2022 08:08:33	INFO	2122186	VOTA	Voto confirmado para [Presidente]	7B59D83BEAC7A9B8
+02/10/2022 08:08:34	INFO	2122186	VOTA	O voto do eleitor foi computado	3E41442E0DD51514
+02/10/2022 08:08:35	INFO	2122186	VOTA	Aguardando digitação do título	D6B7022942815798
+02/10/2022 08:10:58	INFO	2122186	VOTA	Título digitado pelo mesário	10CEE98BD6EF4501
+02/10/2022 08:11:00	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	D3706755995679F8
+02/10/2022 08:11:31	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	CC3BEE4CC15D0179
+02/10/2022 08:11:33	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [21]	7AC6EE82102D0417
+02/10/2022 08:11:36	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	6E8D4247C66F5FD6
+02/10/2022 08:11:36	INFO	2122186	VOTA	Eleitor foi habilitado	C81C04F95DBD3FB5
+02/10/2022 08:12:07	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	6EFB73D8E286F5F4
+02/10/2022 08:12:17	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	6BEEE808134656C2
+02/10/2022 08:12:27	INFO	2122186	VOTA	Voto confirmado para [Senador]	76399D60BA8906CB
+02/10/2022 08:12:34	INFO	2122186	VOTA	Voto confirmado para [Governador]	8B1954212CDD3A5F
+02/10/2022 08:12:41	INFO	2122186	VOTA	Voto confirmado para [Presidente]	8E23227E593A2386
+02/10/2022 08:12:42	INFO	2122186	VOTA	O voto do eleitor foi computado	45D2184A98D3C4B9
+02/10/2022 08:12:43	INFO	2122186	VOTA	Aguardando digitação do título	3EAD0F4FCB409ED6
+02/10/2022 08:14:19	INFO	2122186	VOTA	Título digitado pelo mesário	22914DD5B4F63E20
+02/10/2022 08:14:22	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	E610E6B9CB28BA10
+02/10/2022 08:14:26	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	B7006CE1A7977B03
+02/10/2022 08:14:28	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [124]	DB967AADE29E0B92
+02/10/2022 08:14:34	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	2304C01F2ED82BF1
+02/10/2022 08:14:34	INFO	2122186	VOTA	Eleitor foi habilitado	B1EAA1F1CAA34433
+02/10/2022 08:14:44	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	91C1F57B7EBCE9CE
+02/10/2022 08:14:53	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	D8086F920416B0CD
+02/10/2022 08:14:59	INFO	2122186	VOTA	Voto confirmado para [Senador]	BD1596D11710A64E
+02/10/2022 08:15:06	INFO	2122186	VOTA	Voto confirmado para [Governador]	26AC905742C377E6
+02/10/2022 08:15:14	INFO	2122186	VOTA	Voto confirmado para [Presidente]	5AE77336B6CD12B1
+02/10/2022 08:15:15	INFO	2122186	VOTA	O voto do eleitor foi computado	2B1BF76364A0594C
+02/10/2022 08:15:16	INFO	2122186	VOTA	Aguardando digitação do título	4896327F522F2C53
+02/10/2022 08:16:26	INFO	2122186	VOTA	Título digitado pelo mesário	38A7434A44A33F2B
+02/10/2022 08:16:30	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	371DDE72C92A19D3
+02/10/2022 08:16:36	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	5873DFFBD65C6810
+02/10/2022 08:16:36	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 4], Polegar Esquerdo [score 3], Indicador Direito [score 3], Indicador Esquerdo [score 6]	D8BCEF1F81BE78D0
+02/10/2022 08:16:38	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [1] de [4]	72C72E5D4976F022
+02/10/2022 08:16:46	INFO	2122186	VOTA	Solicita digital. Tentativa [2] de [4]	6281A62B24B62105
+02/10/2022 08:16:50	INFO	2122186	VOTA	Capturada a digital. Tentativa [2] de [4]	3A0A72792887F412
+02/10/2022 08:16:50	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 8], Polegar Esquerdo [score 4], Indicador Direito [score 4], Indicador Esquerdo [score 6]	EE7717C8D76994A2
+02/10/2022 08:16:52	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [2] de [4]	3B671F6DFB78B212
+02/10/2022 08:17:01	INFO	2122186	VOTA	Solicita digital. Tentativa [3] de [4]	983F554E85A075A4
+02/10/2022 08:17:04	INFO	2122186	VOTA	Capturada a digital. Tentativa [3] de [4]	73FF450225BB1ABC
+02/10/2022 08:17:04	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 5], Polegar Esquerdo [score 3], Indicador Direito [score 19], Indicador Esquerdo [score 5]	59C3BE6A72ADF439
+02/10/2022 08:17:06	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [3] de [4]	4DB121599AB4D12E
+02/10/2022 08:17:09	INFO	2122186	VOTA	Solicita digital. Tentativa [4] de [4]	283949AD2DF38CF7
+02/10/2022 08:17:18	INFO	2122186	VOTA	Capturada a digital. Tentativa [4] de [4]	24D8DD9EC9947C82
+02/10/2022 08:17:20	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [31]	5D2490E009CC59EB
+02/10/2022 08:17:23	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	E8566AE3A954222F
+02/10/2022 08:17:23	INFO	2122186	VOTA	Eleitor foi habilitado	C8DA7A8146D7D694
+02/10/2022 08:17:37	INFO	2122186	VOTA	Tecla indevida pressionada	5F6C64B5D1B10D08
+02/10/2022 08:17:42	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	D611E03A49F3DE0E
+02/10/2022 08:17:46	INFO	2122186	VOTA	Tecla indevida pressionada	F2BF14B7329A6162
+02/10/2022 08:17:47	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	EF7CFA27DB2C842A
+02/10/2022 08:17:53	INFO	2122186	VOTA	Voto confirmado para [Senador]	39356D5095B6D420
+02/10/2022 08:17:58	INFO	2122186	VOTA	Tecla indevida pressionada	7DB19DB149EECF46
+02/10/2022 08:18:01	INFO	2122186	VOTA	Tecla indevida pressionada	3A2F4BBE242397E1
+02/10/2022 08:18:02	INFO	2122186	VOTA	Tecla indevida pressionada	191D98766E8BECC2
+02/10/2022 08:18:02	INFO	2122186	VOTA	Tecla indevida pressionada	F2B5219EA7CA6A93
+02/10/2022 08:18:03	INFO	2122186	VOTA	Tecla indevida pressionada	80D7E33FD1827AF6
+02/10/2022 08:18:03	INFO	2122186	VOTA	Tecla indevida pressionada	2808F9759381267E
+02/10/2022 08:18:05	INFO	2122186	VOTA	Tecla indevida pressionada	E20D878EFE281AF4
+02/10/2022 08:18:06	INFO	2122186	VOTA	Voto confirmado para [Governador]	EA05AA073447C2FF
+02/10/2022 08:18:11	INFO	2122186	VOTA	Voto confirmado para [Presidente]	8072E532AAA19D86
+02/10/2022 08:18:11	INFO	2122186	VOTA	O voto do eleitor foi computado	678550D14ECD4B48
+02/10/2022 08:18:12	INFO	2122186	VOTA	Aguardando digitação do título	AE559E2C07F49BAB
+02/10/2022 08:19:18	INFO	2122186	VOTA	Título digitado pelo mesário	3DBD10BE726F1637
+02/10/2022 08:19:21	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	57B6BC551435D26E
+02/10/2022 08:19:23	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	183BD8DE76FF45A6
+02/10/2022 08:19:24	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 3], Polegar Esquerdo [score 7], Indicador Direito [score 7], Indicador Esquerdo [score 6]	01903DA982AF2854
+02/10/2022 08:19:25	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [1] de [4]	325D85184BF0687D
+02/10/2022 08:19:29	INFO	2122186	VOTA	Solicita digital. Tentativa [2] de [4]	5C0A28F4E56DB6BB
+02/10/2022 08:19:31	INFO	2122186	VOTA	Capturada a digital. Tentativa [2] de [4]	40D6F4D304724E6C
+02/10/2022 08:19:31	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 5], Polegar Esquerdo [score 6], Indicador Direito [score 13], Indicador Esquerdo [score 6]	D413BB8173B9DB4F
+02/10/2022 08:19:33	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [2] de [4]	E112FB99AF1FB538
+02/10/2022 08:19:37	INFO	2122186	VOTA	Solicita digital. Tentativa [3] de [4]	980759A3D2AD1E25
+02/10/2022 08:19:39	INFO	2122186	VOTA	Capturada a digital. Tentativa [3] de [4]	9FFDDB2648F87AF4
+02/10/2022 08:19:41	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [20]	C627BDF6AA0173F8
+02/10/2022 08:19:45	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	B347328A4EE79687
+02/10/2022 08:19:45	INFO	2122186	VOTA	Eleitor foi habilitado	0F173BAC1A4398E9
+02/10/2022 08:20:12	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	3C5E98CFC75C4084
+02/10/2022 08:20:22	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	516CDC208978DC1A
+02/10/2022 08:20:29	INFO	2122186	VOTA	Voto confirmado para [Senador]	B0001FA4406A01B2
+02/10/2022 08:20:35	INFO	2122186	VOTA	Voto confirmado para [Governador]	239880672046492D
+02/10/2022 08:20:39	INFO	2122186	VOTA	Tecla indevida pressionada	7E4037860276AE07
+02/10/2022 08:20:40	INFO	2122186	VOTA	Voto confirmado para [Presidente]	6182D59C1782941C
+02/10/2022 08:20:41	INFO	2122186	VOTA	O voto do eleitor foi computado	5D20BCC9AD418814
+02/10/2022 08:20:42	INFO	2122186	VOTA	Aguardando digitação do título	5BDF890F3FB00576
+02/10/2022 08:22:06	INFO	2122186	VOTA	Título digitado pelo mesário	DCCD5AE06057806F
+02/10/2022 08:22:08	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	4D457E946DF56797
+02/10/2022 08:22:14	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	D24E55E92B8C9A3F
+02/10/2022 08:22:14	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 11], Polegar Esquerdo [score 4], Indicador Direito [score 3], Indicador Esquerdo [score 4]	4903C5B59B06DA28
+02/10/2022 08:22:16	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [1] de [4]	2F9E5951820EB54D
+02/10/2022 08:22:20	INFO	2122186	VOTA	Solicita digital. Tentativa [2] de [4]	03871D0F02049DE6
+02/10/2022 08:22:22	INFO	2122186	VOTA	Capturada a digital. Tentativa [2] de [4]	C1320C644E03BE94
+02/10/2022 08:22:24	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [23]	E94442C33966D87D
+02/10/2022 08:22:27	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	7B4AED33C008F5C5
+02/10/2022 08:22:27	INFO	2122186	VOTA	Eleitor foi habilitado	5232D7B1653A5BA7
+02/10/2022 08:22:47	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	B82B8335B7FA3F67
+02/10/2022 08:22:58	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	EC1EB518D2B3AA54
+02/10/2022 08:23:14	INFO	2122186	VOTA	Voto confirmado para [Senador]	F7D5D9969535A5B2
+02/10/2022 08:23:21	INFO	2122186	VOTA	Voto confirmado para [Governador]	363E7D87CA10CBAA
+02/10/2022 08:23:26	INFO	2122186	VOTA	Voto confirmado para [Presidente]	5F604AF6B8059C11
+02/10/2022 08:23:27	INFO	2122186	VOTA	O voto do eleitor foi computado	0339DED9E6A2D136
+02/10/2022 08:23:28	INFO	2122186	VOTA	Aguardando digitação do título	9E5230686225C3DA
+02/10/2022 08:24:32	INFO	2122186	VOTA	Título digitado pelo mesário	33E23DF84A5F6FEF
+02/10/2022 08:24:35	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	609DF8BFB217717C
+02/10/2022 08:24:39	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	FB7650682A4642D2
+02/10/2022 08:24:41	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [80]	219B42C25E1AFEBC
+02/10/2022 08:24:46	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	FB4917DF411734D2
+02/10/2022 08:24:46	INFO	2122186	VOTA	Eleitor foi habilitado	77A4A5FD9B127BA2
+02/10/2022 08:24:59	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	D72EF16FAEDBC6AA
+02/10/2022 08:25:08	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	76AF20426567EF9C
+02/10/2022 08:25:15	INFO	2122186	VOTA	Voto confirmado para [Senador]	2E74D4489BC6FCD4
+02/10/2022 08:25:21	INFO	2122186	VOTA	Voto confirmado para [Governador]	837A09FA862DAE36
+02/10/2022 08:25:27	INFO	2122186	VOTA	Voto confirmado para [Presidente]	5707B530DE079E57
+02/10/2022 08:25:27	INFO	2122186	VOTA	O voto do eleitor foi computado	8FDF15EAA3BA5012
+02/10/2022 08:25:28	INFO	2122186	VOTA	Aguardando digitação do título	01B4132F6850D892
+02/10/2022 08:26:25	INFO	2122186	VOTA	Título digitado pelo mesário	66DED1377E51A107
+02/10/2022 08:26:27	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	F119BCFB76CD43F5
+02/10/2022 08:26:35	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	7DCA5A66D6F70A9A
+02/10/2022 08:26:37	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [107]	C906372764C8FBDD
+02/10/2022 08:26:40	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	E695E402BBC012AA
+02/10/2022 08:26:40	INFO	2122186	VOTA	Eleitor foi habilitado	0E5C974C183E052E
+02/10/2022 08:27:10	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	36F4B38029CB512A
+02/10/2022 08:27:21	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	798C2ACFB2405D10
+02/10/2022 08:27:28	INFO	2122186	VOTA	Voto confirmado para [Senador]	EB2DE6321BDE28A9
+02/10/2022 08:27:34	INFO	2122186	VOTA	Voto confirmado para [Governador]	4369F5787FFC4B7D
+02/10/2022 08:27:38	INFO	2122186	VOTA	Voto confirmado para [Presidente]	A8F329A7BCBF3F3B
+02/10/2022 08:27:39	INFO	2122186	VOTA	O voto do eleitor foi computado	C4DBEF1F96F00FE9
+02/10/2022 08:27:40	INFO	2122186	VOTA	Aguardando digitação do título	3C34A6DEEA91876F
+02/10/2022 08:28:49	INFO	2122186	VOTA	Título digitado pelo mesário	5A15BF9675016BBE
+02/10/2022 08:28:51	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	9DA40C70352128A6
+02/10/2022 08:28:57	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	341F0C2E3DAC0AD2
+02/10/2022 08:28:57	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 9], Polegar Esquerdo [score 3], Indicador Direito [score 0], Indicador Esquerdo [score 3]	C6C9B3F7727689F4
+02/10/2022 08:28:59	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [1] de [4]	8819B05407EF330C
+02/10/2022 08:29:01	INFO	2122186	VOTA	Solicita digital. Tentativa [2] de [4]	3F571C8712EA2ED7
+02/10/2022 08:29:04	INFO	2122186	VOTA	Capturada a digital. Tentativa [2] de [4]	5E05A0A6CBEB0704
+02/10/2022 08:29:06	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [52]	0EF76789990A7899
+02/10/2022 08:29:08	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	0BD061E859EB80E3
+02/10/2022 08:29:08	INFO	2122186	VOTA	Eleitor foi habilitado	45F47398D251C8FD
+02/10/2022 08:29:31	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	CE6A4B8AF91206BC
+02/10/2022 08:29:45	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	AFE76376D22FB76F
+02/10/2022 08:29:53	INFO	2122186	VOTA	Voto confirmado para [Senador]	6CC6130D739844DB
+02/10/2022 08:30:01	INFO	2122186	VOTA	Voto confirmado para [Governador]	B94E7EA8D05765A0
+02/10/2022 08:30:07	INFO	2122186	VOTA	Voto confirmado para [Presidente]	75E10A4A31B4DBF5
+02/10/2022 08:30:08	INFO	2122186	VOTA	O voto do eleitor foi computado	226F475208254A34
+02/10/2022 08:30:09	INFO	2122186	VOTA	Aguardando digitação do título	DA26C3FDDD4D2E11
+02/10/2022 08:31:06	INFO	2122186	VOTA	Título digitado pelo mesário	EC4467A8AD4DCA5A
+02/10/2022 08:31:07	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	EBD27526EC977AB0
+02/10/2022 08:31:12	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	ABAD8D518C56F860
+02/10/2022 08:31:12	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 7], Polegar Esquerdo [score 5], Indicador Direito [score 9], Indicador Esquerdo [score 4]	FA74350C1656FF44
+02/10/2022 08:31:14	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [1] de [4]	A38D6C1704E9CCD8
+02/10/2022 08:31:16	INFO	2122186	VOTA	Solicita digital. Tentativa [2] de [4]	9A6FFBC4A284D1ED
+02/10/2022 08:31:19	INFO	2122186	VOTA	Capturada a digital. Tentativa [2] de [4]	E91662CE7820FBBD
+02/10/2022 08:31:21	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [51]	06019B05812786E5
+02/10/2022 08:31:24	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	3C309D44608512C6
+02/10/2022 08:31:24	INFO	2122186	VOTA	Eleitor foi habilitado	23CF954EF253ECBD
+02/10/2022 08:31:57	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	8A64730F32249691
+02/10/2022 08:32:08	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	985EECC1673CECE7
+02/10/2022 08:32:16	INFO	2122186	VOTA	Tecla indevida pressionada	E7F043BD6CD19B67
+02/10/2022 08:32:22	INFO	2122186	VOTA	Voto confirmado para [Senador]	D902973AAA5FF0C7
+02/10/2022 08:32:33	INFO	2122186	VOTA	Voto confirmado para [Governador]	FE345FD896FE36C4
+02/10/2022 08:32:42	INFO	2122186	VOTA	Voto confirmado para [Presidente]	22A76C090A55AE9C
+02/10/2022 08:32:43	INFO	2122186	VOTA	O voto do eleitor foi computado	E527BBF675B2A98A
+02/10/2022 08:32:44	INFO	2122186	VOTA	Aguardando digitação do título	C68DC0B44153E39E
+02/10/2022 08:33:46	INFO	2122186	VOTA	Título digitado pelo mesário	CE1559E097CD3C02
+02/10/2022 08:33:49	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	959FBED0FF3E4411
+02/10/2022 08:33:52	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	90D32BECCD74BC4A
+02/10/2022 08:33:54	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [57]	A8D80B0206C2BBD1
+02/10/2022 08:33:57	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	1C13488C2C5977D2
+02/10/2022 08:33:57	INFO	2122186	VOTA	Eleitor foi habilitado	6FD8DF3F6D5FB106
+02/10/2022 08:34:40	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	9EC6161EA68CACCD
+02/10/2022 08:34:53	INFO	2122186	VOTA	Tecla indevida pressionada	EDDA6D8156BF441B
+02/10/2022 08:35:17	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	A3E555F9FAB60583
+02/10/2022 08:35:34	INFO	2122186	VOTA	Tecla indevida pressionada	FDDABE0DB619347F
+02/10/2022 08:35:47	INFO	2122186	VOTA	Voto confirmado para [Senador]	5F62CED15F01EC6F
+02/10/2022 08:35:56	INFO	2122186	VOTA	Voto confirmado para [Governador]	77E5E5332D90EC81
+02/10/2022 08:36:03	INFO	2122186	VOTA	Tecla indevida pressionada	981F330A6556BF5B
+02/10/2022 08:36:12	INFO	2122186	VOTA	Voto confirmado para [Presidente]	1B2405AFA9A88B51
+02/10/2022 08:36:12	INFO	2122186	VOTA	O voto do eleitor foi computado	41529180A0D2CD70
+02/10/2022 08:36:13	INFO	2122186	VOTA	Aguardando digitação do título	1B4225745E8C9775
+02/10/2022 08:37:26	INFO	2122186	VOTA	Título digitado pelo mesário	FC61E34EB461EB34
+02/10/2022 08:37:27	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	A28C60FA92644B52
+02/10/2022 08:37:35	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	F869A7F6375CCCA1
+02/10/2022 08:37:37	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [142]	EB2FFE8A59CB18D1
+02/10/2022 08:37:40	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	B50DC41C03D637F4
+02/10/2022 08:37:40	INFO	2122186	VOTA	Eleitor foi habilitado	09233D56F4B88F34
+02/10/2022 08:38:01	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	7AD9BCF5171B4EDD
+02/10/2022 08:38:13	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	08B1E2D2C0C42C36
+02/10/2022 08:38:22	INFO	2122186	VOTA	Voto confirmado para [Senador]	D4C1FBE13DF261B9
+02/10/2022 08:38:28	INFO	2122186	VOTA	Voto confirmado para [Governador]	1BEFFA39C0967000
+02/10/2022 08:38:34	INFO	2122186	VOTA	Voto confirmado para [Presidente]	973F59D8C4E55CD7
+02/10/2022 08:38:34	INFO	2122186	VOTA	O voto do eleitor foi computado	9839072503A522EF
+02/10/2022 08:38:35	INFO	2122186	VOTA	Aguardando digitação do título	DC2BDF6BC90588D4
+02/10/2022 08:39:41	INFO	2122186	VOTA	Título digitado pelo mesário	8CA44954C849FCE5
+02/10/2022 08:39:44	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	0ACD1D37CCAC7B0E
+02/10/2022 08:39:48	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	50B30CA08F12F3B9
+02/10/2022 08:39:49	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [40]	03D777AEFED3D209
+02/10/2022 08:39:53	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	4A5353C2B9009834
+02/10/2022 08:39:53	INFO	2122186	VOTA	Eleitor foi habilitado	7929955F5D8BAB4A
+02/10/2022 08:40:22	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	B5E6FF68B74EB8AC
+02/10/2022 08:40:39	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	9296E57764DC0122
+02/10/2022 08:40:48	INFO	2122186	VOTA	Voto confirmado para [Senador]	24D2DE29ED65ED0D
+02/10/2022 08:41:00	INFO	2122186	VOTA	Tecla indevida pressionada	99D59CE0618FFF97
+02/10/2022 08:41:09	INFO	2122186	VOTA	Tecla indevida pressionada	73E13357AF33F018
+02/10/2022 08:41:12	INFO	2122186	VOTA	Tecla indevida pressionada	876269C0E66C54D8
+02/10/2022 08:41:13	INFO	2122186	VOTA	Voto confirmado para [Governador]	4DC42DE24EE2F5B0
+02/10/2022 08:41:30	INFO	2122186	VOTA	Tecla indevida pressionada	79CA90E49BCEED7D
+02/10/2022 08:41:40	INFO	2122186	VOTA	Tecla indevida pressionada	0241B9EBE4DB85B8
+02/10/2022 08:41:46	INFO	2122186	VOTA	Tecla indevida pressionada	CA3F3E0DB8528349
+02/10/2022 08:42:00	INFO	2122186	VOTA	Tecla indevida pressionada	2CECB27DD77B00D1
+02/10/2022 08:42:18	INFO	2122186	VOTA	Tecla indevida pressionada	C9AB4E10C5463EDD
+02/10/2022 08:42:24	INFO	2122186	VOTA	Tecla indevida pressionada	37C0D8367228D26F
+02/10/2022 08:42:48	INFO	2122186	VOTA	Voto confirmado para [Presidente]	E946D769C0B675F1
+02/10/2022 08:42:49	INFO	2122186	VOTA	O voto do eleitor foi computado	E7223D3F33D2BB4E
+02/10/2022 08:42:50	INFO	2122186	VOTA	Aguardando digitação do título	7215DB852A8F17DB
+02/10/2022 08:44:08	INFO	2122186	VOTA	Título digitado pelo mesário	FABC383E25B00552
+02/10/2022 08:44:12	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	F1965194FDF1412C
+02/10/2022 08:44:20	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	BF495B1E9B9352B7
+02/10/2022 08:44:22	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar esquerdo - Score [27]	5B544001F1FB31A9
+02/10/2022 08:44:26	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	CD2CA625E4EA1B7B
+02/10/2022 08:44:26	INFO	2122186	VOTA	Eleitor foi habilitado	DB8683676F5D67D0
+02/10/2022 08:44:44	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	C553B6F73375D744
+02/10/2022 08:44:54	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	F43992E8232EE12A
+02/10/2022 08:45:00	INFO	2122186	VOTA	Voto confirmado para [Senador]	77AA8AF9E62A55ED
+02/10/2022 08:45:05	INFO	2122186	VOTA	Voto confirmado para [Governador]	DB52434679C755B8
+02/10/2022 08:45:09	INFO	2122186	VOTA	Voto confirmado para [Presidente]	20CBD2B8CCC05AC5
+02/10/2022 08:45:10	INFO	2122186	VOTA	O voto do eleitor foi computado	4E1352ADDE2FDBDD
+02/10/2022 08:45:11	INFO	2122186	VOTA	Aguardando digitação do título	9A25AF4DCD35236D
+02/10/2022 08:46:11	INFO	2122186	VOTA	Título digitado pelo mesário	B6992A540A1478FA
+02/10/2022 08:46:11	ALERTA	2122186	VOTA	Título inválido	DA712E6A970A0C5E
+02/10/2022 08:46:15	INFO	2122186	VOTA	Aguardando digitação do título	11B4BAB6E6B6DA16
+02/10/2022 08:46:30	INFO	2122186	VOTA	Título digitado pelo mesário	45B32AC80CD2FE84
+02/10/2022 08:46:33	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	DC8E8BFF95133622
+02/10/2022 08:46:37	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	764DB04609E321ED
+02/10/2022 08:46:39	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [21]	ED6D0CA64B2D07DE
+02/10/2022 08:46:42	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	939A3C9D1701D7C6
+02/10/2022 08:46:42	INFO	2122186	VOTA	Eleitor foi habilitado	49251071F30BFBC5
+02/10/2022 08:47:03	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	012E916BFF5A9D25
+02/10/2022 08:47:19	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	34E89DB770FD2583
+02/10/2022 08:47:29	INFO	2122186	VOTA	Voto confirmado para [Senador]	53FD54095639BA82
+02/10/2022 08:47:38	INFO	2122186	VOTA	Voto confirmado para [Governador]	635443948D9B0AB2
+02/10/2022 08:47:43	INFO	2122186	VOTA	Voto confirmado para [Presidente]	BE8C669CFEF29037
+02/10/2022 08:47:44	INFO	2122186	VOTA	O voto do eleitor foi computado	7562DF4C524718F6
+02/10/2022 08:47:45	INFO	2122186	VOTA	Aguardando digitação do título	6C29399B1A31DF01
+02/10/2022 08:49:15	INFO	2122186	VOTA	Título digitado pelo mesário	4C48700F4055F3CE
+02/10/2022 08:49:25	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	F2E24FA10C5E5037
+02/10/2022 08:49:34	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	EC573453DC1FBAEB
+02/10/2022 08:49:36	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [80]	7556DD13B59AC597
+02/10/2022 08:49:40	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	1540C842ADAA4731
+02/10/2022 08:49:40	INFO	2122186	VOTA	Eleitor foi habilitado	DC67D4F4C7C9669F
+02/10/2022 08:49:58	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	41E9C76EDA131078
+02/10/2022 08:50:08	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	F6056FF8B0159D1B
+02/10/2022 08:50:12	INFO	2122186	VOTA	Tecla indevida pressionada	C478F4846A3E4CC2
+02/10/2022 08:50:24	INFO	2122186	VOTA	Voto confirmado para [Senador]	43DD5980780BDB72
+02/10/2022 08:50:31	INFO	2122186	VOTA	Voto confirmado para [Governador]	A27C2085953F970E
+02/10/2022 08:50:51	INFO	2122186	VOTA	Voto confirmado para [Presidente]	906787B523CA17AA
+02/10/2022 08:50:52	INFO	2122186	VOTA	O voto do eleitor foi computado	C2B3AC08E4DADA49
+02/10/2022 08:50:53	INFO	2122186	VOTA	Aguardando digitação do título	794928E9EC8C7D2E
+02/10/2022 08:52:34	INFO	2122186	VOTA	Título digitado pelo mesário	03CAFC64D168BE65
+02/10/2022 08:52:36	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	9A526C8078286A36
+02/10/2022 08:52:41	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	DC21CD2E6A15C57F
+02/10/2022 08:52:43	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [29]	174BC4FE07AA760C
+02/10/2022 08:52:46	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	CF93EC16E2F52913
+02/10/2022 08:52:46	INFO	2122186	VOTA	Eleitor foi habilitado	7AC6A04FC230D53D
+02/10/2022 08:53:10	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	607C4A67527AB460
+02/10/2022 08:53:20	INFO	2122186	VOTA	Tecla indevida pressionada	9ED260CE90AA45DA
+02/10/2022 08:53:26	INFO	2122186	VOTA	Tecla indevida pressionada	1E7FE68D52EDEF83
+02/10/2022 08:53:27	INFO	2122186	VOTA	Tecla indevida pressionada	8D0F0CD753A4FBBF
+02/10/2022 08:53:28	INFO	2122186	VOTA	Tecla indevida pressionada	858EB374379E740F
+02/10/2022 08:53:29	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	BB8733D0F309F20D
+02/10/2022 08:53:35	INFO	2122186	VOTA	Tecla indevida pressionada	48BD23EE1AD27543
+02/10/2022 08:53:46	INFO	2122186	VOTA	Tecla indevida pressionada	6151FF3C8B044FB2
+02/10/2022 08:53:48	INFO	2122186	VOTA	Voto confirmado para [Senador]	DDC6FFCBDE7AE558
+02/10/2022 08:54:14	INFO	2122186	VOTA	Voto confirmado para [Governador]	41377C6DBE31AB83
+02/10/2022 08:54:20	INFO	2122186	VOTA	Tecla indevida pressionada	C3F96279C6E5BBFB
+02/10/2022 08:54:25	INFO	2122186	VOTA	Voto confirmado para [Presidente]	8E683F8CAE9E0C8B
+02/10/2022 08:54:25	INFO	2122186	VOTA	O voto do eleitor foi computado	D7D5267F212CA59B
+02/10/2022 08:54:26	INFO	2122186	VOTA	Aguardando digitação do título	B776E10E3C6C3D89
+02/10/2022 08:55:33	INFO	2122186	VOTA	Título digitado pelo mesário	CDE4D2E17F919065
+02/10/2022 08:55:36	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	3CA195DFF3A5ED52
+02/10/2022 08:55:41	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	4BEE32274AB40B36
+02/10/2022 08:55:43	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [38]	FA3AD91A34ABF4E0
+02/10/2022 08:55:46	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	C6A03A9936E09AE8
+02/10/2022 08:55:46	INFO	2122186	VOTA	Eleitor foi habilitado	4474F1CB18FAB17D
+02/10/2022 08:56:00	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	FC2E668466BD4447
+02/10/2022 08:56:09	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	59C68A70ED52E704
+02/10/2022 08:56:15	INFO	2122186	VOTA	Voto confirmado para [Senador]	7435D7C7A1CFCAAF
+02/10/2022 08:56:21	INFO	2122186	VOTA	Voto confirmado para [Governador]	BD67591B97B3618E
+02/10/2022 08:56:26	INFO	2122186	VOTA	Voto confirmado para [Presidente]	F7580A1EBAC769CC
+02/10/2022 08:56:26	INFO	2122186	VOTA	O voto do eleitor foi computado	D13D7C74A8C480E4
+02/10/2022 08:56:27	INFO	2122186	VOTA	Aguardando digitação do título	035A305E32B9F065
+02/10/2022 08:57:33	INFO	2122186	VOTA	Título digitado pelo mesário	D2F2F74666D40F8A
+02/10/2022 08:57:35	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	5230D20DB65ED47F
+02/10/2022 08:57:39	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	09F8DF73296E8443
+02/10/2022 08:57:41	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [32]	B5C68204FBD30CA5
+02/10/2022 08:57:46	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	F752BB20E9C9A8C4
+02/10/2022 08:57:46	INFO	2122186	VOTA	Eleitor foi habilitado	6C2A1B15A7D24786
+02/10/2022 08:58:07	INFO	2122186	VOTA	Eleitor corrigiu na tela de confirmação de candidato	BEFD29C35F594F2B
+02/10/2022 08:58:23	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	E3FB35B3699612AF
+02/10/2022 08:58:33	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	C953311C01465D90
+02/10/2022 08:58:40	INFO	2122186	VOTA	Voto confirmado para [Senador]	BD79468E5936D0F6
+02/10/2022 08:58:44	INFO	2122186	VOTA	Voto confirmado para [Governador]	49F58CC2712E68D7
+02/10/2022 08:58:51	INFO	2122186	VOTA	Voto confirmado para [Presidente]	C1DEDF47D1DC6EE3
+02/10/2022 08:58:51	INFO	2122186	VOTA	O voto do eleitor foi computado	0A042EDD455FFDB3
+02/10/2022 08:58:52	INFO	2122186	VOTA	Aguardando digitação do título	0710BC850A42E90D
+02/10/2022 08:59:57	INFO	2122186	VOTA	Título digitado pelo mesário	3AD66D160408546F
+02/10/2022 08:59:59	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	571700D38A0DA4AC
+02/10/2022 09:00:03	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	0753E4741E15FFAF
+02/10/2022 09:00:04	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 9], Polegar Esquerdo [score 3], Indicador Direito [score 6], Indicador Esquerdo [score 7]	C1F1A198B004D890
+02/10/2022 09:00:05	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [1] de [4]	C8EDBF6EDECA7351
+02/10/2022 09:00:11	INFO	2122186	VOTA	Solicita digital. Tentativa [2] de [4]	3448231F46EB67B3
+02/10/2022 09:00:14	INFO	2122186	VOTA	Capturada a digital. Tentativa [2] de [4]	572AE800E3BD92D4
+02/10/2022 09:00:14	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 5], Polegar Esquerdo [score 4], Indicador Direito [score 5], Indicador Esquerdo [score 4]	D7F0D0A4700EF7B4
+02/10/2022 09:00:16	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [2] de [4]	41D957F83AA74E84
+02/10/2022 09:00:23	INFO	2122186	VOTA	Solicita digital. Tentativa [3] de [4]	03C9587B32721AB9
+02/10/2022 09:00:25	INFO	2122186	VOTA	Capturada a digital. Tentativa [3] de [4]	5873130C86A770C4
+02/10/2022 09:00:25	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 4], Polegar Esquerdo [score 4], Indicador Direito [score 13], Indicador Esquerdo [score 3]	21F7B1CE560C8B35
+02/10/2022 09:00:27	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [3] de [4]	2719313C2077D46A
+02/10/2022 09:00:31	INFO	2122186	VOTA	Solicita digital. Tentativa [4] de [4]	63228790134AB7A2
+02/10/2022 09:00:37	INFO	2122186	VOTA	Capturada a digital. Tentativa [4] de [4]	26C1F9E2DA36C409
+02/10/2022 09:00:37	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 6], Polegar Esquerdo [score 6], Indicador Direito [score 4], Indicador Esquerdo [score 4]	14879000BECE57C8
+02/10/2022 09:00:38	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [4] de [4]	8F1F06587752C626
+02/10/2022 09:00:48	INFO	2122186	VOTA	Solicitação de dado pessoal do eleitor para habilitação manual	3A12956007914084
+02/10/2022 09:01:03	INFO	2122186	VOTA	Solicita digital do mesário	DA9BD0BAE7F4213D
+02/10/2022 09:01:22	INFO	2122186	VOTA	Solicita digital do mesário	330663AB7FB233E6
+02/10/2022 09:01:32	INFO	2122186	VOTA	Biometria coletada não é do mesário 247886180116 (999999)	6CE16FC4B8A08E73
+02/10/2022 09:01:32	INFO	2122186	VOTA	Batimento de digitais retornou o score 0	53E98B41DE8D9A59
+02/10/2022 09:01:32	INFO	2122186	VOTA	Biometria coletada não é do mesário 072161250167 (700627)	CF08E0E4478AD803
+02/10/2022 09:01:33	INFO	2122186	VOTA	Batimento de digitais retornou o score 5	47A8CCB6B8114C36
+02/10/2022 09:01:33	INFO	2122186	VOTA	Biometria coletada não é do mesário 247928370124 (554268)	D461FD87F9A1D6E6
+02/10/2022 09:01:33	INFO	2122186	VOTA	Batimento de digitais retornou o score 4	583D04B8364DF189
+02/10/2022 09:01:33	INFO	2122186	VOTA	Biometria coletada não é do mesário 358072860175 (552984)	47A6738936335743
+02/10/2022 09:01:33	INFO	2122186	VOTA	Não encontrou digital coletada em nenhum dos arquivos, vai salvar a digital em novo arquivo.	73DBD395D248B6AC
+02/10/2022 09:01:33	INFO	2122186	VOTA	Capturada a digital do mesário	A1A58F099D643E83
+02/10/2022 09:01:37	INFO	2122186	VOTA	Eleitor foi habilitado	8219A2D8D2388ACB
+02/10/2022 09:01:51	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	527BADC0AAA038CF
+02/10/2022 09:02:00	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	42BD1FCF2A68C269
+02/10/2022 09:02:06	INFO	2122186	VOTA	Voto confirmado para [Senador]	68973999C282B4A4
+02/10/2022 09:02:11	INFO	2122186	VOTA	Tecla indevida pressionada	0F77097C46F0C4DC
+02/10/2022 09:02:14	INFO	2122186	VOTA	Voto confirmado para [Governador]	B424B6DDF8FD2353
+02/10/2022 09:02:18	INFO	2122186	VOTA	Tecla indevida pressionada	B5F66362933B0FDB
+02/10/2022 09:02:21	INFO	2122186	VOTA	Voto confirmado para [Presidente]	977168150F906FC2
+02/10/2022 09:02:21	INFO	2122186	VOTA	O voto do eleitor foi computado	B646100629AD8147
+02/10/2022 09:02:23	INFO	2122186	VOTA	Aguardando digitação do título	1524F08328164B8B
+02/10/2022 09:04:15	INFO	2122186	VOTA	Título digitado pelo mesário	255EDC8DD110BB45
+02/10/2022 09:04:16	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	12642875F4CD61D5
+02/10/2022 09:04:21	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	B33EA59B1C2D2386
+02/10/2022 09:04:22	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [101]	6B2DC6CDA9389B15
+02/10/2022 09:04:25	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	66AF8AC467AE42B9
+02/10/2022 09:04:25	INFO	2122186	VOTA	Eleitor foi habilitado	ED8707E987A2E1DD
+02/10/2022 09:04:39	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	823820581CB271B9
+02/10/2022 09:04:46	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	A63DFC6CD222C8D7
+02/10/2022 09:04:51	INFO	2122186	VOTA	Voto confirmado para [Senador]	8547E1BAD018C31B
+02/10/2022 09:04:55	INFO	2122186	VOTA	Voto confirmado para [Governador]	067D1E7679451EBB
+02/10/2022 09:04:59	INFO	2122186	VOTA	Voto confirmado para [Presidente]	6A36273AD4DDD1D4
+02/10/2022 09:05:00	INFO	2122186	VOTA	O voto do eleitor foi computado	229391F792C91437
+02/10/2022 09:05:01	INFO	2122186	VOTA	Aguardando digitação do título	CCFC05E752183DDD
+02/10/2022 09:06:02	INFO	2122186	VOTA	Inspeção da urna iniciada	BC99CE3E12FD42F8
+02/10/2022 09:06:28	INFO	2122186	VOTA	Inspeção da urna confirmada	DDD62CEF5B174D1F
+02/10/2022 09:06:37	INFO	2122186	VOTA	Aguardando digitação do título	814F7EAE8E6EA41A
+02/10/2022 09:06:37	INFO	2122186	VOTA	Inspeção da urna terminada	3D601FA6B6D01731
+02/10/2022 09:07:04	INFO	2122186	VOTA	Título digitado pelo mesário	121C0720C8FA6CB6
+02/10/2022 09:07:06	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	03C77DE86B0EFEB6
+02/10/2022 09:07:15	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	8809C04AE363885C
+02/10/2022 09:07:17	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [22]	FF40A3E3DAE529AE
+02/10/2022 09:07:20	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	100AAA1BCDE936ED
+02/10/2022 09:07:20	INFO	2122186	VOTA	Eleitor foi habilitado	AC4AF5EA3392C629
+02/10/2022 09:07:39	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	34AC2A646C0CF6B3
+02/10/2022 09:07:55	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	A5903A2895DDED32
+02/10/2022 09:08:13	INFO	2122186	VOTA	Voto confirmado para [Senador]	56107D7F04471395
+02/10/2022 09:08:23	INFO	2122186	VOTA	Voto confirmado para [Governador]	9ABCA3101FBB5DB3
+02/10/2022 09:08:30	INFO	2122186	VOTA	Voto confirmado para [Presidente]	5DC0560279EF162F
+02/10/2022 09:08:30	INFO	2122186	VOTA	O voto do eleitor foi computado	E7784382BEF571B8
+02/10/2022 09:08:32	INFO	2122186	VOTA	Aguardando digitação do título	BC7B3764F072C235
+02/10/2022 09:09:37	INFO	2122186	VOTA	Título digitado pelo mesário	F2BC8757F1F14AE4
+02/10/2022 09:09:39	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	1A3B273737B05CDE
+02/10/2022 09:09:42	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	A760B27BA109B5C4
+02/10/2022 09:09:44	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [37]	DABBCE32C95CCC55
+02/10/2022 09:09:46	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	566BB92AB114DFD2
+02/10/2022 09:09:46	INFO	2122186	VOTA	Eleitor foi habilitado	EE6D9D75B5039960
+02/10/2022 09:10:06	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	8E691FD394C5D1E9
+02/10/2022 09:10:15	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	E355D4AB8C76213D
+02/10/2022 09:10:23	INFO	2122186	VOTA	Voto confirmado para [Senador]	8AE7D49CDC4EAAF0
+02/10/2022 09:10:31	INFO	2122186	VOTA	Voto confirmado para [Governador]	C7CE165922D1D1DA
+02/10/2022 09:10:39	INFO	2122186	VOTA	Voto confirmado para [Presidente]	DBA49ED61F3CCECE
+02/10/2022 09:10:39	INFO	2122186	VOTA	O voto do eleitor foi computado	37B92CECF31F911A
+02/10/2022 09:10:41	INFO	2122186	VOTA	Aguardando digitação do título	487994A82E4C5FD9
+02/10/2022 09:11:04	INFO	2122186	VOTA	Título digitado pelo mesário	EA793B6BA7B5A0EA
+02/10/2022 09:11:06	ALERTA	2122186	VOTA	O eleitor não possui biometria	D7BF707514C301D9
+02/10/2022 09:11:15	INFO	2122186	VOTA	Eleitor foi habilitado	295C979B5077683E
+02/10/2022 09:11:50	INFO	2122186	VOTA	Tecla indevida pressionada	F2DD1B6260EDD7E5
+02/10/2022 09:11:55	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	8FD9CAD4B8EF6A8E
+02/10/2022 09:12:14	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	32A68B8EC9D3921D
+02/10/2022 09:12:24	INFO	2122186	VOTA	Voto confirmado para [Senador]	ECA4B9F3999ABF8F
+02/10/2022 09:12:31	INFO	2122186	VOTA	Voto confirmado para [Governador]	A318538AF02A731D
+02/10/2022 09:12:37	INFO	2122186	VOTA	Voto confirmado para [Presidente]	CFFE1FE1F4E11419
+02/10/2022 09:12:38	INFO	2122186	VOTA	O voto do eleitor foi computado	0FB074A298C947E6
+02/10/2022 09:12:39	INFO	2122186	VOTA	Aguardando digitação do título	5474AB1A049FB19E
+02/10/2022 09:13:35	INFO	2122186	VOTA	Título digitado pelo mesário	4380233DED9C45EB
+02/10/2022 09:13:37	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	F06AC53AFFB35BB7
+02/10/2022 09:13:41	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	37AA69383E393385
+02/10/2022 09:13:43	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [72]	2236AAEE415CDCE0
+02/10/2022 09:13:50	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	39BE0427247FEC46
+02/10/2022 09:13:50	INFO	2122186	VOTA	Eleitor foi habilitado	AD9446454078C108
+02/10/2022 09:13:58	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	7723C89A25DB6287
+02/10/2022 09:14:05	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	F77CD225E68BCE11
+02/10/2022 09:14:10	INFO	2122186	VOTA	Voto confirmado para [Senador]	2E5D3806E3297C2D
+02/10/2022 09:14:14	INFO	2122186	VOTA	Voto confirmado para [Governador]	6F299B851083983D
+02/10/2022 09:14:19	INFO	2122186	VOTA	Voto confirmado para [Presidente]	4BCB87F7C8360D55
+02/10/2022 09:14:19	INFO	2122186	VOTA	O voto do eleitor foi computado	D02B3CBEB573ABC2
+02/10/2022 09:14:20	INFO	2122186	VOTA	Aguardando digitação do título	64C04BFB08E4B265
+02/10/2022 09:15:20	INFO	2122186	VOTA	Título digitado pelo mesário	273146D7FECD314C
+02/10/2022 09:15:27	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	DA21D148A9C8D9DF
+02/10/2022 09:15:38	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	EF433A41A0EA4C99
+02/10/2022 09:15:40	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [23]	3695DDF823C5F8E0
+02/10/2022 09:15:42	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	4977ABDEEDEF042E
+02/10/2022 09:15:42	INFO	2122186	VOTA	Eleitor foi habilitado	928AEE5F30CE87A4
+02/10/2022 09:16:03	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	8CBCD476B49719E9
+02/10/2022 09:16:13	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	F0D2C1150F507BD3
+02/10/2022 09:16:21	INFO	2122186	VOTA	Voto confirmado para [Senador]	4B022F98638B182D
+02/10/2022 09:16:32	INFO	2122186	VOTA	Voto confirmado para [Governador]	300BBA15344ECB31
+02/10/2022 09:16:42	INFO	2122186	VOTA	Voto confirmado para [Presidente]	E817F089A9323527
+02/10/2022 09:16:42	INFO	2122186	VOTA	O voto do eleitor foi computado	B0E24CC734D14338
+02/10/2022 09:16:44	INFO	2122186	VOTA	Aguardando digitação do título	9074C3F3AE7E496C
+02/10/2022 09:16:58	INFO	2122186	VOTA	Título digitado pelo mesário	F808254FBBFB5305
+02/10/2022 09:17:01	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	2437D9128D2EB491
+02/10/2022 09:17:06	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	A65DE31AD971EB38
+02/10/2022 09:17:07	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador esquerdo - Score [52]	F827A9A1666F87B6
+02/10/2022 09:17:10	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	4FD3B0A98DF06C6D
+02/10/2022 09:17:10	INFO	2122186	VOTA	Eleitor foi habilitado	BAFE914C4C5781A7
+02/10/2022 09:17:28	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	BBDF9E8DD4EDDD2A
+02/10/2022 09:17:36	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	226FFC78A2555768
+02/10/2022 09:17:43	INFO	2122186	VOTA	Voto confirmado para [Senador]	0A4C28FDB19C51D8
+02/10/2022 09:17:49	INFO	2122186	VOTA	Voto confirmado para [Governador]	89E04BD10913CDEB
+02/10/2022 09:17:54	INFO	2122186	VOTA	Voto confirmado para [Presidente]	940C8E3336D066C1
+02/10/2022 09:17:55	INFO	2122186	VOTA	O voto do eleitor foi computado	4FAB3A5503033646
+02/10/2022 09:17:56	INFO	2122186	VOTA	Aguardando digitação do título	F53341CBD9F32811
+02/10/2022 09:18:19	INFO	2122186	VOTA	Título digitado pelo mesário	CE38910F58FB1B87
+02/10/2022 09:18:21	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	02A60EB7F8314DB6
+02/10/2022 09:18:27	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	7CCBE14A038D7CE8
+02/10/2022 09:18:27	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 5], Polegar Esquerdo [score 8], Indicador Direito [score 7], Indicador Esquerdo [score 4]	4A3F3041C03821A0
+02/10/2022 09:18:29	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [1] de [4]	8B857C62392D0CDC
+02/10/2022 09:18:36	INFO	2122186	VOTA	Solicita digital. Tentativa [2] de [4]	4E9EEFCE32D15776
+02/10/2022 09:18:40	INFO	2122186	VOTA	Capturada a digital. Tentativa [2] de [4]	B09F472F033F1748
+02/10/2022 09:18:40	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 6], Polegar Esquerdo [score 5], Indicador Direito [score 7], Indicador Esquerdo [score 9]	59F94D4036102ACD
+02/10/2022 09:18:42	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [2] de [4]	87F1755F760EC633
+02/10/2022 09:18:48	INFO	2122186	VOTA	Solicita digital. Tentativa [3] de [4]	0DE08FD883845A2D
+02/10/2022 09:18:50	INFO	2122186	VOTA	Capturada a digital. Tentativa [3] de [4]	A847D8E374BF0DB1
+02/10/2022 09:18:50	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 6], Polegar Esquerdo [score 5], Indicador Direito [score 6], Indicador Esquerdo [score 3]	24875595CA52B2AC
+02/10/2022 09:18:52	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [3] de [4]	33CEE7DE32A70935
+02/10/2022 09:18:54	INFO	2122186	VOTA	Solicita digital. Tentativa [4] de [4]	A8134C36283DFCF9
+02/10/2022 09:18:58	INFO	2122186	VOTA	Capturada a digital. Tentativa [4] de [4]	FC0563DC791EC81A
+02/10/2022 09:18:58	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 6], Polegar Esquerdo [score 5], Indicador Direito [score 7], Indicador Esquerdo [score 8]	D9E3668685E0B4D1
+02/10/2022 09:19:00	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [4] de [4]	BC22DBE80C50F004
+02/10/2022 09:19:02	INFO	2122186	VOTA	Solicitação de dado pessoal do eleitor para habilitação manual	6450915A3967B2FA
+02/10/2022 09:19:09	INFO	2122186	VOTA	Solicita digital do mesário	3BE1E3DB284B4739
+02/10/2022 09:19:18	INFO	2122186	VOTA	Biometria coletada não é do mesário 247886180116 (999999)	2EF701289EE576A7
+02/10/2022 09:19:18	INFO	2122186	VOTA	Batimento de digitais retornou o score 3	EA00489EC6002C09
+02/10/2022 09:19:18	INFO	2122186	VOTA	Biometria coletada não é do mesário 072161250167 (700627)	9ECD87B44367F4B1
+02/10/2022 09:19:19	INFO	2122186	VOTA	Batimento de digitais retornou o score 3	6A6720396A11A5B8
+02/10/2022 09:19:19	INFO	2122186	VOTA	Biometria coletada não é do mesário 247928370124 (554268)	5D429604B92EEE84
+02/10/2022 09:19:19	INFO	2122186	VOTA	Batimento de digitais retornou o score 5	AD2776912AE5ABA3
+02/10/2022 09:19:19	INFO	2122186	VOTA	Biometria coletada não é do mesário 358072860175 (552984)	E21A92F1EB815767
+02/10/2022 09:19:19	INFO	2122186	VOTA	Digital coletada bate com uma digital gravada após o registro inicial de mesário. Não é possível associar a habilitação a um mesário.	ADCF201D479CEB7A
+02/10/2022 09:19:19	INFO	2122186	VOTA	Capturada a digital do mesário	F28E53727D5C9E83
+02/10/2022 09:19:23	INFO	2122186	VOTA	Eleitor foi habilitado	660DAA0F296449BC
+02/10/2022 09:20:00	INFO	2122186	VOTA	Tecla indevida pressionada	8A36CA8CB3D3C3CD
+02/10/2022 09:20:03	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	1CF39413F23F9CF5
+02/10/2022 09:20:38	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	8CEC1A51FD73B668
+02/10/2022 09:20:48	INFO	2122186	VOTA	Voto confirmado para [Senador]	09FBA00D4051390B
+02/10/2022 09:20:55	INFO	2122186	VOTA	Voto confirmado para [Governador]	04A91412E9382B44
+02/10/2022 09:21:01	INFO	2122186	VOTA	Voto confirmado para [Presidente]	482C5DB3011A25D7
+02/10/2022 09:21:02	INFO	2122186	VOTA	O voto do eleitor foi computado	0574A25E04FAE86A
+02/10/2022 09:21:03	INFO	2122186	VOTA	Aguardando digitação do título	6381B34BA1FCA9A4
+02/10/2022 09:21:21	INFO	2122186	VOTA	Título digitado pelo mesário	E41BD41E5102461C
+02/10/2022 09:21:22	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	1B2198ADD30E23DD
+02/10/2022 09:21:32	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	89C0D43714C2A199
+02/10/2022 09:21:34	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [56]	B01B8BDE5CFF5D0A
+02/10/2022 09:21:36	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	3BE203E41FADD5B1
+02/10/2022 09:21:36	INFO	2122186	VOTA	Eleitor foi habilitado	87149E72148F1BC7
+02/10/2022 09:21:58	INFO	2122186	VOTA	Tecla indevida pressionada	8B96FA5F3155E881
+02/10/2022 09:22:01	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	4DB7588F89C81E1C
+02/10/2022 09:22:10	INFO	2122186	VOTA	Tecla indevida pressionada	E5BBB79445B8C6F0
+02/10/2022 09:22:11	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	BA4F5BFD4BD2BA6F
+02/10/2022 09:22:17	INFO	2122186	VOTA	Voto confirmado para [Senador]	C53EA355A27A89A1
+02/10/2022 09:22:23	INFO	2122186	VOTA	Voto confirmado para [Governador]	CCB8651205A5A44E
+02/10/2022 09:22:28	INFO	2122186	VOTA	Tecla indevida pressionada	B2DD0236954C26C3
+02/10/2022 09:22:28	INFO	2122186	VOTA	Voto confirmado para [Presidente]	E024BEC8C797E0F1
+02/10/2022 09:22:29	INFO	2122186	VOTA	O voto do eleitor foi computado	3BDDA3A4DFAC3716
+02/10/2022 09:22:30	INFO	2122186	VOTA	Aguardando digitação do título	E2CBE0A27A963951
+02/10/2022 09:23:08	INFO	2122186	VOTA	Título digitado pelo mesário	834C9769B47F13A9
+02/10/2022 09:23:10	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	9AE7D318FF610ED7
+02/10/2022 09:23:13	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	D87B416025E68FCF
+02/10/2022 09:23:15	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [123]	2C9EC7CFF2690893
+02/10/2022 09:23:18	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	F1BEC0995BB3452F
+02/10/2022 09:23:18	INFO	2122186	VOTA	Eleitor foi habilitado	7948ACC0A13DC80E
+02/10/2022 09:23:31	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	870BCC697E4BE666
+02/10/2022 09:23:36	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	4F244E5C2FD2339E
+02/10/2022 09:23:42	INFO	2122186	VOTA	Voto confirmado para [Senador]	3CE7CD365D6B0CFF
+02/10/2022 09:23:47	INFO	2122186	VOTA	Voto confirmado para [Governador]	FF68591FF482C024
+02/10/2022 09:23:51	INFO	2122186	VOTA	Voto confirmado para [Presidente]	10FF05ED676E2832
+02/10/2022 09:23:51	INFO	2122186	VOTA	O voto do eleitor foi computado	AE9FDAE3800C1A67
+02/10/2022 09:23:52	INFO	2122186	VOTA	Aguardando digitação do título	3C90F6B23D65B18E
+02/10/2022 09:24:17	INFO	2122186	VOTA	Título digitado pelo mesário	CC31F5DE9D9BF3D9
+02/10/2022 09:24:19	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	921B2CEEFF909ACC
+02/10/2022 09:24:50	INFO	2122186	VOTA	Timeout de reconhecimento do dedo. Tentativa [1] de [4]	25A29190621AD5E7
+02/10/2022 09:24:56	INFO	2122186	VOTA	Solicita digital. Tentativa [2] de [4]	22F2915F29C74831
+02/10/2022 09:25:02	INFO	2122186	VOTA	Capturada a digital. Tentativa [2] de [4]	673569D253CE6B37
+02/10/2022 09:25:04	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [25]	1141D0D3D9577439
+02/10/2022 09:25:08	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	16349050BDF7EDF6
+02/10/2022 09:25:08	INFO	2122186	VOTA	Eleitor foi habilitado	19EE6DF14C67F633
+02/10/2022 09:25:30	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	FD8E8D7199C5A9D6
+02/10/2022 09:25:41	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	01B44DCD68717994
+02/10/2022 09:25:50	INFO	2122186	VOTA	Voto confirmado para [Senador]	F0E9CEB81D439F54
+02/10/2022 09:25:59	INFO	2122186	VOTA	Voto confirmado para [Governador]	EE0A311EA8089715
+02/10/2022 09:26:06	INFO	2122186	VOTA	Voto confirmado para [Presidente]	B001E2F5A95BC7BE
+02/10/2022 09:26:06	INFO	2122186	VOTA	O voto do eleitor foi computado	1E1F2EB7C02700AE
+02/10/2022 09:26:08	INFO	2122186	VOTA	Aguardando digitação do título	2FB7538FC837DC61
+02/10/2022 09:26:26	INFO	2122186	VOTA	Título digitado pelo mesário	DE9DF2375D462063
+02/10/2022 09:26:28	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	82DE63B25FE87730
+02/10/2022 09:26:32	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	5C05B7DE40FE6AA7
+02/10/2022 09:26:32	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 13], Polegar Esquerdo [score 11], Indicador Direito [score 11], Indicador Esquerdo [score 12]	1778AE779C3AF92D
+02/10/2022 09:26:34	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [1] de [4]	52AA1A2B26A4F4A8
+02/10/2022 09:26:36	INFO	2122186	VOTA	Solicita digital. Tentativa [2] de [4]	B20D263DF6A37003
+02/10/2022 09:26:42	INFO	2122186	VOTA	Capturada a digital. Tentativa [2] de [4]	0FF97F7D9CC0058B
+02/10/2022 09:26:43	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 11], Polegar Esquerdo [score 10], Indicador Direito [score 13], Indicador Esquerdo [score 9]	78753C318679C2A8
+02/10/2022 09:26:44	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [2] de [4]	7440D973E60488D5
+02/10/2022 09:26:47	INFO	2122186	VOTA	Solicita digital. Tentativa [3] de [4]	4B8E8B27B0D82E71
+02/10/2022 09:26:52	INFO	2122186	VOTA	Capturada a digital. Tentativa [3] de [4]	A1D17029B04ADA27
+02/10/2022 09:26:52	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 13], Polegar Esquerdo [score 15], Indicador Direito [score 13], Indicador Esquerdo [score 15]	E0149A71683E2908
+02/10/2022 09:26:54	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [3] de [4]	AD734E719A5060AA
+02/10/2022 09:26:57	INFO	2122186	VOTA	Solicita digital. Tentativa [4] de [4]	F7597C3B11CEEB8A
+02/10/2022 09:27:02	INFO	2122186	VOTA	Capturada a digital. Tentativa [4] de [4]	521835C7F256062D
+02/10/2022 09:27:04	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [20]	1B186938D6B844BE
+02/10/2022 09:27:07	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	BF52D7F8048AB5E8
+02/10/2022 09:27:07	INFO	2122186	VOTA	Eleitor foi habilitado	99BC4E5BEBA66800
+02/10/2022 09:27:30	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	CE43596D2BF427BA
+02/10/2022 09:27:45	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	9085EFC4E3552D95
+02/10/2022 09:27:54	INFO	2122186	VOTA	Voto confirmado para [Senador]	5A7CB207C736CBAC
+02/10/2022 09:28:05	INFO	2122186	VOTA	Voto confirmado para [Governador]	7F1AFCA253287A44
+02/10/2022 09:28:13	INFO	2122186	VOTA	Voto confirmado para [Presidente]	DE8C387B47D1828B
+02/10/2022 09:28:14	INFO	2122186	VOTA	O voto do eleitor foi computado	9EBD2A25AEC68E3F
+02/10/2022 09:28:15	INFO	2122186	VOTA	Aguardando digitação do título	2BF8A3A689F7A653
+02/10/2022 09:28:36	INFO	2122186	VOTA	Título digitado pelo mesário	544331B5F0229D47
+02/10/2022 09:28:37	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	CEC2DA76BD5D64E2
+02/10/2022 09:28:42	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	D664FDE9BA3D0DCB
+02/10/2022 09:28:44	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [24]	65FB09DD3B81DC9D
+02/10/2022 09:28:46	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	F546C99981D622AF
+02/10/2022 09:28:46	INFO	2122186	VOTA	Eleitor foi habilitado	0C436C3CB9520F4E
+02/10/2022 09:28:58	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	D1C21A9EAA082EEE
+02/10/2022 09:29:08	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	A0E24CD9F83065E0
+02/10/2022 09:29:14	INFO	2122186	VOTA	Tecla indevida pressionada	2C22252D2981DABA
+02/10/2022 09:29:16	INFO	2122186	VOTA	Voto confirmado para [Senador]	BFCA225D75A1FC71
+02/10/2022 09:29:34	INFO	2122186	VOTA	Voto confirmado para [Governador]	21BA4567F270979D
+02/10/2022 09:30:06	INFO	2122186	VOTA	Voto confirmado para [Presidente]	7C6E3DCBF60C1C45
+02/10/2022 09:30:06	INFO	2122186	VOTA	O voto do eleitor foi computado	DCEE50B9C1BFC9E6
+02/10/2022 09:30:07	INFO	2122186	VOTA	Aguardando digitação do título	29EAA4121F57E0A8
+02/10/2022 09:30:30	INFO	2122186	VOTA	Título digitado pelo mesário	8581263DC3C0F431
+02/10/2022 09:30:31	ALERTA	2122186	VOTA	O eleitor não possui biometria	E422909D9B01745A
+02/10/2022 09:30:43	INFO	2122186	VOTA	Eleitor foi habilitado	C3D1205599E8EAE4
+02/10/2022 09:31:02	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	307C7335F27AA0C4
+02/10/2022 09:31:15	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	CE55343165F2E520
+02/10/2022 09:31:23	INFO	2122186	VOTA	Voto confirmado para [Senador]	78D68F32C0AEE8B3
+02/10/2022 09:31:30	INFO	2122186	VOTA	Voto confirmado para [Governador]	3B698575CA50B7E6
+02/10/2022 09:31:36	INFO	2122186	VOTA	Voto confirmado para [Presidente]	730DC5C8A76452F0
+02/10/2022 09:31:37	INFO	2122186	VOTA	O voto do eleitor foi computado	CD55A282BDF1CF19
+02/10/2022 09:31:38	INFO	2122186	VOTA	Aguardando digitação do título	745BA9B2412091A8
+02/10/2022 09:32:42	INFO	2122186	VOTA	Título digitado pelo mesário	BEA9B6E08968AAE1
+02/10/2022 09:32:45	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	8D9DEC46A6C21D44
+02/10/2022 09:32:50	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	9DCFF9B96D7DEC50
+02/10/2022 09:32:52	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [50]	4ACCDF2F0A6FD3FC
+02/10/2022 09:32:55	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	A123406FE046A8B4
+02/10/2022 09:32:55	INFO	2122186	VOTA	Eleitor foi habilitado	E8BA85CC96A54F4D
+02/10/2022 09:33:20	INFO	2122186	VOTA	Tecla indevida pressionada	4E0BD0F8557E7A2B
+02/10/2022 09:33:21	INFO	2122186	VOTA	Tecla indevida pressionada	001020111C201B96
+02/10/2022 09:33:22	INFO	2122186	VOTA	Tecla indevida pressionada	8D9DA0B8F97DE668
+02/10/2022 09:33:23	INFO	2122186	VOTA	Tecla indevida pressionada	56FF9AE7BD738620
+02/10/2022 09:33:24	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	F2B3C76487BA4121
+02/10/2022 09:33:32	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	9F2907C3E1E5632D
+02/10/2022 09:33:37	INFO	2122186	VOTA	Tecla indevida pressionada	1CBD9CA246D50B85
+02/10/2022 09:33:39	INFO	2122186	VOTA	Tecla indevida pressionada	8A794437B938794F
+02/10/2022 09:33:46	INFO	2122186	VOTA	Tecla indevida pressionada	5A6432C0FBDBCEB7
+02/10/2022 09:33:49	INFO	2122186	VOTA	Tecla indevida pressionada	C6A748A756BD4874
+02/10/2022 09:33:50	INFO	2122186	VOTA	Tecla indevida pressionada	58D9E881D382395D
+02/10/2022 09:33:51	INFO	2122186	VOTA	Voto confirmado para [Senador]	B346AAC9323750AA
+02/10/2022 09:33:56	INFO	2122186	VOTA	Voto confirmado para [Governador]	8171092B6CAC7A4A
+02/10/2022 09:34:01	INFO	2122186	VOTA	Voto confirmado para [Presidente]	6840C13F0772E751
+02/10/2022 09:34:01	INFO	2122186	VOTA	O voto do eleitor foi computado	6FD3A9A364CF30C3
+02/10/2022 09:34:02	INFO	2122186	VOTA	Aguardando digitação do título	40244EEA328DD14A
+02/10/2022 09:34:37	INFO	2122186	VOTA	Título digitado pelo mesário	A9BD3919C69D0EEF
+02/10/2022 09:34:43	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	E35FF8595A8E8C90
+02/10/2022 09:34:46	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	0381C8BBF15B3AD9
+02/10/2022 09:34:47	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 9], Polegar Esquerdo [score 9], Indicador Direito [score 7], Indicador Esquerdo [score 6]	6C1A6CE53789FAAB
+02/10/2022 09:34:48	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [1] de [4]	F928CB2252865D35
+02/10/2022 09:34:56	INFO	2122186	VOTA	Solicita digital. Tentativa [2] de [4]	FEC2BFD805FD6F81
+02/10/2022 09:35:00	INFO	2122186	VOTA	Capturada a digital. Tentativa [2] de [4]	8D39EF60E1C0B98A
+02/10/2022 09:35:01	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 9], Polegar Esquerdo [score 7], Indicador Direito [score 12], Indicador Esquerdo [score 5]	FAB5FF244238A5D3
+02/10/2022 09:35:02	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [2] de [4]	68F9A95EEEA197E4
+02/10/2022 09:35:05	INFO	2122186	VOTA	Solicita digital. Tentativa [3] de [4]	86739E9DD8D9978D
+02/10/2022 09:35:09	INFO	2122186	VOTA	Capturada a digital. Tentativa [3] de [4]	59B076ABDDD8AF0F
+02/10/2022 09:35:09	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 12], Polegar Esquerdo [score 7], Indicador Direito [score 7], Indicador Esquerdo [score 7]	D31F664DC632E61E
+02/10/2022 09:35:11	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [3] de [4]	B38BCEB092EC3FEF
+02/10/2022 09:35:13	INFO	2122186	VOTA	Solicita digital. Tentativa [4] de [4]	075DC37851386E7A
+02/10/2022 09:35:19	INFO	2122186	VOTA	Capturada a digital. Tentativa [4] de [4]	835E8710FD5D26E5
+02/10/2022 09:35:19	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 9], Polegar Esquerdo [score 12], Indicador Direito [score 7], Indicador Esquerdo [score 5]	FC302DC4734F3324
+02/10/2022 09:35:21	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [4] de [4]	3BC22362B32BE704
+02/10/2022 09:35:23	INFO	2122186	VOTA	Solicitação de dado pessoal do eleitor para habilitação manual	12007EF91C4CD93F
+02/10/2022 09:35:45	INFO	2122186	VOTA	Solicita digital do mesário	189D00EF61A61306
+02/10/2022 09:35:50	INFO	2122186	VOTA	Biometria coletada não é do mesário 247886180116 (999999)	40933838B3BC08A5
+02/10/2022 09:35:50	INFO	2122186	VOTA	Batimento de digitais retornou o score 3	6C2F65DA7872E4E7
+02/10/2022 09:35:50	INFO	2122186	VOTA	Biometria coletada não é do mesário 072161250167 (700627)	2238ADFCD321977F
+02/10/2022 09:35:51	INFO	2122186	VOTA	Batimento de digitais retornou o score 5	2F7016072F1E2E17
+02/10/2022 09:35:51	INFO	2122186	VOTA	Biometria coletada não é do mesário 247928370124 (554268)	6CE2EBD19D92BC27
+02/10/2022 09:35:51	INFO	2122186	VOTA	Batimento de digitais retornou o score 8	A98EBA1D78C4EDE5
+02/10/2022 09:35:51	INFO	2122186	VOTA	Biometria coletada não é do mesário 358072860175 (552984)	2BC4FBD6927AE7CF
+02/10/2022 09:35:51	INFO	2122186	VOTA	Digital coletada bate com uma digital gravada após o registro inicial de mesário. Não é possível associar a habilitação a um mesário.	61DD39D04AB5CDF7
+02/10/2022 09:35:51	INFO	2122186	VOTA	Capturada a digital do mesário	7F849D12D25523DB
+02/10/2022 09:35:55	INFO	2122186	VOTA	Eleitor foi habilitado	7CE459D715F9002F
+02/10/2022 09:36:13	INFO	2122186	VOTA	Tecla indevida pressionada	F0DA102EBADE3B0C
+02/10/2022 09:36:18	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	9DDCE258B174EF05
+02/10/2022 09:36:42	INFO	2122186	VOTA	Tecla indevida pressionada	AEF382EDD24E9D48
+02/10/2022 09:36:46	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	8BECF474C6F05ADD
+02/10/2022 09:36:57	INFO	2122186	VOTA	Voto confirmado para [Senador]	96680922E2D5704D
+02/10/2022 09:37:01	INFO	2122186	VOTA	Voto confirmado para [Governador]	9D3D0ACCD99B62AC
+02/10/2022 09:37:07	INFO	2122186	VOTA	Voto confirmado para [Presidente]	58B1469B6195CC14
+02/10/2022 09:37:08	INFO	2122186	VOTA	O voto do eleitor foi computado	1D3F78A7C113E769
+02/10/2022 09:37:09	INFO	2122186	VOTA	Aguardando digitação do título	951B0CDED1C39CCC
+02/10/2022 09:38:33	INFO	2122186	VOTA	Título digitado pelo mesário	D22D5E900DAE753A
+02/10/2022 09:38:36	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	E7EA81ED45770256
+02/10/2022 09:38:45	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	010E90907CAEED83
+02/10/2022 09:38:45	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 4], Polegar Esquerdo [score 6], Indicador Direito [score 5], Indicador Esquerdo [score 4]	6D838D903BDA82D0
+02/10/2022 09:38:47	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [1] de [4]	9041C4C6509BB3DE
+02/10/2022 09:38:51	INFO	2122186	VOTA	Solicita digital. Tentativa [2] de [4]	A806CD1AC0661F03
+02/10/2022 09:39:00	INFO	2122186	VOTA	Capturada a digital. Tentativa [2] de [4]	EE7F2CE5435F6D60
+02/10/2022 09:39:00	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 4], Polegar Esquerdo [score 4], Indicador Direito [score 9], Indicador Esquerdo [score 5]	D74DC4282B175439
+02/10/2022 09:39:01	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [2] de [4]	285D4944351F0BBB
+02/10/2022 09:39:07	INFO	2122186	VOTA	Solicita digital. Tentativa [3] de [4]	19B24156CD1294C2
+02/10/2022 09:39:12	INFO	2122186	VOTA	Capturada a digital. Tentativa [3] de [4]	8C35433199BBEA33
+02/10/2022 09:39:12	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 9], Polegar Esquerdo [score 11], Indicador Direito [score 6], Indicador Esquerdo [score 4]	6E809E5A57E03297
+02/10/2022 09:39:13	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [3] de [4]	3373747C53C16D6C
+02/10/2022 09:39:15	INFO	2122186	VOTA	Solicita digital. Tentativa [4] de [4]	48C3B00AFFA160E9
+02/10/2022 09:39:17	INFO	2122186	VOTA	Capturada a digital. Tentativa [4] de [4]	6AC7E8D5483AF94F
+02/10/2022 09:39:18	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 9], Polegar Esquerdo [score 8], Indicador Direito [score 7], Indicador Esquerdo [score 5]	E355A19BA5FCE62D
+02/10/2022 09:39:19	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [4] de [4]	97CBF4A920212864
+02/10/2022 09:39:22	INFO	2122186	VOTA	Solicitação de dado pessoal do eleitor para habilitação manual	C66E04BA3060772E
+02/10/2022 09:39:31	INFO	2122186	VOTA	Solicita digital do mesário	7935DC384AC7F855
+02/10/2022 09:39:36	INFO	2122186	VOTA	Biometria coletada não é do mesário 247886180116 (999999)	0E8E988AB4610192
+02/10/2022 09:39:37	INFO	2122186	VOTA	Batimento de digitais retornou o score 7	218B8865FAA7E4DC
+02/10/2022 09:39:37	INFO	2122186	VOTA	Biometria coletada não é do mesário 072161250167 (700627)	7036CE7EC8740A65
+02/10/2022 09:39:37	INFO	2122186	VOTA	Batimento de digitais retornou o score 7	E4A0B858AC22EE34
+02/10/2022 09:39:37	INFO	2122186	VOTA	Biometria coletada não é do mesário 247928370124 (554268)	A170CBA604F79B3F
+02/10/2022 09:39:38	INFO	2122186	VOTA	Batimento de digitais retornou o score 4	44963D8C74F29414
+02/10/2022 09:39:38	INFO	2122186	VOTA	Biometria coletada não é do mesário 358072860175 (552984)	1F8DFA5B4E3D341B
+02/10/2022 09:39:38	INFO	2122186	VOTA	Digital coletada bate com uma digital gravada após o registro inicial de mesário. Não é possível associar a habilitação a um mesário.	2D7753324B2B58ED
+02/10/2022 09:39:38	INFO	2122186	VOTA	Capturada a digital do mesário	3CCE2A1EA0A802B8
+02/10/2022 09:39:41	INFO	2122186	VOTA	Eleitor foi habilitado	9632C38FBB0F1339
+02/10/2022 09:40:04	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	B145C034B5410C0A
+02/10/2022 09:40:15	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	05A4B8874924D137
+02/10/2022 09:40:27	INFO	2122186	VOTA	Voto confirmado para [Senador]	5A054C6D16C87BA8
+02/10/2022 09:40:34	INFO	2122186	VOTA	Voto confirmado para [Governador]	D9F15C81C6AD5B0C
+02/10/2022 09:40:42	INFO	2122186	VOTA	Voto confirmado para [Presidente]	CE98A938969F5B08
+02/10/2022 09:40:43	INFO	2122186	VOTA	O voto do eleitor foi computado	3E678F23DA13BEFE
+02/10/2022 09:40:44	INFO	2122186	VOTA	Aguardando digitação do título	1C9118E6B7E59B74
+02/10/2022 09:42:00	INFO	2122186	VOTA	Título digitado pelo mesário	CC196B38BAC35D9D
+02/10/2022 09:42:02	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	111C19F7DA592421
+02/10/2022 09:42:07	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	9807C624BCFDA52B
+02/10/2022 09:42:09	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [47]	CE501092F7B1EEB1
+02/10/2022 09:42:11	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	1996DBAABD870051
+02/10/2022 09:42:11	INFO	2122186	VOTA	Eleitor foi habilitado	E762D27339577557
+02/10/2022 09:42:23	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	863AD56434B41FCD
+02/10/2022 09:42:31	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	4AEC84F532D3973C
+02/10/2022 09:42:38	INFO	2122186	VOTA	Voto confirmado para [Senador]	0824C878A85F9CFA
+02/10/2022 09:42:42	INFO	2122186	VOTA	Voto confirmado para [Governador]	ED033AD1EC8E74BE
+02/10/2022 09:42:46	INFO	2122186	VOTA	Voto confirmado para [Presidente]	3568561DBDF9008D
+02/10/2022 09:42:46	INFO	2122186	VOTA	O voto do eleitor foi computado	31A8783072B1EC4A
+02/10/2022 09:42:47	INFO	2122186	VOTA	Aguardando digitação do título	75801F8D21363AC3
+02/10/2022 09:45:55	INFO	2122186	VOTA	Título digitado pelo mesário	C1D84799C154DAB8
+02/10/2022 09:46:02	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	5E6E47219435081F
+02/10/2022 09:46:07	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	BB7A34C1AA4B7985
+02/10/2022 09:46:07	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 15], Polegar Esquerdo [score 12], Indicador Direito [score 7], Indicador Esquerdo [score 13]	F8AC90142E03C616
+02/10/2022 09:46:09	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [1] de [4]	E7E75C68BE3131CC
+02/10/2022 09:46:13	INFO	2122186	VOTA	Solicita digital. Tentativa [2] de [4]	0C022F945AEFE44A
+02/10/2022 09:46:21	INFO	2122186	VOTA	Capturada a digital. Tentativa [2] de [4]	14C3521E09DA8439
+02/10/2022 09:46:21	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 6], Polegar Esquerdo [score 6], Indicador Direito [score 4], Indicador Esquerdo [score 6]	6F1E951F80319C15
+02/10/2022 09:46:23	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [2] de [4]	842D8E831053C714
+02/10/2022 09:46:26	INFO	2122186	VOTA	Solicita digital. Tentativa [3] de [4]	E4199E1494A106CE
+02/10/2022 09:46:30	INFO	2122186	VOTA	Capturada a digital. Tentativa [3] de [4]	592D8786D1D988EC
+02/10/2022 09:46:30	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 9], Polegar Esquerdo [score 8], Indicador Direito [score 5], Indicador Esquerdo [score 10]	53F75C1687C83C08
+02/10/2022 09:46:32	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [3] de [4]	73B3C334F6D2C47E
+02/10/2022 09:46:34	INFO	2122186	VOTA	Solicita digital. Tentativa [4] de [4]	3E329FAE148062CA
+02/10/2022 09:46:41	INFO	2122186	VOTA	Capturada a digital. Tentativa [4] de [4]	04EDC3BB3689C27C
+02/10/2022 09:46:42	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 6], Polegar Esquerdo [score 11], Indicador Direito [score 6], Indicador Esquerdo [score 7]	B6230466190059BE
+02/10/2022 09:46:43	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [4] de [4]	8D2FFDE061AC509A
+02/10/2022 09:46:46	INFO	2122186	VOTA	Solicitação de dado pessoal do eleitor para habilitação manual	52BC8771321EF51A
+02/10/2022 09:46:54	INFO	2122186	VOTA	Solicita digital do mesário	160F19DD9223721D
+02/10/2022 09:46:57	INFO	2122186	VOTA	Biometria coletada não é do mesário 247886180116 (999999)	A4F05BF03B177BAC
+02/10/2022 09:46:58	INFO	2122186	VOTA	Batimento de digitais retornou o score 3	F3C63B21AA4E4C4F
+02/10/2022 09:46:58	INFO	2122186	VOTA	Biometria coletada não é do mesário 072161250167 (700627)	ACA132DDFBA3B18A
+02/10/2022 09:46:58	INFO	2122186	VOTA	Batimento de digitais retornou o score 5	B2FEB23CCCF9934B
+02/10/2022 09:46:58	INFO	2122186	VOTA	Biometria coletada não é do mesário 247928370124 (554268)	5423FCB40B255C47
+02/10/2022 09:46:58	INFO	2122186	VOTA	Batimento de digitais retornou o score 6	7DF558F9A43F414F
+02/10/2022 09:46:58	INFO	2122186	VOTA	Biometria coletada não é do mesário 358072860175 (552984)	42F877D7C4318E43
+02/10/2022 09:46:59	INFO	2122186	VOTA	Digital coletada bate com uma digital gravada após o registro inicial de mesário. Não é possível associar a habilitação a um mesário.	388D32EB2AC1AE3C
+02/10/2022 09:46:59	INFO	2122186	VOTA	Capturada a digital do mesário	5152C52997673649
+02/10/2022 09:47:02	INFO	2122186	VOTA	Eleitor foi habilitado	5313F910FBCEFCA9
+02/10/2022 09:47:26	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	FDCA050F04889257
+02/10/2022 09:47:37	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	FF790D46927CE729
+02/10/2022 09:47:43	INFO	2122186	VOTA	Voto confirmado para [Senador]	EE1147B5A898DC1F
+02/10/2022 09:47:50	INFO	2122186	VOTA	Voto confirmado para [Governador]	D6F31F26C5917261
+02/10/2022 09:47:58	INFO	2122186	VOTA	Voto confirmado para [Presidente]	72F3F0CF7A195C3B
+02/10/2022 09:47:59	INFO	2122186	VOTA	O voto do eleitor foi computado	6758DC284838B6C3
+02/10/2022 09:48:00	INFO	2122186	VOTA	Aguardando digitação do título	183819F59B5B6486
+02/10/2022 09:49:20	INFO	2122186	VOTA	Título digitado pelo mesário	3FD33A6F2E9EEBD3
+02/10/2022 09:49:33	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	9E73F6784A28BE12
+02/10/2022 09:49:37	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	44FCFCBEFCFE9C7E
+02/10/2022 09:49:37	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 6], Polegar Esquerdo [score 6], Indicador Direito [score 19], Indicador Esquerdo [score 10]	8DB710A48FE61C0A
+02/10/2022 09:49:39	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [1] de [4]	F264F1198DDC19AD
+02/10/2022 09:49:42	INFO	2122186	VOTA	Solicita digital. Tentativa [2] de [4]	B1B812FFA7FCFDD0
+02/10/2022 09:49:46	INFO	2122186	VOTA	Capturada a digital. Tentativa [2] de [4]	8A9216E6A1A21620
+02/10/2022 09:49:46	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 5], Polegar Esquerdo [score 5], Indicador Direito [score 19], Indicador Esquerdo [score 6]	8EFDAA6CD8D002C9
+02/10/2022 09:49:47	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [2] de [4]	517CF1325C4D171E
+02/10/2022 09:49:50	INFO	2122186	VOTA	Solicita digital. Tentativa [3] de [4]	0F0B8FE511D3A83F
+02/10/2022 09:49:53	INFO	2122186	VOTA	Capturada a digital. Tentativa [3] de [4]	17B988DB40728E41
+02/10/2022 09:49:55	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [63]	B94E99600762DB48
+02/10/2022 09:49:57	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	6ECA3F8531BD4C8D
+02/10/2022 09:49:57	INFO	2122186	VOTA	Eleitor foi habilitado	66C6C4EA2DC495F6
+02/10/2022 09:50:14	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	07C182CEBD78CE6B
+02/10/2022 09:50:21	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	F1333EC37C38A9DB
+02/10/2022 09:50:28	INFO	2122186	VOTA	Voto confirmado para [Senador]	03F6DE9A0C7E6A3D
+02/10/2022 09:50:35	INFO	2122186	VOTA	Voto confirmado para [Governador]	AAF70490243914AD
+02/10/2022 09:50:41	INFO	2122186	VOTA	Voto confirmado para [Presidente]	6779CA7E64B011CC
+02/10/2022 09:50:42	INFO	2122186	VOTA	O voto do eleitor foi computado	0A49718647AFA934
+02/10/2022 09:50:43	INFO	2122186	VOTA	Aguardando digitação do título	89D02DCECF7565AD
+02/10/2022 09:51:03	INFO	2122186	VOTA	Título digitado pelo mesário	B7DA8EFADE361A00
+02/10/2022 09:51:05	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	5D559FB853E43C96
+02/10/2022 09:51:08	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	B97CE9E9B25F7683
+02/10/2022 09:51:10	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [52]	749E275C5B555679
+02/10/2022 09:51:12	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	A21916C7A3AA0F49
+02/10/2022 09:51:12	INFO	2122186	VOTA	Eleitor foi habilitado	516FBFBEB66F0C66
+02/10/2022 09:51:39	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	D12807CCFA91F2D0
+02/10/2022 09:51:58	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	392D765CDBA1199D
+02/10/2022 09:52:47	INFO	2122186	VOTA	Voto confirmado para [Senador]	B848BCB3644FBCCD
+02/10/2022 09:52:54	INFO	2122186	VOTA	Voto confirmado para [Governador]	720166879A57E229
+02/10/2022 09:53:17	INFO	2122186	VOTA	Voto confirmado para [Presidente]	708551717E3AB614
+02/10/2022 09:53:18	INFO	2122186	VOTA	O voto do eleitor foi computado	049F16E68BA8C395
+02/10/2022 09:53:19	INFO	2122186	VOTA	Aguardando digitação do título	25026BB1FE5EBBA0
+02/10/2022 09:53:30	INFO	2122186	VOTA	Título digitado pelo mesário	8BE7C46B5A948785
+02/10/2022 09:53:32	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	21D0858362582941
+02/10/2022 09:53:37	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	11293FC57521639B
+02/10/2022 09:53:39	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [78]	96998C598671D3E0
+02/10/2022 09:53:41	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	6B04C764F155E237
+02/10/2022 09:53:41	INFO	2122186	VOTA	Eleitor foi habilitado	8AE7911BB59E7021
+02/10/2022 09:54:02	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	A0FA8444B154FE5D
+02/10/2022 09:54:20	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	4372A73DD78BADA5
+02/10/2022 09:54:32	INFO	2122186	VOTA	Voto confirmado para [Senador]	E77B49213F569E21
+02/10/2022 09:54:44	INFO	2122186	VOTA	Voto confirmado para [Governador]	CF74B4763455E79E
+02/10/2022 09:54:51	INFO	2122186	VOTA	Voto confirmado para [Presidente]	589B0BBC249DFA2F
+02/10/2022 09:54:52	INFO	2122186	VOTA	O voto do eleitor foi computado	48E16769C363842E
+02/10/2022 09:54:53	INFO	2122186	VOTA	Aguardando digitação do título	E340D453C1E73148
+02/10/2022 09:55:10	INFO	2122186	VOTA	Título digitado pelo mesário	830A5B8F32FCAA4E
+02/10/2022 09:55:12	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	2362C548D2453F8B
+02/10/2022 09:55:16	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	AEC503B37F63B677
+02/10/2022 09:55:18	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [65]	E1B80CA7349EB59C
+02/10/2022 09:55:19	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	6F90BE4E9D44AA89
+02/10/2022 09:55:20	INFO	2122186	VOTA	Eleitor foi habilitado	B560953E2776E8BC
+02/10/2022 09:55:30	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	4967140E086FF1ED
+02/10/2022 09:55:36	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	78C5F8C27FA85660
+02/10/2022 09:55:39	INFO	2122186	VOTA	Voto confirmado para [Senador]	28C26249F28B937D
+02/10/2022 09:55:42	INFO	2122186	VOTA	Tecla indevida pressionada	C27BF80A9D1BEFA1
+02/10/2022 09:55:45	INFO	2122186	VOTA	Voto confirmado para [Governador]	CABF250D58F9F811
+02/10/2022 09:55:48	INFO	2122186	VOTA	Voto confirmado para [Presidente]	741821D4DABE2CCD
+02/10/2022 09:55:49	INFO	2122186	VOTA	O voto do eleitor foi computado	0D3442253917ECBE
+02/10/2022 09:55:50	INFO	2122186	VOTA	Aguardando digitação do título	AC15EB64B3BDBC96
+02/10/2022 09:56:29	INFO	2122186	VOTA	Título digitado pelo mesário	4A8DCC63B0357FD9
+02/10/2022 09:56:31	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	F5BBCB54B08F23D5
+02/10/2022 09:56:35	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	487F1D2763130CB7
+02/10/2022 09:56:37	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [59]	AC6C292FE9FD3BC1
+02/10/2022 09:56:38	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	E1DD59320D8EE793
+02/10/2022 09:56:38	INFO	2122186	VOTA	Eleitor foi habilitado	4EB1FC6F139CD353
+02/10/2022 09:57:04	INFO	2122186	VOTA	Tecla indevida pressionada	FDE3613A5DFC4126
+02/10/2022 09:57:06	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	463C0F35A3DE2C7B
+02/10/2022 09:57:12	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	B69621185DB10DE0
+02/10/2022 09:57:18	INFO	2122186	VOTA	Voto confirmado para [Senador]	E2A866FDC9407328
+02/10/2022 09:57:24	INFO	2122186	VOTA	Voto confirmado para [Governador]	CB0D31CECE045CD0
+02/10/2022 09:57:33	INFO	2122186	VOTA	Voto confirmado para [Presidente]	B42782893D8CAF24
+02/10/2022 09:57:34	INFO	2122186	VOTA	O voto do eleitor foi computado	0B64BB2032F89A25
+02/10/2022 09:57:35	INFO	2122186	VOTA	Aguardando digitação do título	68EF13CA099D0EE7
+02/10/2022 09:58:02	INFO	2122186	VOTA	Título digitado pelo mesário	08EA71C760DBA5F9
+02/10/2022 09:58:09	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	70983D688471648E
+02/10/2022 09:58:14	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	BE6A14E005320451
+02/10/2022 09:58:15	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Polegar direito - Score [41]	1EF6833951AB9718
+02/10/2022 09:58:18	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	AEE74BD3817633A5
+02/10/2022 09:58:18	INFO	2122186	VOTA	Eleitor foi habilitado	0BDCA7B73DDE7362
+02/10/2022 09:58:31	INFO	2122186	VOTA	Voto confirmado para [Deputado Federal]	8AA87BBEB5C0D1FD
+02/10/2022 09:58:42	INFO	2122186	VOTA	Voto confirmado para [Deputado Estadual]	D4ECA3F579596AED
+02/10/2022 09:58:47	INFO	2122186	VOTA	Tecla indevida pressionada	DF03BE2171728838
+02/10/2022 09:58:51	INFO	2122186	VOTA	Voto confirmado para [Senador]	E249A3F01B8AFBB1
+02/10/2022 09:58:56	INFO	2122186	VOTA	Tecla indevida pressionada	074EE06676322B74
+02/10/2022 09:58:59	INFO	2122186	VOTA	Voto confirmado para [Governador]	3994AE12C9041348
+02/10/2022 09:59:05	INFO	2122186	VOTA	Voto confirmado para [Presidente]	F5F2BC455395BB91
+02/10/2022 09:59:06	INFO	2122186	VOTA	O voto do eleitor foi computado	E42FA0A861A6B3F5
+02/10/2022 09:59:07	INFO	2122186	VOTA	Aguardando digitação do título	55410461E1156B55
+02/10/2022 09:59:32	INFO	2122186	VOTA	Título digitado pelo mesário	FC46B210A5662480
+02/10/2022 09:59:33	INFO	2122186	VOTA	Solicita digital. Tentativa [1] de [4]	4B51E379BA5EB079
+02/10/2022 09:59:38	INFO	2122186	VOTA	Capturada a digital. Tentativa [1] de [4]	A2ED685FA69186A8
+02/10/2022 09:59:38	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 6], Polegar Esquerdo [score 8], Indicador Direito [score 14], Indicador Esquerdo [score 4]	6823882463B3A79E
+02/10/2022 09:59:39	INFO	2122186	VOTA	Número de tentativas de reconhecimento do dedo. Tentativa [1] de [4]	8A4C6C9EFF2F1FEC
+02/10/2022 09:59:42	INFO	2122186	VOTA	Solicita digital. Tentativa [2] de [4]	BA9C11C7FAF58529
+02/10/2022 09:59:46	INFO	2122186	VOTA	Capturada a digital. Tentativa [2] de [4]	3FE0544A4DEC59F0
+02/10/2022 09:59:48	INFO	2122186	VOTA	Dedo reconhecido e o score para habilitá-lo. Indicador direito - Score [60]	3C11F642C76BA9D2
+02/10/2022 09:59:50	INFO	2122186	VOTA	Tipo de habilitação do eleitor [biométrica]	9FCED0D6C457E948
+02/10/2022 09:59:50	INFO	2122186	VOTA	Eleitor foi habilitado	BBF8C98065C85790
+02/10/2022 17:01:19	INFO	2122186	VOTA	Código de encerramento digitado	12E835CC4DA35B98
+02/10/2022 17:01:24	INFO	2122186	VOTA	Procedimento de encerramento confirmado	E9D69F20F88D3244
+02/10/2022 17:01:25	INFO	2122186	VOTA	Operador indagado se ocorrerá registro de mesários	7CAA73918B59674B
+02/10/2022 17:01:32	INFO	2122186	VOTA	Operador confirmou para registrar mesários	8BEBE343B8D44E6D
+02/10/2022 17:01:32	INFO	2122186	VOTA	Registrando mesários após a votação	8F099B3B88EB9639
+02/10/2022 17:02:11	INFO	2122186	VOTA	Pedido de leitura da biometria do mesário 247886180116	467FC9704221207A
+02/10/2022 17:02:18	INFO	2122186	VOTA	Digital capturada não corresponde a digital do eleitor: Polegar Direito [score 18], Polegar Esquerdo [score 5], Indicador Direito [score 5], Indicador Esquerdo [score 4]	61511F036CDC4F1F
+02/10/2022 17:02:19	INFO	2122186	VOTA	Mesário 247886180116 é eleitor da seção	1A91D09881B9212C
+02/10/2022 17:02:20	INFO	2122186	VOTA	Mesário 247886180116 registrado	AA7245F56C2525AA
+02/10/2022 17:02:39	INFO	2122186	VOTA	Pedido de leitura da biometria do mesário 358072860175	2A297B17DF08AD8B
+02/10/2022 17:02:43	INFO	2122186	VOTA	Mesário 358072860175 não é eleitor da seção	3835CEB131770CFB
+02/10/2022 17:02:45	INFO	2122186	VOTA	Mesário 358072860175 registrado	943185A454B4E600
+02/10/2022 17:03:08	INFO	2122186	VOTA	Pedido de leitura da biometria do mesário 247928370124	415014E923E95579
+02/10/2022 17:03:14	INFO	2122186	VOTA	Mesário 247928370124 não é eleitor da seção	24F871A6B4314DAC
+02/10/2022 17:03:16	INFO	2122186	VOTA	Mesário 247928370124 registrado	AF54F3DE37B9B1DD
+02/10/2022 17:03:35	INFO	2122186	VOTA	Pedido de leitura da biometria do mesário 072161250167	D6434C7AF224B33B
+02/10/2022 17:03:40	INFO	2122186	VOTA	Mesário 072161250167 não é eleitor da seção	B24FE6916135BB2A
+02/10/2022 17:03:42	INFO	2122186	VOTA	Mesário 072161250167 registrado	704791B67BA881B6
+02/10/2022 17:03:54	INFO	2122186	VOTA	Operador encerrou ciclo de registro de mesários	8DDDAEFA8F8E7313
+02/10/2022 17:03:54	INFO	2122186	VOTA	Inicio do Encerramento	777294C8E674807E
+02/10/2022 17:03:55	INFO	2122186	VOTA	Gerando relatório [BU] [INÍCIO]	F5893AF44EBCCC74
+02/10/2022 17:03:55	INFO	2122186	VOTA	Gerando relatório [BU] [TÉRMINO]	EC29B6E74800A3D0
+02/10/2022 17:03:55	INFO	2122186	VOTA	Gerando relatório [BUJ] [INÍCIO]	9D20B333E7559CF2
+02/10/2022 17:03:55	INFO	2122186	VOTA	Gerando relatório [BUJ] [TÉRMINO]	929E198F3395E7E4
+02/10/2022 17:03:55	INFO	2122186	VOTA	Gerando relatório [BIM] [INÍCIO]	B4D7256F68D96419
+02/10/2022 17:03:56	INFO	2122186	VOTA	Gerando relatório [BIM] [TÉRMINO]	08088431E34B821D
+02/10/2022 17:04:22	INFO	2122186	VOTA	Imprimindo relatório [BU] via nº [1]	F9CAD8F8E2078253
+02/10/2022 17:04:22	INFO	2122186	VOTA	Mesário indagado sobre qualidade do Boletim de Urna	7C6F1DB90F5BC615
+02/10/2022 17:05:00	INFO	2122186	VOTA	Mesário indicou qualidade OK para Boletim de Urna	4D9B25E03EE47BAB
+02/10/2022 17:05:00	INFO	2122186	VOTA	Gerando arquivo de resultado [.bu] + [Início]	A3E2A0798E77DA76
+02/10/2022 17:05:00	INFO	2122186	VOTA	Gerando arquivo de resultado [.bu] + [Término]	F3D505D14F86D891
+02/10/2022 17:05:00	INFO	2122186	VOTA	Gerando arquivo de resultado [.rdv] + [Início]	95CCC69030A8EBAB
+02/10/2022 17:05:00	INFO	2122186	VOTA	Gerando arquivo de resultado [.rdv] + [Término]	E884E795181294D5
+02/10/2022 17:05:00	INFO	2122186	VOTA	Gerando arquivo de resultado [.jufa] + [Início]	D7B5805520F9FE4D
+02/10/2022 17:05:00	INFO	2122186	VOTA	Gerando arquivo de resultado [.jufa] + [Término]	034BA94084607F2C
+02/10/2022 17:05:00	INFO	2122186	VOTA	Gerando arquivo de resultado [.imgbu] + [Início]	93EE59B5A2219BA1
+02/10/2022 17:05:00	INFO	2122186	VOTA	Gerando arquivo de resultado [.imgbu] + [Término]	CC1163550A79D6D7
+02/10/2022 17:05:00	INFO	2122186	VOTA	Gerando arquivo de resultado [.hash] + [Início]	003087B394AEBA05
+02/10/2022 17:05:01	INFO	2122186	VOTA	Gerando arquivo de resultado [.hash] + [Término]	3036F93DE6A3CD7D
+02/10/2022 17:05:01	INFO	2122186	VOTA	Gerando arquivo de resultado [.wsqbio] + [Início]	29A6CB42DD157A55
+02/10/2022 17:05:01	INFO	2122186	VOTA	Gerando arquivo de resultado [.wsqbio] + [Término]	D7842D7185A0968D
+02/10/2022 17:05:01	INFO	2122186	VOTA	Gerando arquivo de resultado [.wsqman] + [Início]	8A98B6DC9AFDF037
+02/10/2022 17:05:01	INFO	2122186	VOTA	Gerando arquivo de resultado [.wsqman] + [Término]	B54C42728A476922
+02/10/2022 17:05:01	INFO	2122186	VOTA	Gerando arquivo de resultado [.wsqmes] + [Início]	D96D92EC1C659CA0
+02/10/2022 17:05:01	INFO	2122186	VOTA	Gerando arquivo de resultado [.wsqmes] + [Término]	90EAD921F6DF3697
+02/10/2022 17:05:01	INFO	2122186	VOTA	Gerando arquivo de resultado [.ver] + [Início]	126B60A1D8FEC3BC
+02/10/2022 17:05:01	INFO	2122186	VOTA	Gerando arquivo de resultado [.ver] + [Término]	5FAD303A8951CB01
+02/10/2022 17:05:01	INFO	2122186	VOTA	Gerando arquivo de resultado [.chvtp] + [Início]	21F7E241FB7BF4D7
+02/10/2022 17:05:01	INFO	2122186	VOTA	Gerando arquivo de resultado [.chvtp] + [Término]	799A6AA61CFB36F4
+02/10/2022 17:05:01	INFO	2122186	VOTA	Gerando arquivo de resultado [.logjez] + [Início]	A78DF2C3F9741B42
+02/10/2022 17:05:02	INFO	2122186	VOTA	Gerando arquivo de resultado [.logjez] + [Término]	40FC058C9A2B0113
+02/10/2022 17:05:02	INFO	2122186	VOTA	Copiando arquivo de resultado para MI: [.bu]	9472D054BF143FA3
+02/10/2022 17:05:02	INFO	2122186	VOTA	Copiando arquivo de resultado para MI: [.rdv]	AA24F038DDF42D57
+02/10/2022 17:05:02	INFO	2122186	VOTA	Copiando arquivo de resultado para MI: [.jufa]	FB498AAE0EBC7CE3
+02/10/2022 17:05:02	INFO	2122186	VOTA	Copiando arquivo de resultado para MI: [.imgbu]	B125BF737BB87166
+02/10/2022 17:05:02	INFO	2122186	VOTA	Copiando arquivo de resultado para MI: [.hash]	E3E885AB241CFA91
+02/10/2022 17:05:02	INFO	2122186	VOTA	Copiando arquivo de resultado para MI: [.wsqbio]	4C678D78CF800CA6
+02/10/2022 17:05:02	INFO	2122186	VOTA	Copiando arquivo de resultado para MI: [.wsqman]	CCAC765CF8D33BF8
+02/10/2022 17:05:02	INFO	2122186	VOTA	Copiando arquivo de resultado para MI: [.wsqmes]	859D982DF38BBA23
+02/10/2022 17:05:02	INFO	2122186	VOTA	Copiando arquivo de resultado para MI: [.ver]	612299E40D738DD0
+02/10/2022 17:05:02	INFO	2122186	VOTA	Copiando arquivo de resultado para MI: [.chvtp]	536A80C96A10333D
+02/10/2022 17:05:02	INFO	2122186	VOTA	Copiando arquivo de resultado para MI: [.logjez]	5B1D3D6CB8F11A3A
+02/10/2022 17:05:02	INFO	2122186	VOTA	Preparando para assinatura dos arquivos de resultados	9936CBED8AC6FA33
+02/10/2022 17:05:02	INFO	2122186	VOTA	Início do procedimento de assinatura dos arquivos de resultados	A4A26A7F63AB58DE
+02/10/2022 17:05:02	INFO	2122186	VOTA	Inicia uma sessão no MSD	5EF1D36CFD75D23C
+02/10/2022 17:05:11	INFO	2122186	VOTA	Finaliza a sessão no MSD	DEC3D3DBB57999C8
+02/10/2022 17:05:11	INFO	2122186	VOTA	Término do procedimento de assinatura dos arquivos de resultados	20E95C7CF0945C9D
+02/10/2022 17:05:11	INFO	2122186	VOTA	Gerando arquivo de resultado [.vscmr] + [Início]	2E5B6AD9DC44A9E9
+02/10/2022 17:05:11	INFO	2122186	VOTA	Gerando arquivo de resultado [.vscmr] + [Término]	D415C8946BAFD932
+02/10/2022 17:05:11	INFO	2122186	VOTA	Copiando arquivo de resultado para MI: [.vscmr]	5E30D1BAAE492D7B
+02/10/2022 17:05:11	INFO	2122186	VOTA	Copiando arquivo de resultado para ME: [.bu]	59B4780DD946F75B
+02/10/2022 17:05:11	INFO	2122186	VOTA	Copiando arquivo de resultado para ME: [.rdv]	B6B509B5F590D7FC
+02/10/2022 17:05:11	INFO	2122186	VOTA	Copiando arquivo de resultado para ME: [.jufa]	9ACCBE75E51647DC
+02/10/2022 17:05:11	INFO	2122186	VOTA	Copiando arquivo de resultado para ME: [.imgbu]	2CD1A53924A94E1C
+02/10/2022 17:05:11	INFO	2122186	VOTA	Copiando arquivo de resultado para ME: [.hash]	147689E77878AB04
+02/10/2022 17:05:11	INFO	2122186	VOTA	Copiando arquivo de resultado para ME: [.wsqbio]	E7082A40B45564E5
+02/10/2022 17:05:12	INFO	2122186	VOTA	Copiando arquivo de resultado para ME: [.wsqman]	1EC3897DD333F5C5
+02/10/2022 17:05:12	INFO	2122186	VOTA	Copiando arquivo de resultado para ME: [.wsqmes]	DBF444704DED7B7E
+02/10/2022 17:05:13	INFO	2122186	VOTA	Copiando arquivo de resultado para ME: [.ver]	91CC342CE6B0DECA
+02/10/2022 17:05:13	INFO	2122186	VOTA	Copiando arquivo de resultado para ME: [.chvtp]	6D9806C0514B29B6
+02/10/2022 17:05:13	INFO	2122186	VOTA	Copiando arquivo de resultado para ME: [.logjez]	DD78CB7BF81978C1
+02/10/2022 17:05:13	INFO	2122186	VOTA	Copiando arquivo de resultado para ME: [.asw]	66A20690EA2FEAE0
+02/10/2022 17:05:13	INFO	2122186	VOTA	Copiando arquivo de resultado para ME: [.ahw]	E10489529A637E9B
+02/10/2022 17:05:13	INFO	2122186	VOTA	Copiando arquivo de resultado para ME: [.vscmr]	0BCCB1C318E1495D
+02/10/2022 17:05:20	INFO	2122186	VOTA	Mídia de resultado gravada	4B08F1D82EE2E7C1
+02/10/2022 17:05:46	INFO	2122186	VOTA	Imprimindo relatório [BU] via nº [2]	C4F17501D726584F
+02/10/2022 17:06:11	INFO	2122186	VOTA	Imprimindo relatório [BU] via nº [3]	B04874303AB56421
+02/10/2022 17:06:38	INFO	2122186	VOTA	Imprimindo relatório [BU] via nº [4]	080CDB3801042F8E
+02/10/2022 17:07:04	INFO	2122186	VOTA	Imprimindo relatório [BU] via nº [5]	7018AA638485658B
+02/10/2022 17:07:08	INFO	2122186	VOTA	Imprimindo relatório [BUJ] via nº [1]	D98CD6DF67A3A1D0
+02/10/2022 17:07:08	INFO	2122186	VOTA	Início da geração do BIM	8F59302F804EEAFA
+02/10/2022 17:07:08	INFO	2122186	VOTA	Término da geração do BIM	51AD7C1A238BC98B
+02/10/2022 17:07:08	INFO	2122186	VOTA	Imprimindo BIM	A96C1CA320E65A69
+02/10/2022 17:15:24	INFO	2122186	VOTA	Mesário indagado sobre quantidade de vias adicionais	529CE27E37E04A36
+02/10/2022 17:15:57	INFO	2122186	VOTA	Votação encerrada	7D41FAE8B71F1C2C
+02/10/2022 17:16:11	INFO	2122186	VOTA	Mudança do estado da chave: URNA DESLIGADA	85DAE7FA02BF171A
+02/10/2022 17:16:11	INFO	2122186	INITJE	Urna desligada pela chave	0C86E72E8490FEA2
+02/10/2022 17:16:11	INFO	2122186	VOTA	Desligando a urna	4E330266B340E301
+02/10/2022 17:16:11	INFO	2122186	VOTA	Finalização de aplicativo	983F2D9273064249
+02/10/2022 17:16:19	INFO	2122186	LOGD	Fechando o arquivo de Log	9391103A240BF766

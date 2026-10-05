@@ -26,7 +26,7 @@
   raiz.dataset.tema = tema;
   if (tema === '98') {
     var arquivo = location.pathname.split('/').pop();
-    var app = { '': 'apuracao', 'index.html': 'apuracao', 'brancos.html': 'brancos', 'explorar.html': 'explorar' }[arquivo];
+    var app = { '': 'apuracao', 'index.html': 'apuracao', 'brancos.html': 'brancos', 'explorar.html': 'explorar', 'logs.html': 'logs' }[arquivo];
     if (app) {
       var destino = 'desktop.html#abrir=' + app + (location.hash ? '&h=' + encodeURIComponent(location.hash) : '');
       location.replace(destino);

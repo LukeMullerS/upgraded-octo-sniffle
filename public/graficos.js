@@ -78,8 +78,9 @@ export function svgHistograma({ faixas, linhas = [], selecionada = null, rotuloX
   linhas.forEach((l, i) => {
     if (!Number.isFinite(l.valor) || l.valor < x0 || l.valor > x1) return;
     const px = x(l.valor);
-    // Rótulos em alturas diferentes para não se sobreporem quando as linhas estão próximas.
-    s += linhaReferencia(px, m.t, px, altura - m.b, l.classe, l.rotulo, px > largura * 0.7 ? 'end' : 'start', m.t + 10 + i * 13);
+    // Rótulos alternam de lado da linha (e de altura), para não se sobreporem quando as linhas estão próximas.
+    const lado = px > largura * 0.85 ? 'end' : px < largura * 0.15 ? 'start' : i % 2 ? 'start' : 'end';
+    s += linhaReferencia(px, m.t, px, altura - m.b, l.classe, l.rotulo, lado, m.t + 10 + i * 13);
   });
   return `<svg viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
 }

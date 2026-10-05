@@ -26,6 +26,7 @@ const estado = {
   dados: new Map(), // valor do cargo → resposta da API
   censo: new Map(), // id → série {nome, unidade, municipios, ufs}
   importadas: new Map(), // id → {nome, valores: Map(chave → número)}
+  logs: new Map(), // código do município (ou UF) → resumo dos logs das urnas
   zonas: { x: null, y: null, grupo: null, tamanho: null, matriz: [] },
   selecionada: null, // variável escolhida por toque (alternativa ao arrastar)
   pedido: 0,
@@ -59,6 +60,8 @@ async function carregar() {
       .then((d) => [c.valor, d]).catch((e) => [c.valor, { erro: e.message }])));
     if (pedido !== estado.pedido) return;
     estado.dados = new Map(respostas);
+    estado.logs = await carregarLogs(n);
+    if (pedido !== estado.pedido) return;
     const erros = respostas.filter(([, d]) => d.erro && !d.municipios && !d.estados).map(([v, d]) => `${cargoPorValor(v).nome}: ${d.erro}`);
     el.erro.hidden = !erros.length;
     el.erro.textContent = erros.join(' · ');
@@ -72,6 +75,26 @@ async function carregar() {
     el.status.textContent = 'falha na consulta';
     el.status.className = 'status falha';
   }
+}
+
+/** Resumos dos logs das urnas já lidos (tempo na cabine etc.), por UF ou por município. */
+async function carregarLogs(n) {
+  const mapa = new Map();
+  try {
+    const brasil = await getJson('api/logs/brasil');
+    if (n === 'estados') {
+      for (const e of brasil.estados) mapa.set(e.uf, e.resumo);
+      return mapa;
+    }
+    const ufs = n === 'todas' ? brasil.estados.map((e) => e.uf) : brasil.estados.some((e) => e.uf === n) ? [n] : [];
+    for (const uf of ufs) {
+      const est = await getJson(`api/logs/estado?uf=${uf}`);
+      for (const m of est.municipios) if (m.resumo) mapa.set(m.codigo, m.resumo);
+    }
+  } catch {
+    // sem logs lidos: o grupo de variáveis simplesmente não aparece
+  }
+  return mapa;
 }
 
 async function getJson(url) {
@@ -243,6 +266,20 @@ function montarVariaveis() {
     vars.push({ id: `censo:${id}`, nome: s.nome, detalhe: [s.periodo, ...(s.categorias ?? []).filter((t) => !/total/i.test(t))].filter(Boolean).join(' · '),
       grupo: 'Censo / IBGE', tipo: 'num', unidade: s.unidade,
       valor: (l) => (porNivel ? s.ufs[l.uf] : s.municipios[l.ibge]) ?? null });
+  }
+  if (estado.logs.size) {
+    const r = (l) => estado.logs.get(nivel() === 'estados' ? l.uf : l.codigo);
+    const g = 'Logs das urnas';
+    vars.push(
+      { id: 'logs:cabine', nome: 'Tempo médio na cabine (s)', grupo: g, tipo: 'num', valor: (l) => r(l)?.cabine.media ?? null },
+      { id: 'logs:mediana', nome: 'Mediana do tempo na cabine (s)', grupo: g, tipo: 'num', valor: (l) => r(l)?.cabine.mediana ?? null },
+      { id: 'logs:atendimento', nome: 'Tempo médio de atendimento (s)', grupo: g, tipo: 'num', valor: (l) => r(l)?.atendimento.media ?? null },
+      { id: 'logs:habilitacao', nome: 'Tempo médio de habilitação/biometria (s)', grupo: g, tipo: 'num', valor: (l) => r(l)?.habilitacao.media ?? null },
+      { id: 'logs:biometria', nome: '% habilitação biométrica', grupo: g, tipo: 'num', unidade: '%', valor: (l) => r(l)?.pctBiometrica ?? null },
+      { id: 'logs:sembio', nome: '% eleitores sem biometria', grupo: g, tipo: 'num', unidade: '%', valor: (l) => r(l)?.pctSemBiometria ?? null },
+      { id: 'logs:teclas', nome: 'Teclas indevidas por eleitor', grupo: g, tipo: 'num', valor: (l) => r(l)?.teclasPorEleitor ?? null },
+      { id: 'logs:secoes', nome: 'Seções com log lido', grupo: g, tipo: 'num', valor: (l) => r(l)?.secoes ?? null },
+    );
   }
   for (const [id, imp] of estado.importadas) {
     vars.push({ id, nome: imp.nome, detalhe: imp.arquivo, grupo: 'Importadas (CSV)', tipo: 'num', valor: (l) => valorImportado(imp, l) });

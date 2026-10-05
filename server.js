@@ -15,7 +15,8 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { criarColetor } from './src/coletor.js';
 import { PRESETS, criarCenso } from './src/censo.js';
-import { ELEICOES } from './public/tse.js';
+import { criarColetorLogs } from './src/logs.js';
+import { ELEICOES, UFS, PLEITO } from './public/tse.js';
 
 const PORTA = Number(process.env.PORT) || 3000;
 // `--rede` (ou HOST=0.0.0.0) abre o app para outros aparelhos da rede, como o celular.
@@ -83,6 +84,41 @@ const censo = criarCenso({
   pasta: join(fileURLToPath(new URL('.', import.meta.url)), 'dados', 'censo'),
   ...(process.env.IBGE_BASE ? { base: process.env.IBGE_BASE.replace(/\/$/, '') } : {}),
 });
+
+/** Arquivo binário do TSE (logs das urnas), sem passar pelo cache em memória; null se não publicado. */
+async function buscarBinario(caminho) {
+  const res = await fetch(`${TSE_BASE}/${caminho}`, { headers: CABECALHOS_TSE, signal: AbortSignal.timeout(60_000) });
+  if (res.status === 404 || res.status === 403) return null;
+  if (!res.ok) throw new Error(`TSE respondeu HTTP ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+const logs = criarColetorLogs({
+  buscarJson, buscarBinario, pleito: PLEITO.codigo,
+  pasta: join(fileURLToPath(new URL('.', import.meta.url)), 'dados', 'logs'),
+});
+const UFS_LOGS = [...Object.keys(UFS), 'zz'];
+
+// /api/logs/*: tempo de votação e biometria a partir dos logs das urnas (ver src/logs.js).
+async function apiLogs(res, pathname, params) {
+  try {
+    if (pathname === '/api/logs/brasil') return json(res, 200, await logs.brasil(UFS_LOGS));
+    const uf = params.get('uf');
+    if (!UFS_LOGS.includes(uf)) return json(res, 400, { erro: 'UF inválida' });
+    if (pathname === '/api/logs/estado') {
+      const por = Math.max(0, Math.min(20, Number(params.get('por')) || 0));
+      return json(res, 200, await logs.estado(uf, { por }));
+    }
+    if (pathname === '/api/logs/municipio') {
+      const mun = params.get('mun');
+      if (!/^\d{5}$/.test(mun ?? '')) return json(res, 400, { erro: 'município inválido' });
+      return json(res, 200, await logs.municipio(uf, mun, { coletar: params.get('coletar') === '1' }));
+    }
+    return json(res, 404, { erro: 'rota desconhecida' });
+  } catch (erro) {
+    return json(res, 502, { erro: `falha ao ler os logs: ${erro.message}` });
+  }
+}
 
 // /api/censo/*: séries do IBGE para o explorador (ver src/censo.js).
 async function apiCenso(res, pathname, params) {
@@ -174,6 +210,7 @@ const servidor = http.createServer((req, res) => {
   }
   const { pathname, searchParams } = new URL(req.url, 'http://localhost');
   if (pathname.startsWith('/api/censo/')) return apiCenso(res, pathname, searchParams);
+  if (pathname.startsWith('/api/logs/')) return apiLogs(res, pathname, searchParams);
   if (pathname.startsWith('/api/')) return api(res, pathname, searchParams);
   if (pathname.startsWith('/tse/')) return proxy(req, res, decodeURIComponent(pathname.slice(5)));
   return estatico(res, decodeURIComponent(pathname));

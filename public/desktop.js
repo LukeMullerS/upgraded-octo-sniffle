@@ -26,6 +26,7 @@ const MODULOS = [
 const APPS = {
   apuracao: { titulo: 'Apuração', icone: 'computador', url: 'index.html', w: 760, h: 620, descricao: 'Resultado por cargo, estado e município.' },
   brancos: { titulo: 'Brancos e nulos', icone: 'pastaPainel', url: 'brancos.html', w: 1000, h: 660, descricao: 'Painel completo de brancos, nulos e anulados.' },
+  logs: { titulo: 'Logs das urnas', icone: 'urna', url: 'logs.html', w: 1000, h: 680, descricao: 'Tempo de votação, biometria e horários a partir do log de cada urna.' },
   explorar: { titulo: 'Explorador de variáveis', icone: 'grafico', url: 'explorar.html', w: 1040, h: 680, descricao: 'Cruze variáveis da eleição e do Censo (estilo JASP).' },
   ...Object.fromEntries(MODULOS.map(([id, titulo, ic, descricao, w, h]) => [`brancos-${id}`, {
     titulo: `${titulo} — Brancos e nulos`, curto: titulo, icone: ic, url: 'brancos.html', modulo: id, w, h, descricao,
@@ -45,7 +46,7 @@ const EXTERNOS = {
 
 const ICONES_AREA = [
   ['apuracao', 'Apuração'], ['brancos', 'Brancos e nulos'], ['paineis', 'Painéis'],
-  ['explorar', 'Explorador'], ['leiame', 'Leia-me.txt'], ['tse', 'Resultados TSE'], ['ibge', 'IBGE SIDRA'], ['lixeira', 'Lixeira'],
+  ['explorar', 'Explorador'], ['logs', 'Logs das urnas'], ['leiame', 'Leia-me.txt'], ['tse', 'Resultados TSE'], ['ibge', 'IBGE SIDRA'], ['lixeira', 'Lixeira'],
 ];
 
 const FUNDOS = [
@@ -318,7 +319,7 @@ $('botoes-tarefas').addEventListener('click', (ev) => {
 
 $('iniciar').innerHTML = `${icone('janelas', 16)}<b>Iniciar</b>`;
 $('rapido').innerHTML = [
-  ['desktop', 'Mostrar área de trabalho', 'mostrar'], ['pastaPainel', 'Brancos e nulos', 'brancos'], ['grafico', 'Explorador', 'explorar'],
+  ['desktop', 'Mostrar área de trabalho', 'mostrar'], ['pastaPainel', 'Brancos e nulos', 'brancos'], ['grafico', 'Explorador', 'explorar'], ['urna', 'Logs das urnas', 'logs'],
 ].map(([ic, t, acao]) => `<button type="button" class="rapido-botao" data-rapido="${acao}" title="${esc(t)}">${icone(ic, 16)}</button>`).join('');
 $('rapido').addEventListener('click', (ev) => {
   const acao = ev.target.closest('[data-rapido]')?.dataset.rapido;
@@ -346,7 +347,8 @@ function montarMenuIniciar() {
     ${itemMenu('computador', 'Apuração', 'data-abrir="apuracao"')}
     ${itemMenu('pastaPainel', 'Brancos e nulos', 'data-abrir="brancos"')}
     ${itemMenu('pasta', 'Painéis', '', subPaineis)}
-    ${itemMenu('grafico', 'Explorador de variáveis', 'data-abrir="explorar"')}</ul>`;
+    ${itemMenu('grafico', 'Explorador de variáveis', 'data-abrir="explorar"')}
+    ${itemMenu('urna', 'Logs das urnas', 'data-abrir="logs"')}</ul>`;
   const subProgramas = `<ul class="menu sub">
     ${itemMenu('programas', 'Eleições 2026', '', subEleicoes)}
     ${itemMenu('programas', 'Internet', '', `<ul class="menu sub">${itemMenu('globo', 'Resultados TSE', 'data-abrir="tse"')}${itemMenu('livro', 'IBGE SIDRA', 'data-abrir="ibge"')}</ul>`)}
@@ -504,6 +506,11 @@ De onde vêm os dados
   totalizadas.
 * Censo: API de agregados do IBGE (SIDRA), baixada sob demanda e
   guardada na pasta dados/censo.
+* Logs das urnas: o log de cada seção (logd.dat, dentro do .jez)
+  é baixado, descompactado e lido; o tempo na cabine vai de
+  "Eleitor foi habilitado" a "O voto do eleitor foi computado".
+  Leitura por município ou por amostra do estado; os resumos
+  ficam em dados/logs. O log não diz como o eleitor votou.
 
 Cuidados na leitura
 -------------------

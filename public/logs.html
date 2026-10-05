@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Logs das urnas 2026</title>
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0b5cad">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <script src="tema.js"></script>
+</head>
+<body class="painel">
+  <header class="topo">
+    <div>
+      <h1>Logs das urnas</h1>
+      <p class="sub">Tempo de votação, biometria e horários a partir do log de cada urna · 1º turno 2026</p>
+    </div>
+    <div class="atualizacao">
+      <span id="status" class="status">carregando…</span>
+      <button id="exportar" type="button" class="secundario sem-margem">Exportar CSV</button>
+      <button id="atualizar" type="button">Atualizar</button>
+    </div>
+  </header>
+
+  <nav class="abas" aria-label="Páginas">
+    <a href="./">Apuração</a>
+    <a href="brancos.html">Brancos e nulos</a>
+    <a href="explorar.html">Explorador</a>
+    <a href="logs.html" aria-current="page">Logs das urnas</a>
+  </nav>
+
+  <nav class="filtros filtros-painel" aria-label="Filtros">
+    <label>Estado
+      <select id="uf"></select>
+    </label>
+    <label>Município
+      <select id="mun"><option value="">Todos (municípios já lidos)</option></select>
+    </label>
+    <label>Comparar com
+      <select id="metrica-bn">
+        <option value="pctBrancosNulos">% brancos + nulos</option>
+        <option value="pctBrancos">% brancos</option>
+        <option value="pctNulos">% nulos</option>
+        <option value="pctAbstencao">% abstenção</option>
+      </select>
+    </label>
+    <label>Cargo (brancos e nulos)
+      <select id="cargo"></select>
+    </label>
+  </nav>
+
+  <main>
+    <details class="cartao como" data-modulo-cartao="como">
+      <summary>Como é feito</summary>
+      <p>Para cada seção, o servidor vê se o TSE já publicou os arquivos da urna, baixa o log (<code>logd.dat</code>,
+        dentro do <code>.jez</code>, um arquivo 7z) e lê os eventos de cada eleitor: <em>"Título digitado pelo
+        mesário"</em>, <em>"Eleitor foi habilitado"</em> e <em>"O voto do eleitor foi computado"</em>.</p>
+      <ul>
+        <li><strong>Tempo na cabine</strong>: de "Eleitor foi habilitado" até "O voto do eleitor foi computado".</li>
+        <li><strong>Tempo de atendimento</strong>: do título digitado até o voto computado (inclui a biometria).</li>
+        <li><strong>Biometria</strong>: eleitores habilitados pela digital; os demais foram habilitados manualmente
+          (a digital não foi reconhecida) ou não tinham biometria cadastrada.</li>
+        <li>Os números cobrem só as seções já lidas; as do Norte e as pequenas chegam primeiro. Horários são os do
+          relógio de cada urna. Durações acima de 30 minutos (urna suspensa etc.) ficam fora das médias.</li>
+        <li>O log não registra em quem o eleitor votou nem se votou em branco ou nulo. Brancos e nulos vêm do
+          resultado oficial do município e são comparados com o tempo médio de votação.</li>
+      </ul>
+      <p class="mudo">Ler o Brasil inteiro seriam centenas de milhares de logs. Por isso a leitura é por município
+        (todas as seções) ou por amostra do estado (algumas seções de cada cidade). Cada log é lido uma vez e o
+        resumo fica guardado em <code>dados/logs</code>.</p>
+    </details>
+
+    <section id="erro" class="erro" hidden></section>
+
+    <section class="cartao" data-modulo-cartao="resumo">
+      <div class="linha"><h2 id="titulo">—</h2><span id="sub-titulo" class="mudo"></span></div>
+      <div class="acoes">
+        <button id="ler-municipio" type="button" hidden>Ler todas as seções do município</button>
+        <label class="acao-amostra">Amostra do estado:
+          <select id="por">
+            <option value="1">1 seção por cidade</option>
+            <option value="2" selected>2 seções por cidade</option>
+            <option value="5">5 seções por cidade</option>
+            <option value="10">10 seções por cidade</option>
+          </select>
+        </label>
+        <button id="ler-amostra" type="button">Ler amostra</button>
+      </div>
+      <div class="barra"><div id="barra"></div></div>
+      <p class="progresso-texto"><strong id="pct-lidas">0%</strong> <span id="lidas"></span></p>
+      <dl class="kpis kpis-5" id="kpis"></dl>
+    </section>
+
+    <div class="grade-painel">
+      <section class="cartao" data-modulo-cartao="hist">
+        <div class="linha"><h2>Tempo na cabine</h2><span class="mudo pequeno" id="sub-hist"></span></div>
+        <div id="hist" class="grafico"></div>
+      </section>
+      <section class="cartao" data-modulo-cartao="hora">
+        <div class="linha"><h2>Votos por hora</h2><span class="mudo pequeno">relógio da urna</span></div>
+        <div id="hora" class="grafico"></div>
+      </section>
+      <section class="cartao" data-modulo-cartao="cruzamento" id="cruzamento-cartao">
+        <div class="linha"><h2 id="titulo-cruzamento">Tempo de votação × brancos e nulos</h2><span class="mudo pequeno" id="correlacao"></span></div>
+        <div id="cruzamento" class="grafico"></div>
+        <p class="mudo pequeno" id="nota-cruzamento"></p>
+      </section>
+      <section class="cartao" data-modulo-cartao="tipos">
+        <div class="linha"><h2>Habilitação dos eleitores</h2></div>
+        <div id="tipos" class="grafico"></div>
+      </section>
+    </div>
+
+    <section class="cartao" data-modulo-cartao="tabela">
+      <div class="linha"><h2 id="titulo-tabela">Locais</h2><input id="busca" type="search" placeholder="Buscar"></div>
+      <div class="tabela-rolagem"><table class="tabela bn" id="tabela"></table></div>
+      <button id="mais" type="button" class="secundario" hidden>Mostrar mais</button>
+    </section>
+  </main>
+
+  <div id="dica" class="dica" role="tooltip" hidden></div>
+
+  <footer>
+    Fonte: arquivos das urnas publicados pelo <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">TSE</a> (ambiente oficial).
+  </footer>
+
+  <script type="module" src="logs.js"></script>
+</body>
+</html>
