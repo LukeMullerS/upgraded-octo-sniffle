@@ -14,6 +14,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { criarColetor } from './src/coletor.js';
+import { PRESETS, criarCenso } from './src/censo.js';
 import { ELEICOES } from './public/tse.js';
 
 const PORTA = Number(process.env.PORT) || 3000;
@@ -78,6 +79,31 @@ async function buscarJson(caminho) {
 }
 
 const coletor = criarColetor({ buscarJson });
+const censo = criarCenso({
+  pasta: join(fileURLToPath(new URL('.', import.meta.url)), 'dados', 'censo'),
+  ...(process.env.IBGE_BASE ? { base: process.env.IBGE_BASE.replace(/\/$/, '') } : {}),
+});
+
+// /api/censo/*: séries do IBGE para o explorador (ver src/censo.js).
+async function apiCenso(res, pathname, params) {
+  try {
+    if (pathname === '/api/censo/presets') return json(res, 200, PRESETS.map(({ id, nome, tabela }) => ({ id, nome, tabela })));
+    if (pathname === '/api/censo/metadados') return json(res, 200, await censo.metadados(params.get('tabela')));
+    if (pathname === '/api/censo/serie') {
+      if (params.get('preset')) return json(res, 200, await censo.preset(params.get('preset')));
+      // Categorias escolhidas vêm como c<id da classificação>=<id da categoria>.
+      const classificacao = {};
+      for (const [k, v] of params) if (/^c\d+$/.test(k) && /^\d+$/.test(v)) classificacao[k.slice(1)] = v;
+      return json(res, 200, await censo.serie({
+        tabela: params.get('tabela'), variavel: params.get('variavel'), periodo: params.get('periodo'), classificacao,
+      }));
+    }
+    return json(res, 404, { erro: 'rota desconhecida' });
+  } catch (erro) {
+    const msg = erro?.name === 'TimeoutError' ? 'o IBGE não respondeu a tempo' : erro.message;
+    return json(res, 502, { erro: `falha ao consultar o IBGE: ${msg}` });
+  }
+}
 
 function json(res, status, dados) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
@@ -147,6 +173,7 @@ const servidor = http.createServer((req, res) => {
     return;
   }
   const { pathname, searchParams } = new URL(req.url, 'http://localhost');
+  if (pathname.startsWith('/api/censo/')) return apiCenso(res, pathname, searchParams);
   if (pathname.startsWith('/api/')) return api(res, pathname, searchParams);
   if (pathname.startsWith('/tse/')) return proxy(req, res, decodeURIComponent(pathname.slice(5)));
   return estatico(res, decodeURIComponent(pathname));

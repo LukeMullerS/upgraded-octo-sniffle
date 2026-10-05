@@ -179,3 +179,83 @@ export function resumoCaixa(valores) {
     atipicos: valores.filter((v) => v < lo || v > hi),
   };
 }
+
+// ---------- inferência ----------
+
+// log Γ(x) pela aproximação de Lanczos.
+function lnGama(x) {
+  const c = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+  let y = x;
+  const tmp = x + 5.5 - (x + 0.5) * Math.log(x + 5.5);
+  let ser = 1.000000000190015;
+  for (const ci of c) ser += ci / ++y;
+  return -tmp + Math.log((2.5066282746310005 * ser) / x);
+}
+
+// Fração contínua da beta incompleta (Numerical Recipes, betacf).
+function fracaoBeta(a, b, x) {
+  const EPS = 3e-14;
+  const MIN = 1e-300;
+  let c = 1;
+  let d = 1 - ((a + b) * x) / (a + 1);
+  if (Math.abs(d) < MIN) d = MIN;
+  d = 1 / d;
+  let h = d;
+  for (let m = 1; m <= 300; m += 1) {
+    const m2 = 2 * m;
+    let aa = (m * (b - m) * x) / ((a + m2 - 1) * (a + m2));
+    d = 1 + aa * d; if (Math.abs(d) < MIN) d = MIN;
+    c = 1 + aa / c; if (Math.abs(c) < MIN) c = MIN;
+    d = 1 / d; h *= d * c;
+    aa = (-(a + m) * (a + b + m) * x) / ((a + m2) * (a + m2 + 1));
+    d = 1 + aa * d; if (Math.abs(d) < MIN) d = MIN;
+    c = 1 + aa / c; if (Math.abs(c) < MIN) c = MIN;
+    d = 1 / d;
+    const del = d * c;
+    h *= del;
+    if (Math.abs(del - 1) < EPS) break;
+  }
+  return h;
+}
+
+/** Beta incompleta regularizada I_x(a, b). */
+export function betaIncompleta(x, a, b) {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const bt = Math.exp(lnGama(a + b) - lnGama(a) - lnGama(b) + a * Math.log(x) + b * Math.log(1 - x));
+  return x < (a + 1) / (a + b + 2) ? (bt * fracaoBeta(a, b, x)) / a : 1 - (bt * fracaoBeta(b, a, 1 - x)) / b;
+}
+
+/** Valor-p bicaudal da estatística t com gl graus de liberdade. */
+export const pValorT = (t, gl) => betaIncompleta(gl / (gl + t * t), gl / 2, 0.5);
+
+/** Valor-p (cauda superior) da estatística F. */
+export const pValorF = (f, gl1, gl2) => (f > 0 ? betaIncompleta(gl2 / (gl2 + gl1 * f), gl2 / 2, gl1 / 2) : 1);
+
+/** Teste da correlação de Pearson (H0: ρ = 0). */
+export function testeCorrelacao(r, n) {
+  if (r === null || n < 3) return null;
+  if (Math.abs(r) >= 1) return { t: Infinity, gl: n - 2, p: 0 };
+  const t = r * Math.sqrt((n - 2) / (1 - r * r));
+  return { t, gl: n - 2, p: pValorT(t, n - 2) };
+}
+
+/** ANOVA de um fator. `grupos` = listas de valores. Devolve F, graus de liberdade, p e η². */
+export function anovaUmFator(grupos) {
+  const validos = grupos.filter((g) => g.length);
+  const n = validos.reduce((t, g) => t + g.length, 0);
+  const k = validos.length;
+  if (k < 2 || n <= k) return null;
+  const geral = validos.flat().reduce((t, v) => t + v, 0) / n;
+  let entre = 0;
+  let dentro = 0;
+  for (const g of validos) {
+    const m = media(g);
+    entre += g.length * (m - geral) ** 2;
+    for (const v of g) dentro += (v - m) ** 2;
+  }
+  const gl1 = k - 1;
+  const gl2 = n - k;
+  const f = dentro > 0 ? entre / gl1 / (dentro / gl2) : Infinity;
+  return { f, gl1, gl2, p: Number.isFinite(f) ? pValorF(f, gl1, gl2) : 0, eta2: entre / (entre + dentro) };
+}

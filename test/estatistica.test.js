@@ -65,3 +65,16 @@ test('regressão linear e caixa', async () => {
   assert.deepEqual(c.atipicos, [100]);
   assert.equal(c.max, 4);
 });
+
+test('valores-p conferidos com tabelas', async () => {
+  const { pValorT, pValorF, testeCorrelacao, anovaUmFator } = await import('../public/estatistica.js');
+  assert.ok(Math.abs(pValorT(2.0, 10) - 0.0734) < 0.0005);
+  assert.ok(Math.abs(pValorT(2.228, 10) - 0.05) < 0.0005);
+  assert.ok(Math.abs(pValorF(4.103, 2, 10) - 0.05) < 0.0005);
+  assert.ok(Math.abs(testeCorrelacao(0.5, 30).p - 0.0049) < 0.0005);
+  const a = anovaUmFator([[1, 2, 3], [4, 5, 6], [7, 8, 9]]);
+  assert.equal(a.gl1, 2);
+  assert.equal(a.gl2, 6);
+  assert.ok(Math.abs(a.f - 27) < 1e-9);
+  assert.ok(Math.abs(a.eta2 - 0.9) < 1e-9);
+});

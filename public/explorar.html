@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Explorador 2026</title>
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0b5cad">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icone.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="painel">
+  <header class="topo">
+    <div>
+      <h1>Explorador de variáveis</h1>
+      <p class="sub">Arraste variáveis da eleição, do território e do Censo para cruzar · estilo JASP/jamovi</p>
+    </div>
+    <div class="atualizacao">
+      <span id="status" class="status">carregando…</span>
+      <button id="exportar" type="button" class="secundario sem-margem">Exportar CSV</button>
+      <button id="atualizar" type="button">Atualizar</button>
+    </div>
+  </header>
+
+  <nav class="abas" aria-label="Páginas">
+    <a href="./">Apuração</a>
+    <a href="brancos.html">Brancos e nulos</a>
+    <a href="explorar.html" aria-current="page">Explorador</a>
+  </nav>
+
+  <main>
+    <section id="erro" class="erro" hidden></section>
+
+    <section class="cartao">
+      <div class="linha"><h2>Dados</h2><span class="mudo pequeno" id="resumo-dados"></span></div>
+      <div class="filtros filtros-painel embutido">
+        <label>Unidade de análise
+          <select id="nivel"></select>
+        </label>
+        <label>Apuração mínima
+          <select id="apuracao">
+            <option value="0">Qualquer</option>
+            <option value="50">50% das seções</option>
+            <option value="90">90% das seções</option>
+            <option value="100">100% (concluída)</option>
+          </select>
+        </label>
+        <label class="check-linha"><input type="checkbox" id="sem-exterior" checked> Sem exterior</label>
+      </div>
+      <fieldset class="grupo-campos">
+        <legend>Cargos (cada cargo vira um conjunto de variáveis)</legend>
+        <div id="cargos" class="checks"></div>
+      </fieldset>
+      <fieldset class="grupo-campos">
+        <legend>Censo / IBGE</legend>
+        <div id="presets" class="checks"></div>
+        <div class="sidra">
+          <label>Outra tabela do SIDRA (nº)
+            <input id="tabela-sidra" type="number" inputmode="numeric" placeholder="ex.: 9543" min="1">
+          </label>
+          <button id="buscar-sidra" type="button" class="secundario sem-margem">Ver variáveis</button>
+          <a class="pequeno" href="https://sidra.ibge.gov.br/pesquisa/censo-demografico/demografico-2022/inicial" target="_blank" rel="noopener">procurar tabelas do Censo 2022 ↗</a>
+        </div>
+        <div id="sidra-form" class="sidra-form" hidden></div>
+      </fieldset>
+      <fieldset class="grupo-campos">
+        <legend>Importar CSV</legend>
+        <label class="pequeno">Primeira coluna: código IBGE, código TSE, sigla da UF ou nome do local; demais colunas numéricas.
+          <input id="csv" type="file" accept=".csv,text/csv,text/plain">
+        </label>
+      </fieldset>
+    </section>
+
+    <div class="explorador">
+      <section class="cartao variaveis">
+        <div class="linha"><h2>Variáveis</h2></div>
+        <input id="filtro-var" type="search" placeholder="Filtrar variáveis">
+        <p class="mudo pequeno">Arraste para os campos ao lado, ou toque numa variável e depois no campo.</p>
+        <div id="lista-var"></div>
+      </section>
+
+      <div class="analise">
+        <section class="cartao">
+          <div class="zonas">
+            <div class="zona" data-zona="x"><span class="zona-nome">Eixo X</span><div class="zona-itens"></div></div>
+            <div class="zona" data-zona="y"><span class="zona-nome">Eixo Y</span><div class="zona-itens"></div></div>
+            <div class="zona" data-zona="grupo"><span class="zona-nome">Grupo / cor</span><div class="zona-itens"></div></div>
+            <div class="zona" data-zona="tamanho"><span class="zona-nome">Tamanho</span><div class="zona-itens"></div></div>
+            <div class="zona zona-larga" data-zona="matriz"><span class="zona-nome">Matriz de correlação (várias)</span><div class="zona-itens"></div></div>
+          </div>
+          <button id="limpar-zonas" type="button" class="secundario">Limpar campos</button>
+        </section>
+
+        <section class="cartao">
+          <div class="linha"><h2 id="titulo-grafico">Gráfico</h2><span class="mudo pequeno" id="sub-grafico"></span></div>
+          <div id="grafico" class="grafico"></div>
+          <div class="legenda" id="legenda"></div>
+        </section>
+
+        <section class="cartao">
+          <div class="linha"><h2>Resultados</h2></div>
+          <div id="resultados"></div>
+        </section>
+
+        <section class="cartao">
+          <div class="linha"><h2>Estatísticas descritivas</h2></div>
+          <div class="tabela-rolagem"><table class="tabela" id="descritivas"></table></div>
+        </section>
+
+        <section class="cartao" id="matriz-cartao" hidden>
+          <div class="linha"><h2>Matriz de correlação (Pearson)</h2><span class="mudo pequeno">clique numa célula para ver a dispersão</span></div>
+          <div class="tabela-rolagem"><table class="matriz" id="matriz"></table></div>
+          <p class="mudo pequeno">* p &lt; 0,05 · ** p &lt; 0,01 · *** p &lt; 0,001. Correlação não é causalidade; em dados agregados por local (falácia ecológica) ela não diz nada sobre eleitores individuais.</p>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <div id="dica" class="dica" role="tooltip" hidden></div>
+
+  <footer>
+    Fontes: <a href="https://resultados.tse.jus.br/oficial/app/index.html" target="_blank" rel="noopener">TSE</a> (ambiente oficial) e
+    <a href="https://sidra.ibge.gov.br" target="_blank" rel="noopener">IBGE/SIDRA</a>.
+  </footer>
+
+  <script type="module" src="explorar.js"></script>
+</body>
+</html>
