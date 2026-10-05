@@ -259,3 +259,109 @@ export function anovaUmFator(grupos) {
   const f = dentro > 0 ? entre / gl1 / (dentro / gl2) : Infinity;
   return { f, gl1, gl2, p: Number.isFinite(f) ? pValorF(f, gl1, gl2) : 0, eta2: entre / (entre + dentro) };
 }
+
+// ---------- análises adicionais ----------
+
+/** Postos (ranks) com média nos empates. */
+function postos(v) {
+  const idx = v.map((x, i) => [x, i]).sort((a, b) => a[0] - b[0]);
+  const r = new Array(v.length);
+  for (let i = 0; i < idx.length;) {
+    let j = i;
+    while (j + 1 < idx.length && idx[j + 1][0] === idx[i][0]) j += 1;
+    const media = (i + j) / 2 + 1;
+    for (let k = i; k <= j; k += 1) r[idx[k][1]] = media;
+    i = j + 1;
+  }
+  return r;
+}
+
+/** Correlação de Spearman (Pearson sobre os postos): menos sensível a valores extremos. */
+export function spearman(xs, ys) {
+  return correlacao(postos(xs), postos(ys));
+}
+
+/** Teste t de Welch para duas amostras independentes, com d de Cohen. */
+export function testeTWelch(a, b) {
+  if (a.length < 2 || b.length < 2) return null;
+  const ma = media(a);
+  const mb = media(b);
+  const va = desvioPadrao(a) ** 2;
+  const vb = desvioPadrao(b) ** 2;
+  const se = Math.sqrt(va / a.length + vb / b.length);
+  if (!se) return null;
+  const t = (ma - mb) / se;
+  const gl = (va / a.length + vb / b.length) ** 2
+    / ((va / a.length) ** 2 / (a.length - 1) + (vb / b.length) ** 2 / (b.length - 1));
+  const dp = Math.sqrt(((a.length - 1) * va + (b.length - 1) * vb) / (a.length + b.length - 2));
+  return { t, gl, p: pValorT(t, gl), mediaA: ma, mediaB: mb, diferenca: ma - mb, d: dp ? (ma - mb) / dp : 0, nA: a.length, nB: b.length };
+}
+
+/** Resolve A·x = b por eliminação de Gauss com pivoteamento; null se singular. */
+function resolver(A, b) {
+  const n = A.length;
+  const M = A.map((linha, i) => [...linha, b[i]]);
+  for (let c = 0; c < n; c += 1) {
+    let p = c;
+    for (let r = c + 1; r < n; r += 1) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    if (Math.abs(M[p][c]) < 1e-12) return null;
+    [M[c], M[p]] = [M[p], M[c]];
+    for (let r = 0; r < n; r += 1) {
+      if (r === c) continue;
+      const f = M[r][c] / M[c][c];
+      for (let k = c; k <= n; k += 1) M[r][k] -= f * M[c][k];
+    }
+  }
+  return M.map((linha, i) => linha[n] / linha[i]);
+}
+
+/** Inversa de uma matriz pequena (Gauss-Jordan); null se singular. */
+function inversa(A) {
+  const n = A.length;
+  const colunas = [];
+  for (let j = 0; j < n; j += 1) {
+    const e = new Array(n).fill(0);
+    e[j] = 1;
+    const c = resolver(A, e);
+    if (!c) return null;
+    colunas.push(c);
+  }
+  return A.map((_, i) => colunas.map((c) => c[i]));
+}
+
+/**
+ * Regressão linear múltipla por mínimos quadrados: y = b0 + b1·x1 + … + bk·xk.
+ * @param {number[]} y
+ * @param {number[][]} X  uma linha por observação, uma coluna por variável explicativa
+ */
+export function regressaoMultipla(y, X) {
+  const n = y.length;
+  const k = X[0]?.length ?? 0;
+  if (!k || n <= k + 1) return null;
+  const Z = X.map((linha) => [1, ...linha]); // com intercepto
+  const p = k + 1;
+  const ZtZ = Array.from({ length: p }, (_, i) => Array.from({ length: p }, (_, j) => Z.reduce((s, z) => s + z[i] * z[j], 0)));
+  const Zty = Array.from({ length: p }, (_, i) => Z.reduce((s, z, r) => s + z[i] * y[r], 0));
+  const inv = inversa(ZtZ);
+  if (!inv) return null;
+  const b = inv.map((linha) => linha.reduce((s, v, j) => s + v * Zty[j], 0));
+  const previsto = Z.map((z) => z.reduce((s, v, j) => s + v * b[j], 0));
+  const my = media(y);
+  const sqRes = y.reduce((s, v, i) => s + (v - previsto[i]) ** 2, 0);
+  const sqTot = y.reduce((s, v) => s + (v - my) ** 2, 0);
+  const glRes = n - p;
+  const s2 = sqRes / glRes;
+  const r2 = sqTot ? 1 - sqRes / sqTot : 0;
+  const dpY = desvioPadrao(y);
+  const coeficientes = b.map((coef, j) => {
+    const se = Math.sqrt(Math.max(0, s2 * inv[j][j]));
+    const t = se ? coef / se : 0;
+    const dpX = j ? desvioPadrao(X.map((linha) => linha[j - 1])) : 0;
+    return { coef, se, t, p: se ? pValorT(t, glRes) : 1, beta: j && dpY ? (coef * dpX) / dpY : null };
+  });
+  const f = k && r2 < 1 ? (r2 / k) / ((1 - r2) / glRes) : Infinity;
+  return {
+    n, k, coeficientes, r2, r2Ajustado: 1 - ((1 - r2) * (n - 1)) / glRes,
+    f, pF: Number.isFinite(f) ? pValorF(f, k, glRes) : 0, glRes,
+  };
+}

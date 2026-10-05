@@ -17,7 +17,7 @@
   <header class="topo">
     <div>
       <h1>Explorador de variáveis</h1>
-      <p class="sub">Arraste variáveis da eleição, do território e do Censo para cruzar · estilo JASP/jamovi</p>
+      <p class="sub">Perguntas prontas, mapas e estatística com os dados da eleição, dos logs das urnas e do Censo</p>
     </div>
     <div class="atualizacao">
       <span id="status" class="status">carregando…</span>
@@ -36,12 +36,81 @@
   <main>
     <section id="erro" class="erro" hidden></section>
 
-    <section class="cartao">
-      <div class="linha"><h2>Dados</h2><span class="mudo pequeno" id="resumo-dados"></span></div>
-      <div class="filtros filtros-painel embutido">
-        <label>Unidade de análise
+    <section class="cartao" data-modulo-cartao="perguntas">
+      <div class="linha"><h2>O que você quer descobrir?</h2><span class="mudo pequeno">um clique monta a análise</span></div>
+      <div id="perguntas" class="perguntas"></div>
+    </section>
+
+    <section class="cartao montagem">
+      <div class="linha"><h2>Monte sua análise</h2><span class="mudo pequeno" id="resumo-dados"></span></div>
+      <div class="frase">
+        <label>Olhando para
           <select id="nivel"></select>
         </label>
+        <label>quero entender
+          <select id="sel-y"></select>
+        </label>
+        <label>comparando com
+          <select id="sel-x"></select>
+        </label>
+        <label>separando por
+          <select id="sel-grupo"></select>
+        </label>
+        <label>usando
+          <select id="sel-tipo">
+            <option value="auto">Escolha automática</option>
+            <option value="mapa">Mapa</option>
+            <option value="dispersao">Correlação (dispersão)</option>
+            <option value="grupos">Comparar grupos (boxplot + ANOVA)</option>
+            <option value="testet">Teste t (2 grupos)</option>
+            <option value="regressao">Regressão múltipla</option>
+            <option value="ranking">Ranking (maiores e menores)</option>
+            <option value="distribuicao">Distribuição (histograma)</option>
+          </select>
+        </label>
+      </div>
+      <div id="explicativas-bloco" class="explicativas" hidden>
+        <p class="pequeno"><strong>Variáveis explicativas</strong> (marque as que podem influenciar "quero entender"):</p>
+        <div id="explicativas" class="checks"></div>
+      </div>
+      <p id="dica-tipo" class="mudo pequeno"></p>
+    </section>
+
+    <section class="cartao resultado">
+      <div class="linha"><h2 id="titulo-grafico">Resultado</h2><span class="mudo pequeno" id="sub-grafico"></span></div>
+      <p id="resumo-texto" class="resumo-texto"></p>
+      <div class="abas-resultado" role="tablist">
+        <button type="button" role="tab" data-aba="grafico" aria-selected="true">Gráfico</button>
+        <button type="button" role="tab" data-aba="mapa">Mapa</button>
+        <button type="button" role="tab" data-aba="dados">Dados</button>
+      </div>
+      <div data-painel="grafico">
+        <div id="grafico" class="grafico"></div>
+        <div class="legenda" id="legenda"></div>
+      </div>
+      <div data-painel="mapa" hidden><div id="mapa-explorar"></div><p class="mudo pequeno" id="nota-mapa"></p></div>
+      <div data-painel="dados" hidden><div class="tabela-rolagem"><table class="tabela" id="tabela-dados"></table></div></div>
+    </section>
+
+    <section class="cartao">
+      <div class="linha"><h2>Detalhes estatísticos</h2></div>
+      <div id="resultados"></div>
+    </section>
+
+    <section class="cartao">
+      <div class="linha"><h2>Estatísticas descritivas</h2></div>
+      <div class="tabela-rolagem"><table class="tabela" id="descritivas"></table></div>
+    </section>
+
+    <section class="cartao" id="matriz-cartao" hidden>
+      <div class="linha"><h2>Matriz de correlação (Pearson)</h2><span class="mudo pequeno">clique numa célula para ver a dispersão</span></div>
+      <div class="tabela-rolagem"><table class="matriz" id="matriz"></table></div>
+      <p class="mudo pequeno">* p &lt; 0,05 · ** p &lt; 0,01 · *** p &lt; 0,001. Correlação não é causalidade; em dados agregados por local (falácia ecológica) ela não diz nada sobre eleitores individuais.</p>
+    </section>
+
+    <details class="cartao">
+      <summary>Mais dados: cargos, Censo/IBGE e CSV</summary>
+      <div class="filtros filtros-painel embutido">
         <label>Apuração mínima
           <select id="apuracao">
             <option value="0">Qualquer</option>
@@ -74,51 +143,28 @@
           <input id="csv" type="file" accept=".csv,text/csv,text/plain">
         </label>
       </fieldset>
-    </section>
+    </details>
 
-    <div class="explorador">
-      <section class="cartao variaveis">
-        <div class="linha"><h2>Variáveis</h2></div>
-        <input id="filtro-var" type="search" placeholder="Filtrar variáveis">
-        <p class="mudo pequeno">Arraste para os campos ao lado, ou toque numa variável e depois no campo.</p>
-        <div id="lista-var"></div>
-      </section>
-
-      <div class="analise">
-        <section class="cartao">
+    <details class="cartao" id="avancado">
+      <summary>Modo avançado: arrastar variáveis (estilo JASP)</summary>
+      <div class="explorador">
+        <div class="variaveis">
+          <input id="filtro-var" type="search" placeholder="Filtrar variáveis">
+          <p class="mudo pequeno">Arraste para os campos ao lado, ou toque numa variável e depois no campo.</p>
+          <div id="lista-var"></div>
+        </div>
+        <div class="analise">
           <div class="zonas">
-            <div class="zona" data-zona="x"><span class="zona-nome">Eixo X</span><div class="zona-itens"></div></div>
-            <div class="zona" data-zona="y"><span class="zona-nome">Eixo Y</span><div class="zona-itens"></div></div>
-            <div class="zona" data-zona="grupo"><span class="zona-nome">Grupo / cor</span><div class="zona-itens"></div></div>
-            <div class="zona" data-zona="tamanho"><span class="zona-nome">Tamanho</span><div class="zona-itens"></div></div>
-            <div class="zona zona-larga" data-zona="matriz"><span class="zona-nome">Matriz de correlação (várias)</span><div class="zona-itens"></div></div>
+            <div class="zona" data-zona="x"><span class="zona-nome">Comparando com (X)</span><div class="zona-itens"></div></div>
+            <div class="zona" data-zona="y"><span class="zona-nome">Quero entender (Y)</span><div class="zona-itens"></div></div>
+            <div class="zona" data-zona="grupo"><span class="zona-nome">Separar por (cor)</span><div class="zona-itens"></div></div>
+            <div class="zona" data-zona="tamanho"><span class="zona-nome">Tamanho do ponto</span><div class="zona-itens"></div></div>
+            <div class="zona zona-larga" data-zona="matriz"><span class="zona-nome">Explicativas / matriz de correlação (várias)</span><div class="zona-itens"></div></div>
           </div>
           <button id="limpar-zonas" type="button" class="secundario">Limpar campos</button>
-        </section>
-
-        <section class="cartao">
-          <div class="linha"><h2 id="titulo-grafico">Gráfico</h2><span class="mudo pequeno" id="sub-grafico"></span></div>
-          <div id="grafico" class="grafico"></div>
-          <div class="legenda" id="legenda"></div>
-        </section>
-
-        <section class="cartao">
-          <div class="linha"><h2>Resultados</h2></div>
-          <div id="resultados"></div>
-        </section>
-
-        <section class="cartao">
-          <div class="linha"><h2>Estatísticas descritivas</h2></div>
-          <div class="tabela-rolagem"><table class="tabela" id="descritivas"></table></div>
-        </section>
-
-        <section class="cartao" id="matriz-cartao" hidden>
-          <div class="linha"><h2>Matriz de correlação (Pearson)</h2><span class="mudo pequeno">clique numa célula para ver a dispersão</span></div>
-          <div class="tabela-rolagem"><table class="matriz" id="matriz"></table></div>
-          <p class="mudo pequeno">* p &lt; 0,05 · ** p &lt; 0,01 · *** p &lt; 0,001. Correlação não é causalidade; em dados agregados por local (falácia ecológica) ela não diz nada sobre eleitores individuais.</p>
-        </section>
+        </div>
       </div>
-    </div>
+    </details>
   </main>
 
   <div id="dica" class="dica" role="tooltip" hidden></div>

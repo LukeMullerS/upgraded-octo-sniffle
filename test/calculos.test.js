@@ -78,3 +78,32 @@ test('valores-p conferidos com tabelas', async () => {
   assert.ok(Math.abs(a.f - 27) < 1e-9);
   assert.ok(Math.abs(a.eta2 - 0.9) < 1e-9);
 });
+
+test('Spearman, teste t de Welch e regressão múltipla', async () => {
+  const { spearman, testeTWelch, regressaoMultipla, regressaoLinear } = await import('../public/calculos.js');
+  assert.ok(Math.abs(spearman([1, 2, 3, 4, 5], [1, 4, 9, 16, 100]) - 1) < 1e-9, 'monótona = 1, mesmo não linear');
+  assert.ok(Math.abs(spearman([1, 2, 2, 3], [4, 3, 3, 1]) + 1) < 1e-9, 'empates com postos médios');
+  const t = testeTWelch([5, 6, 7, 8, 9], [1, 2, 3, 4, 5]);
+  assert.equal(t.diferenca, 4);
+  assert.ok(Math.abs(t.t - 4) < 1e-9);
+  assert.ok(Math.abs(t.gl - 8) < 1e-9);
+  assert.ok(t.p < 0.01);
+  // y = 1 + 2·x1 − 3·x2 (exato): coeficientes recuperados e R² = 1.
+  const X = [[1, 0], [2, 1], [3, 1], [4, 3], [5, 2], [6, 5], [7, 4]];
+  const y = X.map(([a, b]) => 1 + 2 * a - 3 * b);
+  const r = regressaoMultipla(y, X);
+  assert.ok(Math.abs(r.coeficientes[0].coef - 1) < 1e-6);
+  assert.ok(Math.abs(r.coeficientes[1].coef - 2) < 1e-6);
+  assert.ok(Math.abs(r.coeficientes[2].coef + 3) < 1e-6);
+  assert.ok(Math.abs(r.r2 - 1) < 1e-9);
+  // Com ruído, confere com a regressão simples quando há uma só variável.
+  const ys = [2.1, 3.9, 6.2, 7.8, 10.1, 12.2];
+  const xs = [[1], [2], [3], [4], [5], [6]];
+  const rm = regressaoMultipla(ys, xs);
+  const simples = regressaoLinear(xs.map((v) => v[0]), ys);
+  assert.ok(Math.abs(rm.coeficientes[1].coef - simples.b) < 1e-9);
+  assert.ok(Math.abs(rm.coeficientes[0].coef - simples.a) < 1e-9);
+  assert.ok(Math.abs(rm.r2 - simples.r2) < 1e-9);
+  assert.equal(regressaoMultipla([1, 2], [[1], [2]]), null, 'poucos dados');
+  assert.equal(regressaoMultipla([1, 2, 3, 4], [[1, 2], [2, 4], [3, 6], [4, 8]]), null, 'colinear');
+});

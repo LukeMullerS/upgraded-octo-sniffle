@@ -147,7 +147,10 @@ export function svgBoxplot({ grupos, rotuloX, largura = 560, linhaRef = null }) 
 export function svgBarras({ itens, rotuloX, largura = 560, cor = 'var(--destaque)', fmtValor = fmt.format }) {
   if (!itens.length) return '<p class="mudo">Sem dados suficientes.</p>';
   const altLinha = 24;
-  const m = { t: 8, r: 60, b: 38, l: 120 };
+  // Rótulos à esquerda: mais espaço (e mais letras) quando o gráfico é largo.
+  const larguraRotulo = largura >= 700 ? 200 : 130;
+  const maxLetras = Math.floor((larguraRotulo - 14) / 7.2);
+  const m = { t: 8, r: 60, b: 38, l: larguraRotulo };
   const altura = m.t + m.b + itens.length * altLinha;
   const ex = marcasEixo(Math.min(0, ...itens.map((i) => i.valor)), Math.max(0, ...itens.map((i) => i.valor)), 5);
   const x = escala(ex.inicio, ex.fim, m.l, largura - m.r);
@@ -158,7 +161,7 @@ export function svgBarras({ itens, rotuloX, largura = 560, cor = 'var(--destaque
     const w = Math.max(1, Math.abs(x(it.valor) - x(0)));
     s += `<g class="barra-h" data-dica="${i}">`
       + `<rect class="alvo" x="0" y="${cy}" width="${largura}" height="${altLinha}"/>`
-      + `<text class="eixo" x="${m.l - 8}" y="${cy + altLinha / 2 + 4}" text-anchor="end">${esc(it.nome.length > 16 ? `${it.nome.slice(0, 15)}…` : it.nome)}</text>`
+      + `<text class="eixo" x="${m.l - 8}" y="${cy + altLinha / 2 + 4}" text-anchor="end">${esc(it.nome.length > maxLetras ? `${it.nome.slice(0, maxLetras - 1)}…` : it.nome)}</text>`
       + `<rect x="${x0}" y="${cy + 4}" width="${w}" height="${altLinha - 8}" rx="4" fill="${cor}"/>`
       + `<text class="eixo" x="${x0 + w + 4}" y="${cy + altLinha / 2 + 4}">${esc(fmtValor(it.valor))}</text>`
       + '</g>';

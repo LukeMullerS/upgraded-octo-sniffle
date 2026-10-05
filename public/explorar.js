@@ -3,19 +3,23 @@
 // cruza as que o usuário arrastar para os campos X, Y, grupo, tamanho e matriz.
 
 import {
-  CARGOS, PORTES, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, criarDica, esc, fmtInt, fmtNum,
+  CODIGO_IBGE_UF, UF_DO_CODIGO, CARGOS, PORTES, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, criarDica, esc, fmtInt, fmtNum,
   nomeUf, pctSecoes, porteDe, regiaoDe, semAcento,
 } from './comum.js';
 import {
-  METRICAS, anovaUmFator, correlacao, histograma, quantil, regressaoLinear, resumoCaixa, testeCorrelacao, valorMetrica,
+  METRICAS, anovaUmFator, correlacao, histograma, quantil, regressaoLinear, regressaoMultipla, resumoCaixa, spearman,
+  testeCorrelacao, testeTWelch, valorMetrica,
 } from './calculos.js';
 import { svgBarras, svgBoxplot, svgDispersao, svgHistograma } from './graficos.js';
+import { carregarMalha, criarMapa } from './mapa.js';
 
 const $ = (id) => document.getElementById(id);
 const el = Object.fromEntries([
   'status', 'exportar', 'atualizar', 'erro', 'resumo-dados', 'nivel', 'apuracao', 'sem-exterior', 'cargos', 'presets',
   'tabela-sidra', 'buscar-sidra', 'sidra-form', 'csv', 'filtro-var', 'lista-var', 'limpar-zonas', 'titulo-grafico',
   'sub-grafico', 'grafico', 'legenda', 'resultados', 'descritivas', 'matriz-cartao', 'matriz', 'dica',
+  'perguntas', 'sel-y', 'sel-x', 'sel-grupo', 'sel-tipo', 'explicativas-bloco', 'explicativas', 'dica-tipo',
+  'resumo-texto', 'mapa-explorar', 'nota-mapa', 'tabela-dados', 'avancado',
 ].map((id) => [id.replace(/-(\w)/g, (_, l) => l.toUpperCase()), $(id)]));
 
 const MAX_GRUPOS = 8; // paleta categórica: além disso, os menores viram "Outros"
@@ -29,13 +33,17 @@ const estado = {
   logs: new Map(), // código do município (ou UF) → resumo dos logs das urnas
   zonas: { x: null, y: null, grupo: null, tamanho: null, matriz: [] },
   selecionada: null, // variável escolhida por toque (alternativa ao arrastar)
+  tipo: 'auto', // tipo de análise escolhido
+  aba: 'grafico', // aba do resultado: grafico | mapa | dados
+  resumo: '', // frase "Em resumo" da análise atual
   pedido: 0,
   vista: null,
 };
 
 // ---------- carga ----------
 
-const nivel = () => el.nivel.value; // 'estados' | uf | 'todas'
+const nivel = () => el.nivel.value;
+const ufDe = (l) => (l.uf && nivel() !== 'estados' ? ` (${esc(l.uf.toUpperCase())})` : ''); // 'estados' | uf | 'todas'
 
 function preencherNiveis(valor) {
   const ufs = CARGOS[0].abrangencias.filter((a) => a !== 'br' && a !== 'zz').sort((a, b) => nomeUf(a).localeCompare(nomeUf(b), 'pt-BR'));
@@ -80,19 +88,16 @@ async function carregar() {
   }
 }
 
-/** Resumos dos logs das urnas já lidos (tempo na cabine etc.), por UF ou por município. */
+/** Resumos dos logs das urnas já compilados (tempo na cabine etc.), por UF ou por município. */
 async function carregarLogs(n) {
   const mapa = new Map();
   try {
-    const brasil = await getJson('api/urnas/brasil');
     if (n === 'estados') {
-      for (const e of brasil.estados) mapa.set(e.uf, e.resumo);
-      return mapa;
-    }
-    const ufs = n === 'todas' ? brasil.estados.map((e) => e.uf) : brasil.estados.some((e) => e.uf === n) ? [n] : [];
-    for (const uf of ufs) {
-      const est = await getJson(`api/urnas/estado?uf=${uf}`);
-      for (const m of est.municipios) if (m.resumo) mapa.set(m.codigo, m.resumo);
+      for (const e of (await getJson('api/urnas/brasil')).estados) mapa.set(e.uf, e.resumo);
+    } else {
+      for (const m of (await getJson('api/urnas/municipios')).municipios) {
+        if (n === 'todas' || m.uf === n) mapa.set(m.codigo, m.resumo);
+      }
     }
   } catch {
     // sem logs lidos: o grupo de variáveis simplesmente não aparece
@@ -266,7 +271,7 @@ function montarVariaveis() {
   }
   for (const [id, s] of estado.censo) {
     const porNivel = nivel() === 'estados';
-    vars.push({ id: `censo:${id}`, nome: s.nome, detalhe: [s.periodo, ...(s.categorias ?? []).filter((t) => !/total/i.test(t))].filter(Boolean).join(' · '),
+    vars.push({ id: `censo:${id}`, apelido: s.preset ? `censo:${s.preset}` : null, nome: s.nome, detalhe: [s.periodo, ...(s.categorias ?? []).filter((t) => !/total/i.test(t))].filter(Boolean).join(' · '),
       grupo: 'Censo / IBGE', tipo: 'num', unidade: s.unidade,
       valor: (l) => (porNivel ? s.ufs[l.uf] : s.municipios[l.ibge]) ?? null });
   }
@@ -300,7 +305,11 @@ const CAPITAIS = new Set([
 // ---------- análise ----------
 
 const fmtValor = (v, variavel) => (v === null || v === undefined ? '—' : `${fmtNum.format(v)}${variavel?.unidade === '%' ? '%' : ''}`);
-const fmtP = (p) => (p === null || p === undefined ? '—' : p < 0.001 ? '< 0,001' : fmtNum.format(Math.round(p * 1000) / 1000));
+const fmt3 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
+const fmtSig = new Intl.NumberFormat('pt-BR', { maximumSignificantDigits: 3 });
+// Coeficientes podem ser muito pequenos (ex.: densidade em hab/km²): 3 algarismos significativos.
+const fmtCoef = (v) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : Math.abs(v) >= 100 ? fmtNum.format(v) : fmtSig.format(v));
+const fmtP = (p) => (p === null || p === undefined ? '—' : p < 0.001 ? '< 0,001' : fmt3.format(p));
 const textoP = (p) => (p < 0.001 ? 'p < 0,001' : `p = ${fmtP(p)}`);
 const fmtR = (r) => r.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const estrelas = (p) => (p < 0.001 ? '***' : p < 0.01 ? '**' : p < 0.05 ? '*' : '');
@@ -341,6 +350,7 @@ function analisar() {
   const linhas = montarLinhas();
   const vars = montarVariaveis();
   const porId = new Map(vars.map((v) => [v.id, v]));
+  for (const v of vars) if (v.apelido) porId.set(v.apelido, v); // perguntas prontas usam o apelido
   // Variáveis ainda não disponíveis (série do Censo baixando, cargo desmarcado) ficam guardadas
   // nos campos, mas fora da análise até existirem.
   const z = Object.fromEntries(['x', 'y', 'grupo', 'tamanho'].map((k) => [k, porId.get(estado.zonas[k]) ?? null]));
@@ -352,12 +362,107 @@ function analisar() {
 function renderizarTudo() {
   const v = analisar();
   el.resumoDados.textContent = `${fmtInt.format(v.linhas.length)} ${nivel() === 'estados' ? 'estados' : 'cidades'} · ${v.vars.length} variáveis`;
+  renderizarSeletores(v);
   renderizarVariaveis(v);
   renderizarZonas(v);
+  estado.resumo = '';
   renderizarAnalise(v);
+  el.resumoTexto.innerHTML = estado.resumo ? `<strong>Em resumo:</strong> ${estado.resumo}` : '';
+  el.resumoTexto.hidden = !estado.resumo;
+  renderizarDados(v);
+  if (estado.aba === 'mapa') renderizarMapa(v);
   renderizarDescritivas(v);
   renderizarMatriz(v);
   gravarHash();
+}
+
+// ---------- seletores simples ("quero entender… comparando com…") ----------
+
+function opcoesVariaveis(vars, filtro, vazio) {
+  const grupos = new Map();
+  for (const v of vars) {
+    if (!filtro(v)) continue;
+    if (!grupos.has(v.grupo)) grupos.set(v.grupo, []);
+    grupos.get(v.grupo).push(v);
+  }
+  return `<option value="">${esc(vazio)}</option>${[...grupos].map(([g, lista]) => `<optgroup label="${esc(g)}">${lista.map((v) => `<option value="${esc(v.id)}">${esc(v.nome)}</option>`).join('')}</optgroup>`).join('')}`;
+}
+
+function renderizarSeletores({ vars, z }) {
+  el.selY.innerHTML = opcoesVariaveis(vars, () => true, '— escolha uma variável —');
+  el.selX.innerHTML = opcoesVariaveis(vars, () => true, '(nada)');
+  el.selGrupo.innerHTML = opcoesVariaveis(vars, () => true, '(não separar)');
+  el.selY.value = z.y?.id ?? '';
+  el.selX.value = z.x?.id ?? '';
+  el.selGrupo.value = z.grupo?.id ?? '';
+  el.selTipo.value = estado.tipo;
+  const regressao = estado.tipo === 'regressao';
+  el.explicativasBloco.hidden = !regressao;
+  if (regressao) {
+    el.explicativas.innerHTML = vars.filter((v) => v.tipo === 'num' && v.id !== z.y?.id).map((v) => `<label class="check"><input type="checkbox" value="${esc(v.id)}"
+      ${z.matriz.some((m) => m.id === v.id) ? 'checked' : ''}> ${esc(v.nome)}</label>`).join('');
+  }
+  el.dicaTipo.textContent = {
+    auto: 'Automático: uma variável → mapa e distribuição; duas numéricas → correlação; uma categórica e uma numérica → comparação de grupos.',
+    mapa: 'O mapa colore cada local pela variável "quero entender".',
+    dispersao: 'Mostra se as duas variáveis sobem ou descem juntas (correlações de Pearson e de Spearman).',
+    grupos: 'Compara "quero entender" entre os grupos de "separando por" (ou de "comparando com", se for categórica).',
+    testet: 'Compara a média de dois grupos (o separador precisa ter dois grupos, como Capital × Interior).',
+    regressao: 'Mede quanto cada variável explicativa pesa em "quero entender", descontando as outras.',
+    ranking: 'Os 15 maiores e os 15 menores valores de "quero entender".',
+    distribuicao: 'Como os valores se espalham entre os locais.',
+  }[estado.tipo] ?? '';
+}
+
+function renderizarDados({ linhas, z }) {
+  const cols = [z.y, z.x, z.grupo, z.tamanho, ...z.matriz].filter((v, i, a) => v && a.indexOf(v) === i);
+  const ord = z.y ? [...linhas].sort((a, b) => (z.y.valor(b) ?? -Infinity) - (z.y.valor(a) ?? -Infinity)) : linhas;
+  el.tabelaDados.innerHTML = `<thead><tr><th>Local</th><th>UF</th>${cols.map((c) => `<th class="num">${esc(c.nome)}</th>`).join('')}</tr></thead>
+    <tbody>${ord.slice(0, 500).map((l) => `<tr><td>${esc(l.nome)}</td><td>${esc(l.uf?.toUpperCase() ?? '')}</td>${cols.map((c) => `<td class="num">${c.tipo === 'num' ? fmtValor(c.valor(l), c) : esc(c.valor(l) ?? '—')}</td>`).join('')}</tr>`).join('')}</tbody>`
+    + (ord.length > 500 ? `<tfoot><tr><td colspan="${cols.length + 2}" class="mudo">Mostrando 500 de ${fmtInt.format(ord.length)} locais; use "Exportar CSV" para todos.</td></tr></tfoot>` : '');
+}
+
+// ---------- mapa ----------
+
+const mapa = criarMapa(el.mapaExplorar, {
+  dica,
+  aoClicar: (cod) => {
+    if (nivel() === 'estados' && UF_DO_CODIGO[cod]) {
+      el.nivel.value = UF_DO_CODIGO[cod];
+      carregar();
+    }
+  },
+});
+
+let pedidoMapa = 0;
+async function renderizarMapa({ linhas, z }) {
+  const v = z.y ?? z.x;
+  const pedido = ++pedidoMapa;
+  if (!v || v.tipo !== 'num') {
+    el.mapaExplorar.querySelector('.mapa-area').innerHTML = '<p class="mudo">Escolha uma variável numérica em "quero entender" para ver o mapa.</p>';
+    el.notaMapa.textContent = '';
+    return;
+  }
+  const n = nivel();
+  let geo;
+  try {
+    geo = await carregarMalha(n === 'estados' ? undefined : n === 'todas' ? 'todas' : n);
+  } catch (erro) {
+    if (pedido === pedidoMapa) el.mapaExplorar.querySelector('.mapa-area').innerHTML = `<p class="mudo">Mapa indisponível: ${esc(erro.message)}</p>`;
+    return;
+  }
+  if (pedido !== pedidoMapa) return;
+  const valores = new Map();
+  const rotulos = new Map();
+  for (const l of linhas) {
+    const cod = n === 'estados' ? CODIGO_IBGE_UF[l.uf] : l.ibge;
+    const x = v.valor(l);
+    if (!cod || x === null) continue;
+    valores.set(cod, x);
+    rotulos.set(cod, n === 'estados' ? l.nome : `${l.nome} · ${l.uf?.toUpperCase()}`);
+  }
+  mapa.desenhar({ geo, valores, rotulos, titulo: v.nome, formato: (x) => fmtValor(x, v) });
+  el.notaMapa.textContent = n === 'estados' ? 'Clique num estado para ver as cidades dele.' : 'Role para aproximar; arraste para mover.';
 }
 
 function chipVar(variavel, extra = '') {
@@ -396,21 +501,35 @@ function tabelaHtml(cabecalho, linhas) {
 function renderizarAnalise({ linhas, z }) {
   let { x, y } = z;
   const { grupo, tamanho } = z;
-  // Categórica no Y e numérica no X: troca, para o boxplot ficar sempre "valor por grupo".
-  if (x?.tipo === 'num' && y?.tipo === 'cat') [x, y] = [y, x];
   el.legenda.innerHTML = '';
   estado.pontos = null;
   estado.itensGrafico = null;
+  const cat = categorizador(grupo, linhas);
 
+  // Tipos escolhidos explicitamente.
+  const tipo = estado.tipo;
+  if (tipo === 'regressao') return analiseRegressao(linhas, y, z.matriz);
+  if (tipo === 'ranking' && y) return analiseRanking(linhas, y);
+  if (tipo === 'testet' && y) return analiseTesteT(linhas, y, grupo ?? (x?.tipo === 'cat' ? x : null));
+  if (tipo === 'mapa' && (y ?? x)) { mostrarAba('mapa'); return analiseUmaNumerica(linhas, y ?? x, null, null); }
+  if (tipo === 'distribuicao' && (y ?? x)) return analiseUmaNumerica(linhas, y ?? x, grupo, cat);
+  if (tipo === 'grupos' && y) {
+    const fator = grupo ?? (x?.tipo === 'cat' ? x : null);
+    if (fator) return analiseGrupos(linhas, fator, y);
+  }
+
+  // Categórica no Y e numérica no X: troca, para o boxplot ficar sempre "valor por grupo".
+  if (x?.tipo === 'num' && y?.tipo === 'cat') [x, y] = [y, x];
   if (!x && !y) {
-    el.tituloGrafico.textContent = 'Gráfico';
+    el.tituloGrafico.textContent = 'Resultado';
     el.subGrafico.textContent = '';
-    el.grafico.innerHTML = '<p class="mudo">Arraste uma variável para o Eixo X (e outra para o Eixo Y) para começar. Duas numéricas geram dispersão com regressão; uma categórica e uma numérica, boxplot com ANOVA.</p>';
+    el.grafico.innerHTML = '<p class="mudo">Escolha uma pergunta pronta acima, ou diga o que você quer entender em "Monte sua análise".</p>';
     el.resultados.innerHTML = '<p class="mudo">—</p>';
     return;
   }
   const unica = x && y ? null : x ?? y;
-  const cat = categorizador(grupo, linhas);
+  // Só uma variável numérica e unidade com mapa: o mapa é a visão mais intuitiva.
+  if (unica?.tipo === 'num' && tipo === 'auto' && !grupo && estado.abaAuto !== false) mostrarAba('mapa');
 
   if (unica?.tipo === 'num') return analiseUmaNumerica(linhas, unica, grupo, cat);
   if (unica?.tipo === 'cat') return analiseUmaCategorica(linhas, unica);
@@ -422,7 +541,7 @@ function renderizarAnalise({ linhas, z }) {
 function analiseUmaNumerica(linhas, v, grupo, cat) {
   const validas = linhas.filter((l) => v.valor(l) !== null);
   const vals = validas.map(v.valor);
-  el.tituloGrafico.textContent = `Distribuição · ${v.nome}`;
+  el.tituloGrafico.textContent = `${estado.tipo === 'mapa' ? 'Mapa' : 'Distribuição'} · ${v.nome}`;
   el.subGrafico.textContent = `${fmtInt.format(vals.length)} locais`;
   if (grupo) {
     const { nomes, mapa } = organizarGrupos(validas.map(cat), grupo);
@@ -440,7 +559,11 @@ function analiseUmaNumerica(linhas, v, grupo, cat) {
   el.grafico.innerHTML = svgHistograma({ faixas: h.faixas, rotuloX: v.nome, cor: 'var(--cat-1)', largura: largura(), altura: 280,
     linhas: c ? [{ valor: c.mediana, classe: 'ref-mediana', rotulo: 'mediana' }, { valor: c.media, classe: 'ref-principal', rotulo: 'média' }] : [] });
   el.legenda.innerHTML = '<span><i class="marca-ref"></i>Média</span><span><i class="marca-ref mediana"></i>Mediana</span>';
-  el.resultados.innerHTML = '<p class="mudo">Coloque uma segunda variável no Eixo Y para cruzar, ou uma categórica em Grupo para comparar grupos.</p>';
+  el.resultados.innerHTML = '<p class="mudo">Escolha algo em "comparando com" para cruzar, ou em "separando por" para comparar grupos.</p>';
+  if (c) {
+    const ord = [...validas].sort((a, b) => v.valor(b) - v.valor(a));
+    estado.resumo = `${esc(v.nome)} vai de ${fmtValor(c.q1 === undefined ? Math.min(...vals) : Math.min(...vals), v)} a ${fmtValor(Math.max(...vals), v)} entre ${fmtInt.format(vals.length)} locais; a mediana é ${fmtValor(c.mediana, v)}. O maior valor está em <strong>${esc(ord[0].nome)}</strong>${ufDe(ord[0])} e o menor em <strong>${esc(ord.at(-1).nome)}</strong>${ufDe(ord.at(-1))}.`;
+  }
 }
 
 function analiseUmaCategorica(linhas, v) {
@@ -479,13 +602,20 @@ function analiseDispersao(linhas, x, y, grupo, cat, tamanho) {
   estado.dispersao = { x, y, tamanho };
 
   const t = reg ? testeCorrelacao(reg.r, reg.n) : null;
+  const rho = spearman(xs, ys);
+  if (reg) {
+    const sentido = reg.r > 0 ? 'quanto maior' : 'quanto maior';
+    estado.resumo = Math.abs(reg.r) < 0.1 || t.p >= 0.05
+      ? `Não há relação clara entre ${esc(x.nome)} e ${esc(y.nome)} (r = ${fmtR(reg.r)}${t.p >= 0.05 ? ', não significativo' : ''}).`
+      : `${forcaCorrelacao(reg.r).replace(/\.$/, '')}: ${sentido} ${esc(x.nome)}, ${reg.r > 0 ? 'maior' : 'menor'} tende a ser ${esc(y.nome)} (r = ${fmtR(reg.r)}, ${textoP(t.p)}). Cada +1 em ${esc(x.nome)} corresponde, em média, a ${reg.b >= 0 ? '+' : '−'}${fmtNum.format(Math.abs(reg.b))} em ${esc(y.nome)}.`;
+  }
   let html = reg
     ? `<p class="resultado-destaque">r de Pearson = <strong>${fmtR(reg.r)}</strong>${estrelas(t.p)} · R² = ${fmtR(reg.r2)} · ${textoP(t.p)} · n = ${fmtInt.format(reg.n)}</p>
        ${tabelaHtml(['Modelo', 'Coeficiente', 'Interpretação'], [
     ['Intercepto', fmtNum.format(reg.a), `valor previsto de ${esc(y.nome)} quando ${esc(x.nome)} = 0`],
     [`Inclinação (${esc(x.nome)})`, fmtNum.format(reg.b), `cada +1 em ${esc(x.nome)} muda ${esc(y.nome)} em ${fmtNum.format(reg.b)}`],
   ])}
-       <p class="mudo pequeno">${forcaCorrelacao(reg.r)} t(${t.gl}) = ${fmtNum.format(t.t)}. Associação entre locais, não entre eleitores.</p>`
+       <p class="mudo pequeno">${forcaCorrelacao(reg.r)} t(${t.gl}) = ${fmtNum.format(t.t)}. Spearman ρ = ${rho === null ? '—' : fmtR(rho)} (usa a ordem dos valores; menos sensível a extremos). Associação entre locais, não entre eleitores.</p>`
     : '<p class="mudo">Dados insuficientes para regressão (são precisos ao menos 3 locais com valores diferentes).</p>';
   if (grupo && nomes.length) {
     html += `<h3>Por grupo (${esc(grupo.nome)})</h3>` + tabelaHtml(['Grupo', 'n', 'r', 'p', 'Inclinação'], nomes.map((nome, i) => {
@@ -516,7 +646,95 @@ function analiseGrupos(linhas, x, y) {
   const geral = resumoCaixa(validas.map(y.valor));
   el.grafico.innerHTML = svgBoxplot({ grupos: caixas, rotuloX: y.nome, linhaRef: geral?.media, largura: largura() });
   el.legenda.innerHTML = '<span><i class="amostra" style="background:color-mix(in srgb, var(--serie-bn) 30%, var(--cartao));border:1px solid var(--serie-bn)"></i>Q1–Q3</span><span>│ mediana</span><span>○ média</span><span><i class="marca-ref"></i>Média geral</span>';
-  el.resultados.innerHTML = resultadoAnova(anovaUmFator(grupos.map((g) => g.vals)), x, y) + tabelaGrupos(caixas, y);
+  const an = anovaUmFator(grupos.map((g) => g.vals));
+  el.resultados.innerHTML = resultadoAnova(an, x, y) + tabelaGrupos(caixas, y);
+  if (caixas.length >= 2) {
+    const ord = [...caixas].sort((a, b) => b.media - a.media);
+    estado.resumo = `Em média, ${esc(y.nome)} é maior em <strong>${esc(ord[0].nome)}</strong> (${fmtValor(ord[0].media, y)}) e menor em <strong>${esc(ord.at(-1).nome)}</strong> (${fmtValor(ord.at(-1).media, y)}). ${an && an.p < 0.05 ? `A diferença entre os grupos é estatisticamente significativa (${textoP(an.p)}) e ${esc(x.nome)} explica ${fmtNum.format(an.eta2 * 100)}% da variação.` : 'As diferenças entre os grupos podem ser acaso (não significativas).'}`;
+  }
+}
+
+function analiseRanking(linhas, y) {
+  const validas = linhas.filter((l) => y.valor(l) !== null).sort((a, b) => y.valor(b) - y.valor(a));
+  const nome = (l) => `${l.nome}${l.uf && nivel() !== 'estados' ? ` · ${l.uf.toUpperCase()}` : ''}`;
+  const topo = validas.slice(0, 15).map((l) => ({ nome: nome(l), valor: y.valor(l) }));
+  const base = validas.slice(-15).reverse().map((l) => ({ nome: nome(l), valor: y.valor(l) }));
+  el.tituloGrafico.textContent = `Ranking · ${y.nome}`;
+  el.subGrafico.textContent = `${fmtInt.format(validas.length)} locais`;
+  estado.itensGrafico = [...topo, ...base].map((i) => ({ titulo: i.nome, linhas: [fmtValor(i.valor, y)] }));
+  el.grafico.innerHTML = `<h3 class="pequeno">Maiores</h3>${svgBarras({ itens: topo, rotuloX: y.nome, cor: 'var(--div-acima)', fmtValor: (v) => fmtValor(v, y), largura: largura() })}
+    <h3 class="pequeno">Menores</h3>${svgBarras({ itens: base, rotuloX: y.nome, cor: 'var(--div-abaixo)', fmtValor: (v) => fmtValor(v, y), largura: largura() })}`;
+  el.resultados.innerHTML = '<p class="mudo">Use a aba "Dados" para ver todos os locais ordenados.</p>';
+  if (validas.length) estado.resumo = `O maior valor de ${esc(y.nome)} está em <strong>${esc(nome(validas[0]))}</strong> (${fmtValor(y.valor(validas[0]), y)}) e o menor em <strong>${esc(nome(validas.at(-1)))}</strong> (${fmtValor(y.valor(validas.at(-1)), y)}).`;
+}
+
+function analiseTesteT(linhas, y, fator) {
+  el.tituloGrafico.textContent = `${y.nome}: comparação de dois grupos`;
+  if (!fator) {
+    el.grafico.innerHTML = '<p class="mudo">Escolha em "separando por" uma variável com dois grupos (por exemplo, Capital?).</p>';
+    el.resultados.innerHTML = '';
+    return;
+  }
+  const cat = categorizador(fator, linhas);
+  const validas = linhas.filter((l) => y.valor(l) !== null && cat(l) !== null);
+  const { nomes, mapa: mapaG } = organizarGrupos(validas.map(cat), fator);
+  const [a, b] = nomes.filter((n) => n !== 'Outros');
+  if (!b) {
+    el.grafico.innerHTML = '<p class="mudo">O separador precisa ter pelo menos dois grupos com dados.</p>';
+    el.resultados.innerHTML = '';
+    estado.resumo = `Só há dados para um grupo de ${esc(fator.nome)} (${esc(nomes[0] ?? 'nenhum')}) neste recorte: não há o que comparar.`;
+    return;
+  }
+  const va = validas.filter((l) => mapaG(cat(l)) === a).map(y.valor);
+  const vb = validas.filter((l) => mapaG(cat(l)) === b).map(y.valor);
+  const t = testeTWelch(va, vb);
+  const caixas = [{ nome: a, ...resumoCaixa(va) }, { nome: b, ...resumoCaixa(vb) }];
+  estado.itensGrafico = caixas.map((c) => ({ titulo: c.nome, linhas: [`n ${c.n}`, `média ${fmtValor(c.media, y)}`] }));
+  el.grafico.innerHTML = svgBoxplot({ grupos: caixas, rotuloX: y.nome, largura: largura() });
+  el.subGrafico.textContent = `${a} × ${b}${nomes.length > 2 ? ' (os dois maiores grupos)' : ''}`;
+  if (!t) { el.resultados.innerHTML = '<p class="mudo">Dados insuficientes.</p>'; return; }
+  const efeito = Math.abs(t.d) < 0.2 ? 'desprezível' : Math.abs(t.d) < 0.5 ? 'pequeno' : Math.abs(t.d) < 0.8 ? 'médio' : 'grande';
+  el.resultados.innerHTML = `<p class="resultado-destaque">Teste t de Welch: t(${fmtNum.format(t.gl)}) = <strong>${fmtNum.format(t.t)}</strong>${estrelas(t.p)} · ${textoP(t.p)} · d de Cohen = ${fmtNum.format(t.d)} (efeito ${efeito})</p>`
+    + tabelaHtml(['Grupo', 'n', 'Média', 'Mediana'], caixas.map((c) => [esc(c.nome), fmtInt.format(c.n), fmtValor(c.media, y), fmtValor(c.mediana, y)]));
+  estado.resumo = `${esc(y.nome)} é, em média, ${fmtValor(Math.abs(t.diferenca), y)} ${t.diferenca > 0 ? 'maior' : 'menor'} em <strong>${esc(a)}</strong> do que em <strong>${esc(b)}</strong>. ${t.p < 0.05 ? `A diferença é estatisticamente significativa (${textoP(t.p)}), com efeito ${efeito}.` : 'A diferença pode ser acaso (não significativa).'}`;
+}
+
+function analiseRegressao(linhas, y, explicativas) {
+  const xs = explicativas.filter((v) => v.tipo === 'num' && v !== y);
+  el.tituloGrafico.textContent = y ? `O que explica ${y.nome}?` : 'Regressão múltipla';
+  if (!y || !xs.length) {
+    el.grafico.innerHTML = '<p class="mudo">Escolha "quero entender" e marque ao menos uma variável explicativa.</p>';
+    el.resultados.innerHTML = '';
+    return;
+  }
+  const validas = linhas.filter((l) => y.valor(l) !== null && xs.every((v) => v.valor(l) !== null));
+  const r = regressaoMultipla(validas.map(y.valor), validas.map((l) => xs.map((v) => v.valor(l))));
+  el.subGrafico.textContent = `${fmtInt.format(validas.length)} locais com todos os dados`;
+  if (!r) {
+    el.grafico.innerHTML = '<p class="mudo">Não foi possível estimar: poucos locais com todos os dados, ou variáveis explicativas repetidas.</p>';
+    el.resultados.innerHTML = '';
+    return;
+  }
+  // Gráfico: peso padronizado (beta) de cada variável — compara variáveis de unidades diferentes.
+  const itens = xs.map((v, i) => ({ nome: v.nome, valor: r.coeficientes[i + 1].beta ?? 0, p: r.coeficientes[i + 1].p }))
+    .sort((a, b) => Math.abs(b.valor) - Math.abs(a.valor));
+  estado.itensGrafico = itens.map((i) => ({ titulo: i.nome, linhas: [`peso padronizado ${fmtNum.format(i.valor)}`, textoP(i.p)] }));
+  el.grafico.innerHTML = svgBarras({ itens, rotuloX: 'peso padronizado (beta): quanto muda Y, em desvios padrão, por +1 desvio padrão da variável', cor: 'var(--cat-7)', fmtValor: (v) => fmtNum.format(v), largura: largura() });
+  el.legenda.innerHTML = '<span class="mudo">Barras à direita aumentam "quero entender"; à esquerda, diminuem. Compare só as significativas (p &lt; 0,05).</span>';
+  el.resultados.innerHTML = `<p class="resultado-destaque">R² = <strong>${fmtNum.format(r.r2)}</strong> (ajustado ${fmtNum.format(r.r2Ajustado)}) · F(${r.k}, ${r.glRes}) = ${fmtNum.format(r.f)}${estrelas(r.pF)} · ${textoP(r.pF)} · n = ${fmtInt.format(r.n)}</p>`
+    + tabelaHtml(['Variável', 'Coeficiente', 'Erro padrão', 't', 'p', 'Beta'], [
+      ['Intercepto', fmtCoef(r.coeficientes[0].coef), fmtCoef(r.coeficientes[0].se), fmtNum.format(r.coeficientes[0].t), fmtP(r.coeficientes[0].p), '—'],
+      ...xs.map((v, i) => {
+        const c = r.coeficientes[i + 1];
+        return [esc(v.nome), fmtCoef(c.coef), fmtCoef(c.se), fmtNum.format(c.t), `${fmtP(c.p)}${estrelas(c.p)}`, fmtNum.format(c.beta ?? 0)];
+      }),
+    ])
+    + '<p class="mudo pequeno">Cada coeficiente é o efeito de +1 na variável mantendo as outras fixas. Associação entre locais, não causalidade.</p>';
+  const sig = itens.filter((i) => i.p < 0.05);
+  estado.resumo = `As variáveis escolhidas explicam ${fmtNum.format(r.r2 * 100)}% da variação de ${esc(y.nome)} entre os locais. `
+    + (sig.length
+      ? `A que mais pesa é <strong>${esc(sig[0].nome)}</strong> (${sig[0].valor > 0 ? 'quanto maior, maior' : 'quanto maior, menor'} ${esc(y.nome)})${sig.length > 1 ? `; também contam ${sig.slice(1, 3).map((i) => esc(i.nome)).join(' e ')}` : ''}.`
+      : 'Nenhuma delas tem efeito estatisticamente significativo quando consideradas juntas.');
 }
 
 function resultadoAnova(an, fator, v) {
@@ -578,6 +796,76 @@ function renderizarMatriz({ linhas, z }) {
   el.matriz.innerHTML = `<thead><tr><th></th>${vars.map((v) => `<th>${esc(v.nome)}</th>`).join('')}</tr></thead>
     <tbody>${vars.map((a) => `<tr><th>${esc(a.nome)}</th>${vars.map((b) => celula(a, b)).join('')}</tr>`).join('')}</tbody>`;
 }
+
+// ---------- abas do resultado ----------
+
+function mostrarAba(aba) {
+  estado.aba = aba;
+  for (const b of document.querySelectorAll('.abas-resultado [data-aba]')) b.setAttribute('aria-selected', String(b.dataset.aba === aba));
+  for (const p of document.querySelectorAll('[data-painel]')) p.hidden = p.dataset.painel !== aba;
+  if (aba === 'mapa' && estado.vista) renderizarMapa(estado.vista);
+}
+document.querySelector('.abas-resultado').addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-aba]');
+  if (!b) return;
+  estado.abaAuto = false; // o usuário escolheu: o automático não troca mais de aba
+  mostrarAba(b.dataset.aba);
+});
+
+// ---------- seletores ----------
+
+el.selY.addEventListener('change', () => { estado.zonas.y = el.selY.value || null; estado.abaAuto = true; renderizarTudo(); });
+el.selX.addEventListener('change', () => { estado.zonas.x = el.selX.value || null; if (estado.zonas.x) mostrarAba('grafico'); renderizarTudo(); });
+el.selGrupo.addEventListener('change', () => { estado.zonas.grupo = el.selGrupo.value || null; renderizarTudo(); });
+el.selTipo.addEventListener('change', () => {
+  estado.tipo = el.selTipo.value;
+  mostrarAba(estado.tipo === 'mapa' ? 'mapa' : 'grafico');
+  renderizarTudo();
+});
+el.explicativas.addEventListener('change', () => {
+  estado.zonas.matriz = [...el.explicativas.querySelectorAll('input:checked')].map((i) => i.value);
+  renderizarTudo();
+});
+
+// ---------- perguntas prontas ----------
+
+
+const PRES = '6257:1';
+const SEN = '6259:5';
+const PERGUNTAS = [
+  { icone: '🗺️', titulo: 'Onde mais se votou nulo para presidente?', texto: 'Mapa das cidades do Brasil', nivel: 'todas', cargos: [PRES], y: `${PRES}:pctNulos`, tipo: 'mapa' },
+  { icone: '🧭', titulo: 'Brancos e nulos mudam de uma região para outra?', texto: 'Compara as cidades de cada região', nivel: 'todas', cargos: [PRES], y: `${PRES}:pctBrancosNulos`, grupo: 'terr:regiao', tipo: 'grupos' },
+  { icone: '📚', titulo: 'Onde há mais alfabetização, há menos votos nulos?', texto: 'Censo 2022 × resultado', nivel: 'todas', cargos: [PRES], censo: ['alfabetizacao'], x: 'censo:alfabetizacao', y: `${PRES}:pctNulos`, tipo: 'dispersao' },
+  { icone: '⏱️', titulo: 'O tempo na cabine tem a ver com os nulos?', texto: 'Logs das urnas × resultado', nivel: 'todas', cargos: [PRES], x: 'logs:cabine', y: `${PRES}:pctNulos`, tipo: 'dispersao' },
+  { icone: '🏙️', titulo: 'Capitais votam diferente do interior?', texto: 'Teste t: capitais × interior', nivel: 'todas', cargos: [PRES], y: `${PRES}:pctBrancosNulos`, grupo: 'terr:capital', tipo: 'testet' },
+  { icone: '🔁', titulo: 'Quem anula para presidente também anula para senador?', texto: 'Correlação entre cargos', nivel: 'todas', cargos: [PRES, SEN], x: `${PRES}:pctNulos`, y: `${SEN}:pctNulos`, tipo: 'dispersao' },
+  { icone: '🧮', titulo: 'O que mais explica os votos nulos?', texto: 'Regressão: Censo, logs e abstenção', nivel: 'todas', cargos: [PRES], censo: ['alfabetizacao', 'densidade'], y: `${PRES}:pctNulos`, explicativas: ['censo:alfabetizacao', 'censo:densidade', 'logs:cabine', 'logs:biometria', `${PRES}:pctAbstencao`], tipo: 'regressao' },
+  { icone: '🏆', titulo: 'Quais cidades mais deixaram o voto em branco?', texto: 'Ranking das cidades', nivel: 'todas', cargos: [PRES], y: `${PRES}:pctBrancos`, tipo: 'ranking' },
+  { icone: '👥', titulo: 'Cidades grandes votam diferente das pequenas?', texto: 'Compara por porte (votos)', nivel: 'todas', cargos: [PRES], y: `${PRES}:pctBrancosNulos`, grupo: 'terr:porte', tipo: 'grupos' },
+];
+
+el.perguntas.innerHTML = PERGUNTAS.map((p, i) => `<button type="button" class="pergunta" data-pergunta="${i}">
+  <span class="pergunta-icone" aria-hidden="true">${p.icone}</span><span class="pergunta-titulo">${esc(p.titulo)}</span><span class="pergunta-texto">${esc(p.texto)}</span></button>`).join('');
+
+async function aplicarPergunta(p) {
+  for (const b of el.perguntas.querySelectorAll('.pergunta')) b.classList.toggle('ativa', PERGUNTAS[Number(b.dataset.pergunta)] === p);
+  estado.cargos = [...p.cargos];
+  preencherCargos();
+  if (p.nivel) el.nivel.value = p.nivel;
+  estado.zonas = { x: p.x ?? null, y: p.y ?? null, grupo: p.grupo ?? null, tamanho: null, matriz: p.explicativas ?? [] };
+  estado.tipo = p.tipo;
+  estado.abaAuto = true;
+  mostrarAba(p.tipo === 'mapa' ? 'mapa' : 'grafico');
+  // Séries do Censo que a pergunta usa (baixadas uma vez e guardadas pelo servidor).
+  const faltam = (p.censo ?? []).filter((id) => ![...estado.censo.values()].some((s) => s.preset === id));
+  await Promise.all(faltam.map((id) => adicionarCenso(`api/censo/serie?preset=${encodeURIComponent(id)}`, id, id)));
+  await carregar();
+  el.grafico.closest('.cartao').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+el.perguntas.addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-pergunta]');
+  if (b) aplicarPergunta(PERGUNTAS[Number(b.dataset.pergunta)]);
+});
 
 // ---------- interação: arrastar, tocar, soltar ----------
 
@@ -709,6 +997,7 @@ function gravarHash() {
   const p = new URLSearchParams({ nivel: nivel(), cargos: estado.cargos.join(',') });
   for (const k of ['x', 'y', 'grupo', 'tamanho']) if (estado.zonas[k]) p.set(k, estado.zonas[k]);
   if (estado.zonas.matriz.length) p.set('matriz', estado.zonas.matriz.join(','));
+  if (estado.tipo !== 'auto') p.set('tipo', estado.tipo);
   const censo = [...estado.censo.values()].map((s) => s.preset ?? '').filter(Boolean);
   if (censo.length) p.set('censo', censo.join(','));
   history.replaceState(null, '', `#${p}`);
@@ -720,11 +1009,14 @@ if (!estado.cargos.length) estado.cargos = [CARGOS[0].valor];
 for (const k of ['x', 'y', 'grupo', 'tamanho']) if (inicial[k]) estado.zonas[k] = inicial[k];
 if (inicial.matriz) estado.zonas.matriz = inicial.matriz.split(',');
 if (!inicial.x && !inicial.y) {
-  // Ponto de partida: nulos por brancos do primeiro cargo, colorido por região.
+  // Ponto de partida simples: mapa dos votos nulos do primeiro cargo, com a região ao lado.
   const c = estado.cargos[0];
-  estado.zonas = { x: `${c}:pctBrancos`, y: `${c}:pctNulos`, grupo: 'terr:regiao', tamanho: `${c}:votos`,
+  estado.zonas = { x: null, y: `${c}:pctNulos`, grupo: null, tamanho: null,
     matriz: [`${c}:pctBrancos`, `${c}:pctNulos`, `${c}:pctAnulados`, `${c}:pctAbstencao`] };
+  estado.tipo = 'mapa';
+  estado.aba = 'mapa';
 }
+if (inicial.tipo) estado.tipo = inicial.tipo;
 preencherNiveis(inicial.nivel ?? 'estados');
 preencherCargos();
 carregarPresets();
