@@ -3,6 +3,7 @@
 // submenus, menu de contexto e janelas próprias (Leia-me, Painéis, Lixeira, Vídeo,
 // Desligar). As páginas do app abrem dentro das janelas em modo "embed".
 
+import './citar.js'; // janela "Como citar" (botões com data-citar)
 import { icone } from './icones98.js';
 
 const CHAVE_JANELAS = 'apuracao2026:janelas';
@@ -37,7 +38,7 @@ const APPS = {
   leiame: { titulo: 'Leia-me.txt — Bloco de notas', icone: 'documento', nativo: 'leiame', w: 560, h: 440 },
   lixeira: { titulo: 'Lixeira', icone: 'lixeira', nativo: 'lixeira', w: 420, h: 280 },
   video: { titulo: 'Propriedades de Vídeo', icone: 'pintura', nativo: 'video', w: 380, h: 300, fixa: true },
-  sobre: { titulo: 'Sobre Eleições 2026', icone: 'ajuda', nativo: 'sobre', w: 400, h: 270, fixa: true },
+  sobre: { titulo: 'Sobre o Voto Lab 2026', icone: 'ajuda', nativo: 'sobre', w: 420, h: 290, fixa: true },
   banco: { titulo: 'Banco de dados do TSE', icone: 'banco', nativo: 'banco', w: 400, h: 380, fixa: true },
   desligar: { titulo: 'Desligar o Windows', icone: 'desligar', nativo: 'desligar', w: 380, h: 250, fixa: true, modal: true },
 };
@@ -389,6 +390,7 @@ function montarMenuIniciar() {
     ${itemMenu('documento', '<u>D</u>ocumentos', 'class="grande"', `<ul class="menu sub">${itemMenu('documento', 'Leia-me.txt', 'data-abrir="leiame"')}</ul>`)}
     ${itemMenu('config', '<u>C</u>onfigurações', 'class="grande"', subConfig)}
     ${itemMenu('janelas', '<u>J</u>anelas', 'class="grande"', subOrganizar)}
+    ${itemMenu('documento', 'Como <u>c</u>itar', 'class="grande" data-citar')}
     ${itemMenu('ajuda', 'Aj<u>u</u>da', 'class="grande" data-abrir="sobre"')}
     <li class="sep"></li>
     ${itemMenu('desligar', 'De<u>s</u>ligar...', 'class="grande" data-abrir="desligar"')}</ul>`;
@@ -568,10 +570,10 @@ Cuidados na leitura
     <div class="dialogo-botoes"><button type="button" data-ok>OK</button><button type="button" data-acao="fechar">Cancelar</button></div></div>`,
   sobre: () => `<div class="dialogo sobre">
     <div class="sobre-corpo">${icone('janelas', 32)}
-      <div><p><strong>Eleições 2026</strong><br>Apuração · Brancos e nulos · Explorador</p>
-      <p>Dados públicos do TSE (ambiente oficial) e do IBGE.<br>Este programa só exibe os arquivos publicados; ele não conta votos.</p>
+      <div><p><strong>Voto Lab 2026</strong> · versão 1.0<br>por Lucas Müller-Silveira</p>
+      <p>Apuração, mapas, brancos e nulos, logs das urnas e estatística com dados públicos do TSE, IBGE e IPEA.<br>Este programa só exibe os arquivos publicados; ele não conta votos.</p>
       <p class="mudo">Interface inspirada no Windows 98.</p></div></div>
-    <div class="dialogo-botoes"><button type="button" data-acao="fechar">OK</button></div></div>`,
+    <div class="dialogo-botoes"><button type="button" data-citar>Como citar…</button><button type="button" data-acao="fechar">OK</button></div></div>`,
   desligar: () => `<div class="dialogo">
     <div class="sobre-corpo">${icone('desligar', 32)}
       <fieldset class="sem-borda"><legend>O que você deseja fazer?</legend>

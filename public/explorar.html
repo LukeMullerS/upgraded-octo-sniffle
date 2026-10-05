@@ -21,6 +21,7 @@
     </div>
     <div class="atualizacao">
       <span id="status" class="status">carregando…</span>
+      <button type="button" class="secundario sem-margem" data-citar>Como citar</button>
       <button id="exportar" type="button" class="secundario sem-margem">Exportar CSV</button>
       <button id="atualizar" type="button">Atualizar</button>
     </div>
@@ -83,6 +84,14 @@
     <section class="cartao resultado">
       <div class="linha"><h2 id="titulo-grafico">Resultado</h2><span class="mudo pequeno" id="sub-grafico"></span></div>
       <p id="resumo-texto" class="resumo-texto"></p>
+      <div class="acoes-analise" role="group" aria-label="Exportar esta análise">
+        <span class="mudo pequeno">Exportar esta análise:</span>
+        <button type="button" id="exportar-relatorio" class="secundario sem-margem" title="Página HTML com resumo, gráfico, mapa, estatísticas, parâmetros e referências; abre em qualquer navegador">Relatório completo</button>
+        <button type="button" id="imprimir-analise" class="secundario sem-margem" title="Imprimir ou salvar em PDF">Imprimir / PDF</button>
+        <button type="button" id="exportar-dados-analise" class="secundario sem-margem" title="Planilha com as variáveis desta análise">Dados (CSV)</button>
+        <button type="button" id="exportar-json" class="secundario sem-margem" title="Resultados e parâmetros em JSON, para reproduzir em R ou Python">JSON</button>
+        <button type="button" class="secundario sem-margem" data-citar>Como citar</button>
+      </div>
       <div class="abas-resultado" role="tablist">
         <button type="button" role="tab" data-aba="grafico" aria-selected="true">Gráfico</button>
         <button type="button" role="tab" data-aba="mapa">Mapa</button>
@@ -196,6 +205,7 @@
   <div id="dica" class="dica" role="tooltip" hidden></div>
 
   <footer>
+    <p class="credito"><strong>Voto Lab 2026</strong> · por Lucas Müller-Silveira · <a href="#" data-citar>Como citar este programa</a></p>
     Fontes: <a href="https://resultados.tse.jus.br/oficial/app/index.html" target="_blank" rel="noopener">TSE</a> (ambiente oficial) e
     <a href="https://sidra.ibge.gov.br" target="_blank" rel="noopener">IBGE/SIDRA</a>.
   </footer>

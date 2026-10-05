@@ -12,6 +12,8 @@ import {
 } from './calculos.js';
 import { svgBarras, svgBoxplot, svgDispersao, svgHistograma } from './graficos.js';
 import { carregarMalha, criarMapa } from './mapa.js';
+import { antesDeExportar } from './citar.js';
+import { baixar, nomeArquivo, relatorioHtml } from './exportar.js';
 
 const $ = (id) => document.getElementById(id);
 const el = Object.fromEntries([
@@ -19,7 +21,7 @@ const el = Object.fromEntries([
   'tabela-sidra', 'buscar-sidra', 'sidra-form', 'csv', 'filtro-var', 'lista-var', 'limpar-zonas', 'titulo-grafico',
   'sub-grafico', 'grafico', 'legenda', 'resultados', 'descritivas', 'matriz-cartao', 'matriz', 'dica',
   'perguntas', 'sel-y', 'sel-x', 'sel-grupo', 'sel-tipo', 'explicativas-bloco', 'explicativas', 'dica-tipo',
-  'resumo-texto', 'mapa-explorar', 'nota-mapa', 'tabela-dados', 'avancado',
+  'resumo-texto', 'mapa-explorar', 'nota-mapa', 'tabela-dados', 'avancado', 'exportar-relatorio', 'imprimir-analise', 'exportar-dados-analise', 'exportar-json',
 ].map((id) => [id.replace(/-(\w)/g, (_, l) => l.toUpperCase()), $(id)]));
 
 const MAX_GRUPOS = 8; // paleta categórica: além disso, os menores viram "Outros"
@@ -1304,6 +1306,71 @@ el.exportar.addEventListener('click', () => {
     ...cols.map((c) => ({ nome: c.nome, valor: (l) => c.valor(l) ?? '' })),
   ], v.linhas);
 });
+
+// ---------- exportar a análise ----------
+
+/** Parâmetros da análise atual, em texto (para o relatório e o JSON). */
+function parametrosAnalise() {
+  const v = estado.vista;
+  const nomeVar = (x) => x?.nome ?? '—';
+  return [
+    ['Locais', el.nivel.options[el.nivel.selectedIndex]?.text ?? nivel()],
+    ['Tipo de análise', el.selTipo.options[el.selTipo.selectedIndex]?.text ?? estado.tipo],
+    ['Quero entender', nomeVar(v?.z.y)],
+    ['Comparando com', nomeVar(v?.z.x)],
+    ['Separando por', nomeVar(v?.z.grupo)],
+    ...(v?.z.matriz.length ? [['Variáveis explicativas / características', v.z.matriz.map((x) => x.nome).join('; ')]] : []),
+    ['Cargos carregados', estado.cargos.map((c) => cargoPorValor(c)?.nome ?? c).join(', ')],
+    ['Fontes externas', [...estado.censo.values()].map((x) => x.nome).join('; ') || '—'],
+    ['Locais na análise', fmtInt.format(v?.linhas.length ?? 0)],
+    ['Link para reabrir', location.href],
+  ];
+}
+
+el.exportarRelatorio.addEventListener('click', () => antesDeExportar(async () => {
+  const titulo = el.tituloGrafico.textContent.trim() || 'Análise';
+  const graficoSvg = el.grafico.querySelector('svg');
+  // O mapa só existe depois de aberto: desenha agora se ainda não foi.
+  if (!el.mapaExplorar.querySelector('svg') && estado.vista) await renderizarMapa(estado.vista);
+  const mapaSvg = el.mapaExplorar.querySelector('svg');
+  const legendaMapa = el.mapaExplorar.querySelector('.mapa-legenda')?.innerHTML ?? '';
+  const html = relatorioHtml({
+    titulo,
+    resumo: el.resumoTexto.innerHTML,
+    parametros: parametrosAnalise(),
+    secoes: [
+      ...(graficoSvg ? [{ titulo: 'Gráfico', svg: graficoSvg, html: `<p class="meta">${el.legenda.textContent}</p>` }] : []),
+      ...(mapaSvg ? [{ titulo: 'Mapa', svg: mapaSvg, html: `<p class="meta">${legendaMapa.replace(/<i[^>]*><\/i>/g, '■ ')}</p>` }] : []),
+      { titulo: 'Detalhes estatísticos', html: el.resultados.innerHTML },
+      { titulo: 'Estatísticas descritivas', html: `<table>${el.descritivas.innerHTML}</table>` },
+    ],
+  });
+  baixar(html, nomeArquivo(`voto-lab-${titulo}`, 'html'), 'text/html;charset=utf-8');
+}));
+
+el.imprimirAnalise.addEventListener('click', () => antesDeExportar(() => {
+  document.body.classList.add('imprimindo-analise');
+  addEventListener('afterprint', () => document.body.classList.remove('imprimindo-analise'), { once: true });
+  setTimeout(() => print(), 50);
+}));
+
+el.exportarDadosAnalise.addEventListener('click', () => el.exportar.click());
+
+el.exportarJson.addEventListener('click', () => antesDeExportar(() => {
+  const v = estado.vista;
+  if (!v) return;
+  const usadas = [v.z.y, v.z.x, v.z.grupo, v.z.tamanho, ...v.z.matriz].filter((x, i, a) => x && a.indexOf(x) === i);
+  const dados = {
+    programa: 'Voto Lab 2026 (Lucas Müller-Silveira)',
+    geradoEm: new Date().toISOString(),
+    parametros: Object.fromEntries(parametrosAnalise()),
+    resumo: el.resumoTexto.textContent.replace(/^Em resumo:\s*/, ''),
+    variaveis: usadas.map((x) => ({ id: x.id, nome: x.nome, grupo: x.grupo, tipo: x.tipo, unidade: x.unidade ?? null })),
+    locais: v.linhas.map((l) => ({ nome: l.nome, uf: l.uf ?? null, ibge: l.ibge ?? null, tse: l.codigo ?? null,
+      valores: Object.fromEntries(usadas.map((x) => [x.id, x.valor(l)])) })),
+  };
+  baixar(JSON.stringify(dados, null, 2), nomeArquivo(`voto-lab-${el.tituloGrafico.textContent}`, 'json'), 'application/json');
+}));
 
 // ---------- estado no link ----------
 

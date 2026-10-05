@@ -626,3 +626,18 @@ input[type=number] {
 .glossario dd { margin: 0 0 .4rem; color: var(--mudo); }
 @media (min-width: 760px) { .glossario dl { grid-template-columns: minmax(180px, 1fr) 3fr; } .glossario dd { margin: 0; } }
 [data-tema="98"] .glossario dd { color: #000; }
+
+/* Exportar: barra de ações da análise, crédito no rodapé e impressão/PDF */
+.acoes-analise { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin: 0 0 .6rem; }
+.acoes-analise button { padding: .25rem .6rem; font-size: .82rem; }
+footer .credito { margin: 0 0 .3rem; }
+footer .credito a { cursor: pointer; }
+@media print {
+  .topo, .abas, nav, .acoes-analise, .abas-resultado, .voltar98, button, .dica, input, select { display: none !important; }
+  body, .cartao { background: #fff !important; color: #000 !important; box-shadow: none !important; }
+  .cartao { border: 1px solid #ccc; break-inside: avoid; }
+  [hidden] { display: none !important; }
+  body.imprimindo-analise main > :not(.resultado):not(#matriz-cartao):not(.cartao:has(#resultados)):not(.cartao:has(#descritivas)) { display: none !important; }
+  body.imprimindo-analise [data-painel] { display: block !important; }
+  footer { display: block !important; font-size: 10pt; }
+}

@@ -1,5 +1,7 @@
 // Peças comuns às páginas de análise (painel de brancos e nulos e explorador).
 
+import { antesDeExportar } from './citar.js';
+import './exportar.js'; // botões de exportar PNG/SVG em todos os cartões com gráfico ou mapa
 import { ELEICOES, UFS } from './tse.js';
 
 export const fmtInt = new Intl.NumberFormat('pt-BR');
@@ -61,8 +63,12 @@ export const carregarEstados = (cargo, { fundo = false } = {}) =>
 export const carregarMunicipios = (cargo, uf) =>
   getApi('municipios', { ele: cargo.eleicao, cargo: cargo.codigo, uf });
 
-/** Gera e baixa um CSV (separador ";" e vírgula decimal, como o Excel em português espera). */
+/** Gera e baixa um CSV (separador ";" e vírgula decimal, como o Excel em português espera), depois da janela "Como citar". */
 export function baixarCsv(nomeArquivo, colunas, linhas) {
+  antesDeExportar(() => gerarCsv(nomeArquivo, colunas, linhas));
+}
+
+function gerarCsv(nomeArquivo, colunas, linhas) {
   const campo = (v) => {
     const t = typeof v === 'number' ? String(Math.round(v * 10000) / 10000).replace('.', ',') : String(v ?? '');
     return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;

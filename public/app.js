@@ -1,3 +1,5 @@
+import './citar.js';
+import './exportar.js';
 import {
   ABRANGENCIAS, CARGOS_CANDIDATOS_CONSELHO, ELEICOES, lerMunicipios, normalizar,
   urlFoto, urlMunicipios, urlResultado, votosPorPartido,
