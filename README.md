@@ -149,6 +149,31 @@ A janela **Logs das urnas** mede o tempo de votação a partir do log de cada ur
 - No Explorador, as variáveis do grupo "Logs das urnas" (tempo médio na cabine, mediana, atendimento, % biometria…)
   aparecem para os locais com logs lidos.
 
+## Exportar e citar
+
+- **Exportar**: todo gráfico e mapa tem botões **PNG** (com título, legenda e crédito) e **SVG** (vetorial). Na
+  janela Análises há ainda **Relatório completo** (página HTML com resumo, gráfico, mapa, estatísticas, parâmetros
+  e referências, que abre offline e imprime em PDF), **Imprimir / PDF**, **Dados (CSV)** e **JSON** (para reproduzir
+  em R ou Python). As demais janelas exportam CSV.
+- **Como citar**: antes de cada exportação (e pelo botão "Como citar" em todas as janelas e no menu Iniciar) aparece
+  a referência do programa em **ABNT, APA, MLA e Chicago**, mais **BibTeX**, com botão de copiar e as fontes dos
+  dados. Dá para marcar "não mostrar de novo hoje". Exemplo (ABNT):
+
+  > MÜLLER-SILVEIRA, Lucas. **Voto Lab**: análise das Eleições 2026 com dados públicos. Versão 1.0. [*S. l.*]: [*s. n.*], 2026. Aplicativo web. Disponível em: &lt;endereço&gt;. Acesso em: &lt;data&gt;.
+
+## Janela Análises (como usar)
+
+1. **Comece com uma pergunta**: perguntas prontas por tema (Comece por aqui, Quem venceu e onde, Sociedade e voto,
+   Brancos e nulos, Para especialistas).
+2. **Ou monte a sua**: *Onde?* (estados, cidades do Brasil ou de uma UF) → *O que você quer fazer?* (ver no mapa,
+   ranking, comparar grupos, relação entre dois dados, descobrir automaticamente, explicar com vários fatores,
+   bolsões no mapa, perfis de cidades) → *Com quais dados?* (só os campos que a ação usa, já preenchidos).
+3. Cada resultado traz **Em resumo**, **Próximos passos** (um clique para a análise seguinte), as abas Gráfico /
+   Mapa / Dados e os botões de exportar. O **Modo especialista** mostra estatísticas descritivas, matriz de
+   correlação, distribuição, teste t e o modo arrastar e soltar.
+
+Na primeira vez que o app abre, a área de trabalho mostra a **Apuração** e as **Análises** lado a lado.
+
 ## Outras fontes públicas
 
 Além do TSE, o Explorador cruza a eleição com séries públicas, todas baixadas uma vez e guardadas em `dados/`
@@ -299,8 +324,10 @@ src/sete-zip.js    leitor de 7z (LZMA/LZMA2) em JavaScript puro
 public/urnas.*     janela Logs das urnas
 public/desktop.*   área de trabalho Windows 98 (gerenciador de janelas, menu Iniciar, barra de tarefas)
 public/tema.js     escolhe o visual (98 ou moderno) e o modo "janela" das páginas
-public/explorar.*  explorador de variáveis (perguntas prontas, mapa, testes, regressão)
+public/explorar.*  janela Análises (perguntas prontas, mapa, testes, regressão)
 public/mapa.js     mapas coropléticos em SVG (zoom, arrastar, legenda por quantis)
+public/citar.js    "Como citar" (ABNT, APA, MLA, Chicago, BibTeX)
+public/exportar.js PNG/SVG de gráficos e mapas, relatório HTML
 public/calculos.js, graficos.js, comum.js     estatística (incl. testes), gráficos SVG e utilitários
 test/              testes (npm test)
 ```

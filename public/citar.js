@@ -7,7 +7,7 @@
 export const PROGRAMA = {
   sobrenome: 'Müller-Silveira',
   nome: 'Lucas',
-  titulo: 'Voto Lab 2026',
+  titulo: 'Voto Lab',
   subtitulo: 'análise das Eleições 2026 com dados públicos',
   versao: '1.0',
   ano: 2026,
@@ -65,14 +65,47 @@ export function citacoes({ url = enderecoPrograma(), data = new Date() } = {}) {
   return lista;
 }
 
-/** Referências das fontes de dados (ABNT), para citar junto. */
-export function fontesDeDados(data = new Date()) {
+// Fontes dos dados, para citar junto com o programa.
+const FONTES = [
+  { chave: 'tse2026resultados', autorAbnt: 'BRASIL. Tribunal Superior Eleitoral', autor: 'Tribunal Superior Eleitoral', sigla: 'TSE',
+    titulo: 'Resultados', subtitulo: 'Eleições 2026', local: 'Brasília, DF', url: 'https://resultados.tse.jus.br' },
+  { chave: 'ibge2026sidra', autorAbnt: 'INSTITUTO BRASILEIRO DE GEOGRAFIA E ESTATÍSTICA (IBGE)', autor: 'Instituto Brasileiro de Geografia e Estatística', sigla: 'IBGE',
+    titulo: 'Sistema IBGE de Recuperação Automática – SIDRA', subtitulo: '', local: 'Rio de Janeiro', url: 'https://sidra.ibge.gov.br' },
+  { chave: 'ipea2026ipeadata', autorAbnt: 'INSTITUTO DE PESQUISA ECONÔMICA APLICADA (IPEA)', autor: 'Instituto de Pesquisa Econômica Aplicada', sigla: 'Ipea',
+    titulo: 'Ipeadata', subtitulo: 'Atlas do Desenvolvimento Humano no Brasil', local: 'Brasília, DF', url: 'http://www.ipeadata.gov.br' },
+];
+export const FORMATOS = [['abnt', 'ABNT'], ['apa', 'APA'], ['mla', 'MLA'], ['chicago', 'Chicago'], ['bibtex', 'BibTeX']];
+
+/**
+ * Referências das fontes de dados no formato escolhido: [{html, texto}].
+ * @param {Date} data  data de acesso
+ * @param {'abnt'|'apa'|'mla'|'chicago'|'bibtex'} formato
+ */
+export function fontesDeDados(data = new Date(), formato = 'abnt') {
+  const ano = PROGRAMA.ano;
   const acesso = `${data.getDate()} ${MESES_ABNT[data.getMonth()]} ${data.getFullYear()}`;
-  return [
-    `BRASIL. Tribunal Superior Eleitoral. <strong>Resultados</strong>: Eleições 2026. Brasília, DF: TSE, 2026. Disponível em: https://resultados.tse.jus.br. Acesso em: ${acesso}.`,
-    `INSTITUTO BRASILEIRO DE GEOGRAFIA E ESTATÍSTICA (IBGE). <strong>Sistema IBGE de Recuperação Automática – SIDRA</strong>. Rio de Janeiro: IBGE, 2026. Disponível em: https://sidra.ibge.gov.br. Acesso em: ${acesso}.`,
-    `INSTITUTO DE PESQUISA ECONÔMICA APLICADA (IPEA). <strong>Ipeadata</strong>: Atlas do Desenvolvimento Humano no Brasil. Brasília, DF: Ipea, 2026. Disponível em: http://www.ipeadata.gov.br. Acesso em: ${acesso}.`,
-  ];
+  return FONTES.map((f) => {
+    const tituloAbnt = `<strong>${esc(f.titulo)}</strong>${f.subtitulo ? `: ${esc(f.subtitulo)}` : ''}`;
+    const tituloTexto = `${f.titulo}${f.subtitulo ? `: ${f.subtitulo}` : ''}`;
+    if (formato === 'apa') {
+      return { html: `${esc(f.autor)}. (${ano}). <em>${esc(tituloTexto)}</em> [Base de dados]. ${esc(f.url)}`,
+        texto: `${f.autor}. (${ano}). ${tituloTexto} [Base de dados]. ${f.url}` };
+    }
+    if (formato === 'mla') {
+      return { html: `${esc(f.autor)}. <em>${esc(tituloTexto)}</em>. ${esc(f.sigla)}, ${ano}, ${esc(f.url.replace(/^https?:\/\//, ''))}. Acesso em ${acesso}.`,
+        texto: `${f.autor}. ${tituloTexto}. ${f.sigla}, ${ano}, ${f.url.replace(/^https?:\/\//, '')}. Acesso em ${acesso}.` };
+    }
+    if (formato === 'chicago') {
+      return { html: `${esc(f.autor)}. ${ano}. <em>${esc(tituloTexto)}</em>. ${esc(f.local)}: ${esc(f.sigla)}. ${esc(f.url)}.`,
+        texto: `${f.autor}. ${ano}. ${tituloTexto}. ${f.local}: ${f.sigla}. ${f.url}.` };
+    }
+    if (formato === 'bibtex') {
+      const bib = `@misc{${f.chave},\n  author  = {{${f.autor}}},\n  title   = {${tituloTexto}},\n  year    = {${ano}},\n  url     = {${f.url}},\n  urldate = {${data.toISOString().slice(0, 10)}}\n}`;
+      return { html: `<pre>${esc(bib)}</pre>`, texto: bib };
+    }
+    return { html: `${esc(f.autorAbnt)}. ${tituloAbnt}. ${esc(f.local)}: ${esc(f.sigla)}, ${ano}. Disponível em: ${esc(f.url)}. Acesso em: ${acesso}.`,
+      texto: `${f.autorAbnt}. ${tituloTexto}. ${f.local}: ${f.sigla}, ${ano}. Disponível em: ${f.url}. Acesso em: ${acesso}.` };
+  });
 }
 
 /** Uma linha curta de crédito para imagens e relatórios exportados. */
@@ -98,7 +131,8 @@ const CSS = `
 .citar-acoes { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 16px; border-top: 1px solid #e3e8ee; }
 .citar-acoes .citar-continuar { background: #0b5cad; color: #fff; }
 .citar-acoes label { font-size: .85rem; display: flex; gap: 6px; align-items: center; }
-.citar-fontes summary { cursor: pointer; font-weight: 600; }
+.citar-fontes header > span { display: inline-flex; gap: 6px; align-items: center; }
+.citar-fontes select { font: inherit; font-size: .85rem; padding: 2px 4px; }
 .citar-fontes p { margin: 6px 0 0; font-size: .9rem; overflow-wrap: anywhere; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema="98"]) .citar-dialogo { background: #161d26; color: #e6edf3; border-color: #2a3542; }
@@ -132,6 +166,7 @@ function garantirEstilo() {
 }
 
 const CHAVE_LEMBRETE = 'votolab:citar-ate';
+const CHAVE_FORMATO = 'votolab:citar-formato';
 const lembreteAtivo = () => {
   try { return (localStorage.getItem(CHAVE_LEMBRETE) ?? '') !== new Date().toISOString().slice(0, 10); } catch { return true; }
 };
@@ -167,18 +202,32 @@ export function abrirCitacao({ aoContinuar = null, rotuloContinuar = 'Continuar 
     <div class="citar-corpo">
       <p class="citar-aviso">${aoContinuar ? 'Vai usar esta análise num trabalho, reportagem ou publicação? ' : ''}Cite o <strong>${esc(PROGRAMA.titulo)}</strong>, de <strong>${esc(PROGRAMA.nome)} ${esc(PROGRAMA.sobrenome)}</strong>, e as fontes dos dados. Escolha a norma e copie.</p>
       ${refs.map((r) => `<section class="citar-item"><header><h3>${esc(r.nome)}</h3><button type="button" class="citar-copiar" data-copiar="${r.id}">Copiar</button></header>${r.id === 'bibtex' ? r.html : `<p>${r.html}</p>`}</section>`).join('')}
-      <details class="citar-fontes"><summary>Fontes dos dados (ABNT)</summary>${fontesDeDados().map((f) => `<p>${f}</p>`).join('')}</details>
+      <section class="citar-item citar-fontes"><header><h3>Fontes dos dados</h3>
+        <span><select data-formato-fontes aria-label="Formato das referências das fontes">${FORMATOS.map(([v, n]) => `<option value="${v}">${n}</option>`).join('')}</select>
+        <button type="button" class="citar-copiar" data-copiar-fontes>Copiar</button></span></header>
+        <div data-lista-fontes></div></section>
     </div>
     <div class="citar-acoes">
       ${aoContinuar ? '<label><input type="checkbox" data-nao-lembrar> não mostrar de novo hoje</label>' : '<span></span>'}
       <span>${aoContinuar ? `<button type="button" data-fechar>Cancelar</button> <button type="button" class="citar-continuar" data-continuar>${esc(rotuloContinuar)}</button>` : '<button type="button" class="citar-continuar" data-fechar>Fechar</button>'}</span>
     </div>`;
   document.body.append(dlg);
+  // Fontes no formato escolhido, atualizado na hora (lembra a última escolha).
+  const seletor = dlg.querySelector('[data-formato-fontes]');
+  try { seletor.value = localStorage.getItem(CHAVE_FORMATO) || 'abnt'; } catch { /* sem armazenamento */ }
+  const pintarFontes = () => {
+    const f = fontesDeDados(new Date(), seletor.value);
+    dlg.querySelector('[data-lista-fontes]').innerHTML = f.map((x) => (seletor.value === 'bibtex' ? x.html : `<p>${x.html}</p>`)).join('');
+    try { localStorage.setItem(CHAVE_FORMATO, seletor.value); } catch { /* sem armazenamento */ }
+  };
+  seletor.addEventListener('change', pintarFontes);
+  pintarFontes();
   dlg.addEventListener('click', (ev) => {
     if (ev.target === dlg) { dlg.close(); return; } // clique fora
     const b = ev.target.closest('button');
     if (!b) return;
     if (b.dataset.copiar) copiar(refs.find((r) => r.id === b.dataset.copiar).texto, b);
+    else if ('copiarFontes' in b.dataset) copiar(fontesDeDados(new Date(), seletor.value).map((x) => x.texto).join('\n\n'), b);
     else if ('fechar' in b.dataset) dlg.close();
     else if ('continuar' in b.dataset) {
       if (dlg.querySelector('[data-nao-lembrar]')?.checked) {

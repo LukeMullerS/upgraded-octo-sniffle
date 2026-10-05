@@ -21,6 +21,7 @@ const el = Object.fromEntries([
   'tabela-sidra', 'buscar-sidra', 'sidra-form', 'csv', 'filtro-var', 'lista-var', 'limpar-zonas', 'titulo-grafico',
   'sub-grafico', 'grafico', 'legenda', 'resultados', 'descritivas', 'matriz-cartao', 'matriz', 'dica',
   'perguntas', 'sel-y', 'sel-x', 'sel-grupo', 'sel-tipo', 'explicativas-bloco', 'explicativas', 'dica-tipo',
+  'temas', 'acoes', 'campo-y', 'campo-x', 'campo-grupo', 'rotulo-y', 'rotulo-x', 'rotulo-grupo', 'proximos', 'modo-especialista', 'ir-fontes',
   'resumo-texto', 'mapa-explorar', 'nota-mapa', 'tabela-dados', 'avancado', 'exportar-relatorio', 'imprimir-analise', 'exportar-dados-analise', 'exportar-json',
 ].map((id) => [id.replace(/-(\w)/g, (_, l) => l.toUpperCase()), $(id)]));
 
@@ -118,8 +119,8 @@ async function getJson(url) {
   return d;
 }
 
-async function adicionarCenso(url, rotulo, preset = null) {
-  el.status.textContent = `baixando do IBGE: ${rotulo}…`;
+async function adicionarCenso(url, rotulo, preset = null, { silencioso = false } = {}) {
+  el.status.textContent = `baixando: ${rotulo}…`;
   el.status.className = 'status';
   try {
     const s = { ...(await getJson(url)), preset };
@@ -130,9 +131,12 @@ async function adicionarCenso(url, rotulo, preset = null) {
     el.status.className = 'status ok';
     return s;
   } catch (erro) {
-    el.erro.hidden = false;
-    el.erro.textContent = `${rotulo}: ${erro.message}`;
-    el.status.textContent = 'falha no IBGE';
+    // Carga automática (fontes básicas) não enche a tela de avisos: só o status mostra.
+    if (!silencioso) {
+      el.erro.hidden = false;
+      el.erro.textContent = `${rotulo}: ${erro.message}`;
+    }
+    el.status.textContent = `fonte indisponível: ${rotulo}`;
     el.status.className = 'status falha';
     return null;
   }
@@ -427,6 +431,7 @@ function renderizarTudo() {
   renderizarAnalise(v);
   el.resumoTexto.innerHTML = estado.resumo ? `<strong>Em resumo:</strong> ${estado.resumo}` : '';
   el.resumoTexto.hidden = !estado.resumo;
+  renderizarProximos(v);
   renderizarDados(v);
   if (estado.aba === 'mapa') renderizarMapa(v);
   renderizarDescritivas(v);
@@ -446,35 +451,93 @@ function opcoesVariaveis(vars, filtro, vazio) {
   return `<option value="">${esc(vazio)}</option>${[...grupos].map(([g, lista]) => `<optgroup label="${esc(g)}">${lista.map((v) => `<option value="${esc(v.id)}">${esc(v.nome)}</option>`).join('')}</optgroup>`).join('')}`;
 }
 
+// Ações do passo "O que você quer fazer?": rótulos simples; cada uma mostra só os campos que usa.
+//   y/x/grupo: rótulo do campo (null = escondido); num: o campo aceita só números.
+const ACOES = [
+  { tipo: 'mapa', icone: '🗺️', nome: 'Ver no mapa', texto: 'onde um dado é maior ou menor', y: 'Qual dado mostrar no mapa?' },
+  { tipo: 'ranking', icone: '🏆', nome: 'Ranking', texto: 'os maiores e os menores', y: 'Ranking de qual dado?', num: true },
+  { tipo: 'grupos', icone: '⚖️', nome: 'Comparar grupos', texto: 'por região, porte, capital…', y: 'Qual dado comparar?', grupo: 'Entre quais grupos?', num: true },
+  { tipo: 'dispersao', icone: '🔗', nome: 'Relação entre dois dados', texto: 'sobem ou descem juntos?', y: 'Primeiro dado', x: 'Segundo dado', num: true },
+  { tipo: 'descobertas', icone: '💡', nome: 'Descobrir automaticamente', texto: 'o que mais se relaciona', y: 'O que você quer entender?', num: true },
+  { tipo: 'regressao', icone: '🧮', nome: 'Explicar com vários fatores', texto: 'o peso de cada um (regressão)', y: 'O que você quer explicar?', num: true },
+  { tipo: 'espacial', icone: '🔥', nome: 'Bolsões no mapa', texto: 'vizinhos parecidos?', y: 'Qual dado?', num: true },
+  { tipo: 'clusters', icone: '🧬', nome: 'Perfis de cidades', texto: 'agrupar locais parecidos' },
+  { tipo: 'distribuicao', icone: '📊', nome: 'Distribuição', texto: 'como os valores se espalham', y: 'Qual dado?', grupo: 'Separar por (opcional)', num: true, especialista: true },
+  { tipo: 'testet', icone: '🧪', nome: 'Teste t', texto: 'dois grupos', y: 'Qual dado?', grupo: 'Dois grupos (ex.: Capital?)', num: true, especialista: true },
+  { tipo: 'auto', icone: '✨', nome: 'Livre', texto: 'escolha tudo', y: 'Quero entender', x: 'Comparando com', grupo: 'Separando por', especialista: true },
+];
+const acaoAtual = () => ACOES.find((a) => a.tipo === estado.tipo) ?? ACOES.at(-1);
+
+function renderizarAcoes() {
+  el.acoes.innerHTML = ACOES.map((a) => `<button type="button" class="acao${a.tipo === estado.tipo ? ' ativa' : ''}" role="radio" aria-checked="${a.tipo === estado.tipo}" data-tipo="${a.tipo}"${a.especialista ? ' data-especialista' : ''}>
+    <span class="acao-icone" aria-hidden="true">${a.icone}</span><span class="acao-nome">${esc(a.nome)}</span><span class="acao-texto">${esc(a.texto)}</span></button>`).join('');
+}
+
+/** "Próximos passos": sugestões de análise a partir da atual, em um clique. */
+function renderizarProximos({ z, porId }) {
+  const y = z.y;
+  const t = estado.tipo;
+  const ops = [];
+  if (y?.tipo === 'num') {
+    if (t !== 'mapa') ops.push(['mapa', '🗺️ Ver no mapa']);
+    if (t !== 'grupos' && porId.get('terr:regiao')) ops.push(['grupos', '⚖️ Comparar por região']);
+    if (t !== 'descobertas') ops.push(['descobertas', '💡 O que se relaciona com isso?']);
+    if (t !== 'espacial') ops.push(['espacial', '🔥 Há bolsões no mapa?']);
+    if (t !== 'ranking') ops.push(['ranking', '🏆 Ranking']);
+    if (t === 'dispersao') ops.push(['regressao', '🧮 Explicar com mais fatores']);
+  } else if (y?.tipo === 'cat') {
+    if (t !== 'mapa') ops.push(['mapa', '🗺️ Ver no mapa']);
+    const lider = `${estado.cargos[0]}:lider`;
+    if (porId.get(lider)) {
+      ops.push(['mapa', '🗳️ Votação do 1º colocado no mapa', lider]);
+      ops.push(['descobertas', '💡 O que se relaciona com o voto no 1º colocado?', lider]);
+      ops.push(['espacial', '🔥 Bolsões de voto no 1º colocado', lider]);
+    }
+  }
+  el.proximos.innerHTML = ops.length
+    ? `<span class="mudo pequeno">Próximos passos:</span>${ops.slice(0, 5).map(([tipo, rot, yNovo]) => `<button type="button" class="proximo" data-proximo="${tipo}"${yNovo ? ` data-y="${esc(yNovo)}"` : ''}>${esc(rot)}</button>`).join('')}`
+    : '';
+}
+
 function renderizarSeletores({ vars, z }) {
-  el.selY.innerHTML = opcoesVariaveis(vars, () => true, '— escolha uma variável —');
-  el.selX.innerHTML = opcoesVariaveis(vars, () => true, '(nada)');
-  el.selGrupo.innerHTML = opcoesVariaveis(vars, () => true, '(não separar)');
+  const a = acaoAtual();
+  const soNum = (v) => v.tipo === 'num';
+  el.selY.innerHTML = opcoesVariaveis(vars, a.num ? soNum : () => true, '— escolha um dado —');
+  el.selX.innerHTML = opcoesVariaveis(vars, () => true, '(nenhum)');
+  el.selGrupo.innerHTML = opcoesVariaveis(vars, (v) => v.tipo === 'cat' || a.tipo === 'auto' || a.tipo === 'distribuicao', '(não separar)');
   el.selY.value = z.y?.id ?? '';
   el.selX.value = z.x?.id ?? '';
   el.selGrupo.value = z.grupo?.id ?? '';
+  for (const [campo, rotulo, chave] of [[el.campoY, el.rotuloY, 'y'], [el.campoX, el.rotuloX, 'x'], [el.campoGrupo, el.rotuloGrupo, 'grupo']]) {
+    campo.hidden = !a[chave];
+    if (a[chave]) rotulo.textContent = a[chave];
+  }
   el.selTipo.value = estado.tipo;
+  for (const b of el.acoes.querySelectorAll('[data-tipo]')) {
+    b.classList.toggle('ativa', b.dataset.tipo === estado.tipo);
+    b.setAttribute('aria-checked', String(b.dataset.tipo === estado.tipo));
+  }
   const regressao = estado.tipo === 'regressao' || estado.tipo === 'clusters';
   el.explicativasBloco.hidden = !regressao;
   el.explicativasBloco.querySelector('p').innerHTML = estado.tipo === 'clusters'
     ? '<strong>Características usadas para agrupar</strong> (marque 2 ou mais):'
-    : '<strong>Variáveis explicativas</strong> (marque as que podem influenciar "quero entender"):';
+    : '<strong>Fatores</strong> (marque os que podem influenciar o dado escolhido):';
   if (regressao) {
     el.explicativas.innerHTML = vars.filter((v) => v.tipo === 'num' && v.id !== z.y?.id).map((v) => `<label class="check"><input type="checkbox" value="${esc(v.id)}"
       ${z.matriz.some((m) => m.id === v.id) ? 'checked' : ''}> ${esc(v.nome)}</label>`).join('');
   }
   el.dicaTipo.textContent = {
-    auto: 'Automático: uma variável → mapa e distribuição; duas numéricas → correlação; uma categórica e uma numérica → comparação de grupos.',
-    mapa: 'O mapa colore cada local pela variável "quero entender".',
+    auto: 'Livre: um dado → mapa e distribuição; dois números → relação; um grupo e um número → comparação de grupos.',
+    mapa: 'O mapa colore cada local pelo dado escolhido.',
     dispersao: 'Mostra se as duas variáveis sobem ou descem juntas (correlações de Pearson e de Spearman).',
-    grupos: 'Compara "quero entender" entre os grupos de "separando por" (ou de "comparando com", se for categórica).',
+    grupos: 'Compara o dado escolhido entre os grupos.',
     testet: 'Compara a média de dois grupos (o separador precisa ter dois grupos, como Capital × Interior).',
-    regressao: 'Mede quanto cada variável explicativa pesa em "quero entender", descontando as outras.',
-    ranking: 'Os 15 maiores e os 15 menores valores de "quero entender".',
+    regressao: 'Mostra quanto cada fator pesa no dado escolhido, descontando os outros (regressão múltipla).',
+    ranking: 'Os 15 maiores e os 15 menores valores do dado escolhido.',
     distribuicao: 'Como os valores se espalham entre os locais.',
-    descobertas: 'Procura sozinho, entre todas as variáveis carregadas, as que mais andam junto com "quero entender" — e os locais fora da curva.',
+    descobertas: 'Procura sozinho, entre todas as variáveis carregadas, os que mais andam junto com o dado escolhido — e os locais fora da curva.',
     espacial: 'Vizinhos parecem entre si? I de Moran (global) e LISA (bolsões de valores altos e baixos), no mapa.',
-    clusters: 'Agrupa os locais em perfis parecidos (k-médias) pelas características marcadas, e mostra os grupos no mapa.',
+    clusters: 'Agrupa os locais em perfis parecidos pelas características marcadas (k-médias) e mostra os grupos no mapa.',
   }[estado.tipo] ?? '';
 }
 
@@ -852,6 +915,9 @@ function analiseRegressao(linhas, y, explicativas) {
 
 // ---------- descobertas automáticas ----------
 
+/** "6257:1:pctNulos" → "6257:1" (mesmo cargo); "censo:x" → "censo:x"; "logs:cabine" → "logs". */
+const fonteDe = (id) => (/^\d+:\d+:/.test(id) ? id.split(':').slice(0, 2).join(':') : id.split(':')[0] === 'logs' ? 'logs' : id);
+
 function analiseDescobertas(linhas, y) {
   el.tituloGrafico.textContent = y ? `O que anda junto com ${y.nome}?` : 'Descobertas automáticas';
   if (!y || y.tipo !== 'num') {
@@ -869,18 +935,18 @@ function analiseDescobertas(linhas, y) {
     if (!reg || !Number.isFinite(reg.r)) continue;
     const t = testeCorrelacao(reg.r, reg.n);
     const rho = spearman(pares.map((p) => p[0]), pares.map((p) => p[1]));
-    achados.push({ v, r: reg.r, rho, n: reg.n, p: t.p, mesmaFonte: v.grupo === grupoY });
+    achados.push({ v, r: reg.r, rho, n: reg.n, p: t.p, mesmaFonte: v.grupo === grupoY || fonteDe(v.id) === fonteDe(y.id) });
   }
   achados.sort((a, b) => Math.abs(b.r) - Math.abs(a.r));
   const testes = achados.length || 1;
   const externas = achados.filter((a) => !a.mesmaFonte);
-  const topo = (externas.length >= 5 ? externas : achados).slice(0, 12);
+  const topo = (externas.length ? externas : achados).slice(0, 12);
   el.subGrafico.textContent = `${fmtInt.format(achados.length)} variáveis testadas`;
   estado.itensGrafico = topo.map((a) => ({ titulo: a.v.nome, linhas: [`r = ${fmtR(a.r)}`, textoP(a.p)] }));
   el.grafico.innerHTML = topo.length
     ? svgBarras({ itens: topo.map((a) => ({ nome: a.v.nome, valor: a.r, cor: a.r >= 0 ? 'var(--cat-2)' : 'var(--cat-1)' })), rotuloX: 'correlação de Pearson (r) com quero entender', fmtValor: (v) => fmtR(v), largura: largura() })
     : '<p class="mudo">Carregue mais variáveis (Censo, IPEA, logs, outros cargos) para comparar.</p>';
-  el.legenda.innerHTML = '<span class="mudo">Laranja: sobem juntas · azul: uma sobe, a outra desce. Variáveis da mesma fonte de "quero entender" aparecem só na tabela.</span>';
+  el.legenda.innerHTML = '<span class="mudo">Laranja: sobem juntas · azul: uma sobe, a outra desce. Dados do mesmo cargo (votos, outros candidatos) aparecem só na tabela, para o gráfico mostrar o que vem de fora da eleição.</span>';
   // Fora da curva: locais a mais de 2,5 desvios padrão da média.
   const vals = linhas.map((l) => ({ l, v: y.valor(l) })).filter((x) => x.v !== null);
   const m = vals.reduce((t, x) => t + x.v, 0) / (vals.length || 1);
@@ -891,7 +957,11 @@ function analiseDescobertas(linhas, y) {
     achados.slice(0, 40).map((a) => [esc(a.v.nome), esc(a.v.grupo), `${fmtR(a.r)}${estrelas(a.p)}`, fmtR(a.rho), fmtInt.format(a.n), fmtP(a.p), fmtP(Math.min(1, a.p * testes))]))
     + `<p class="pequeno"><strong>Fora da curva</strong> (mais de 2,5 desvios padrão da média): ${fora.length ? fora.slice(0, 12).map((x) => `${esc(nomeL(x.l))} (${fmtValor(x.v, y)}, z = ${fmtNum.format(x.z)})`).join(', ') : 'nenhum local.'}</p>`
     + '<p class="mudo pequeno">Com muitas comparações, algumas dão "significativas" por acaso: o p corrigido (Bonferroni) é a referência conservadora. Correlação não é causalidade.</p>';
-  const fortes = topo.filter((a) => a.p < 0.05 && Math.abs(a.r) >= 0.3).slice(0, 3);
+  const fortes = externas.filter((a) => a.p < 0.05 && Math.abs(a.r) >= 0.3).slice(0, 3);
+  if (!externas.length) {
+    estado.resumo = `Ainda não há dados de fora da eleição carregados para comparar com ${esc(y.nome)}. Eles estão sendo trazidos (IBGE e IPEA); se não aparecerem, use "Mais dados → fontes públicas".`;
+    return;
+  }
   estado.resumo = fortes.length
     ? `O que mais acompanha ${esc(y.nome)}: ${fortes.map((a) => `<strong>${esc(a.v.nome)}</strong> (${a.r > 0 ? 'sobem juntas' : 'uma sobe, a outra desce'}, r = ${fmtR(a.r)})`).join('; ')}. ${fora.length ? `${fmtInt.format(fora.length)} local(is) estão fora da curva, como ${esc(nomeL(fora[0].l))}.` : ''} Lembre: andar junto não quer dizer causar.`
     : `Nenhuma variável carregada tem relação forte e significativa com ${esc(y.nome)}. Traga mais fontes em "Mais dados".`;
@@ -933,6 +1003,10 @@ function analiseEspacial(linhas, y) {
     const m = moranGlobal(valores, viz);
     if (!m) {
       el.grafico.innerHTML = '<p class="mudo">Poucos locais vizinhos com dados para medir a autocorrelação espacial.</p>';
+      const msg = `Ainda há poucos locais vizinhos com dados de ${esc(y.nome)} para procurar bolsões${n === 'estados' ? ' — olhe para as cidades (em "Onde?") para ter mais vizinhos' : ''}.`;
+      estado.resumo = msg;
+      el.resumoTexto.innerHTML = `<strong>Em resumo:</strong> ${msg}`;
+      el.resumoTexto.hidden = false;
       return;
     }
     const loc = lisa(valores, viz);
@@ -993,12 +1067,14 @@ function analiseClusters(linhas, caracteristicas) {
   if (xs.length < 2) {
     el.grafico.innerHTML = '<p class="mudo">Marque ao menos duas características para agrupar os locais.</p>';
     el.resultados.innerHTML = '';
+    estado.resumo = 'Marque ao menos duas características (logo acima, em "Com quais dados?") para agrupar os locais em perfis.';
     return;
   }
   const validas = linhas.filter((l) => xs.every((v) => v.valor(l) !== null && Number.isFinite(v.valor(l))));
   if (validas.length < 10) {
     el.grafico.innerHTML = '<p class="mudo">Poucos locais com todas as características.</p>';
     el.resultados.innerHTML = '';
+    estado.resumo = `Só ${fmtInt.format(validas.length)} locais têm todas as características marcadas: poucos para formar perfis.${nivel() === 'estados' ? ' Olhe para as cidades (em "Onde?").' : ' Desmarque alguma característica.'}`;
     return;
   }
   const { z } = padronizar(validas.map((l) => xs.map((v) => v.valor(l))));
@@ -1111,11 +1187,100 @@ document.querySelector('.abas-resultado').addEventListener('click', (ev) => {
 el.selY.addEventListener('change', () => { estado.zonas.y = el.selY.value || null; estado.abaAuto = true; renderizarTudo(); });
 el.selX.addEventListener('change', () => { estado.zonas.x = el.selX.value || null; if (estado.zonas.x) mostrarAba('grafico'); renderizarTudo(); });
 el.selGrupo.addEventListener('change', () => { estado.zonas.grupo = el.selGrupo.value || null; renderizarTudo(); });
-el.selTipo.addEventListener('change', () => {
-  estado.tipo = el.selTipo.value;
-  mostrarAba(estado.tipo === 'mapa' ? 'mapa' : 'grafico');
+el.selTipo.addEventListener('change', () => escolherAcao(el.selTipo.value));
+
+/** Primeira variável disponível entre os ids (ou apelidos) da lista. */
+function primeiraDisponivel(ids, filtro = () => true) {
+  const porId = estado.vista?.porId;
+  for (const id of ids) {
+    const v = porId?.get(id);
+    if (v && filtro(v)) return v.apelido === id ? id : v.id;
+  }
+  return null;
+}
+
+/**
+ * Troca de ação e preenche os campos que ela usa com escolhas sensatas, para o resultado
+ * aparecer na hora (a pessoa ajusta depois, se quiser).
+ */
+// Séries públicas que dão contexto às análises que comparam com dados de fora da eleição.
+const FONTES_BASICAS = ['alfabetizacao', 'densidade', 'ipea:idhm', 'ipea:renda', 'ipea:gini', 'cor_pardos', 'rel_evangelicos', 'pibPerCapita'];
+let carregandoBasicas = null;
+function carregarFontesBasicas() {
+  const faltam = FONTES_BASICAS.filter((id) => ![...estado.censo.values()].some((x) => x.preset === id));
+  if (!faltam.length || carregandoBasicas) return carregandoBasicas;
+  carregandoBasicas = (async () => {
+    for (let i = 0; i < faltam.length; i += 3) {
+      await Promise.all(faltam.slice(i, i + 3).map((id) => adicionarCenso(`api/censo/serie?preset=${encodeURIComponent(id)}`,
+        estado.catalogo?.find((c) => c.id === id)?.nome ?? id, id, { silencioso: true })));
+    }
+  })().finally(() => { carregandoBasicas = null; });
+  return carregandoBasicas;
+}
+
+function escolherAcao(tipo) {
+  if (tipo === 'descobertas' || tipo === 'clusters') {
+    // As séries chegam aos poucos; ao terminar, a perfis ganha as características do IBGE/IPEA.
+    const antes = estado.censo.size;
+    carregarFontesBasicas()?.then(() => {
+      if (estado.tipo !== tipo || estado.censo.size === antes) return;
+      if (tipo === 'clusters') estado.zonas.matriz = [];
+      escolherAcao(tipo);
+    });
+  }
+  estado.tipo = tipo;
+  const a = acaoAtual();
+  const z = estado.zonas;
+  const c = estado.cargos[0];
+  const porId = estado.vista?.porId;
+  const num = (id) => porId?.get(id)?.tipo === 'num';
+  const sugestoesY = [`${c}:lider`, `${c}:pctComparecimento`, `${c}:pctBrancosNulos`];
+  if (a.y && (!z.y || !porId?.get(z.y) || (a.num && !num(z.y)))) z.y = primeiraDisponivel(sugestoesY, (v) => !a.num || v.tipo === 'num');
+  if (!a.x) z.x = null;
+  else if (!z.x || z.x === z.y) z.x = primeiraDisponivel(['censo:alfabetizacao', 'censo:ipea:idhm', `${c}:segundo`, `${c}:pctComparecimento`, `${c}:pctBrancosNulos`].filter((id) => id !== z.y));
+  if (!a.grupo) z.grupo = null;
+  else if (!z.grupo && tipo !== 'distribuicao') z.grupo = tipo === 'testet' ? 'terr:capital' : primeiraDisponivel(['terr:regiao', 'terr:uf']);
+  if ((tipo === 'regressao' || tipo === 'clusters') && !z.matriz.length) {
+    // Só séries com cobertura completa (os logs cobrem apenas as seções já lidas).
+    const base = ['censo:alfabetizacao', 'censo:ipea:idhm', 'censo:densidade', `${c}:pctComparecimento`, `${c}:efetivo`];
+    z.matriz = base.filter((id) => num(id) && id !== z.y);
+    if (tipo === 'clusters' && z.y && !z.matriz.includes(z.y)) z.matriz.push(z.y);
+    if (z.matriz.length < 2) z.matriz = [`${c}:pctComparecimento`, `${c}:pctBrancosNulos`, `${c}:efetivo`].filter(num);
+  }
+  estado.abaAuto = true;
+  mostrarAba(tipo === 'mapa' || tipo === 'espacial' ? 'mapa' : 'grafico');
   renderizarTudo();
+}
+
+el.proximos.addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-proximo]');
+  if (!b) return;
+  if (b.dataset.y) estado.zonas.y = b.dataset.y;
+  if (b.dataset.proximo === 'grupos') estado.zonas.grupo = 'terr:regiao';
+  if (b.dataset.proximo === 'regressao' && estado.zonas.x && !estado.zonas.matriz.includes(estado.zonas.x)) estado.zonas.matriz = [estado.zonas.x];
+  escolherAcao(b.dataset.proximo);
+  el.tituloGrafico.closest('.cartao').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
+el.acoes.addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-tipo]');
+  if (b) escolherAcao(b.dataset.tipo);
+});
+el.irFontes.addEventListener('click', (ev) => {
+  ev.preventDefault();
+  const d = el.presets.closest('details');
+  if (d) d.open = true;
+  el.presets.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+
+// Modo especialista: tabelas descritivas, matriz, testes extras e arrastar e soltar.
+const CHAVE_ESPECIALISTA = 'votolab:especialista';
+function aplicarEspecialista(sim) {
+  document.body.classList.toggle('especialista', sim);
+  el.modoEspecialista.checked = sim;
+  try { localStorage.setItem(CHAVE_ESPECIALISTA, sim ? '1' : '0'); } catch { /* sem armazenamento */ }
+}
+el.modoEspecialista.addEventListener('change', () => aplicarEspecialista(el.modoEspecialista.checked));
+try { aplicarEspecialista(localStorage.getItem(CHAVE_ESPECIALISTA) === '1'); } catch { aplicarEspecialista(false); }
 el.explicativas.addEventListener('change', () => {
   estado.zonas.matriz = [...el.explicativas.querySelectorAll('input:checked')].map((i) => i.value);
   renderizarTudo();
@@ -1151,8 +1316,31 @@ const PERGUNTAS = [
   { icone: '👥', titulo: 'Cidades grandes votam diferente das pequenas?', texto: 'Compara por porte (votos)', nivel: 'todas', cargos: [PRES], y: `${PRES}:pctBrancosNulos`, grupo: 'terr:porte', tipo: 'grupos' },
 ];
 
-el.perguntas.innerHTML = PERGUNTAS.map((p, i) => `<button type="button" class="pergunta" data-pergunta="${i}">
-  <span class="pergunta-icone" aria-hidden="true">${p.icone}</span><span class="pergunta-titulo">${esc(p.titulo)}</span><span class="pergunta-texto">${esc(p.texto)}</span></button>`).join('');
+// Temas das perguntas: poucas por vez, das mais simples às de especialista.
+const TEMAS = [
+  ['inicio', '⭐ Comece por aqui', ['Quem venceu em cada cidade?', 'O que mais se relaciona com o voto no líder?', 'Onde mais gente foi votar?', 'O voto no líder muda por região?', 'Que tipos de cidade existem?', 'Onde mais se votou nulo para presidente?']],
+  ['voto', '🗳️ Quem venceu e onde', ['Quem venceu em cada cidade?', 'Onde um cresce, o outro cai?', 'O voto no líder muda por região?', 'Onde há bolsões de voto no líder?', 'Onde o voto para deputado é mais dividido?', 'Cidades grandes votam diferente das pequenas?']],
+  ['sociedade', '🏙️ Sociedade e voto', ['A alfabetização muda o voto no líder?', 'O IDH tem a ver com o voto?', 'Religião e voto andam juntos?', 'O que explica o voto no líder?', 'Que tipos de cidade existem?', 'O que mais se relaciona com o voto no líder?']],
+  ['bn', '❌ Brancos, nulos e comparecimento', ['Onde mais gente foi votar?', 'Onde mais se votou nulo para presidente?', 'Brancos e nulos mudam de uma região para outra?', 'Onde há mais alfabetização, há menos votos nulos?', 'O tempo na cabine tem a ver com os nulos?', 'Quem anula para presidente também anula para senador?', 'Quais cidades mais deixaram o voto em branco?', 'O que mais explica os votos nulos?']],
+  ['avancado', '🔬 Para especialistas', ['Onde há bolsões de voto no líder?', 'O que explica o voto no líder?', 'O que mais explica os votos nulos?', 'Que tipos de cidade existem?', 'Capitais votam diferente do interior?', 'O que mais se relaciona com o voto no líder?']],
+];
+let temaAtual = 'inicio';
+
+function renderizarPerguntas() {
+  el.temas.innerHTML = TEMAS.map(([id, nome]) => `<button type="button" role="tab" class="tema${id === temaAtual ? ' ativo' : ''}" aria-selected="${id === temaAtual}" data-tema="${id}">${esc(nome)}</button>`).join('');
+  const titulos = TEMAS.find(([id]) => id === temaAtual)[2];
+  const lista = titulos.map((t) => PERGUNTAS.findIndex((p) => p.titulo === t)).filter((i) => i >= 0);
+  el.perguntas.innerHTML = lista.map((i) => { const p = PERGUNTAS[i]; return `<button type="button" class="pergunta" data-pergunta="${i}">
+    <span class="pergunta-icone" aria-hidden="true">${p.icone}</span><span class="pergunta-titulo">${esc(p.titulo)}</span><span class="pergunta-texto">${esc(p.texto)}</span></button>`; }).join('');
+}
+renderizarPerguntas();
+renderizarAcoes();
+el.temas.addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-tema]');
+  if (!b) return;
+  temaAtual = b.dataset.tema;
+  renderizarPerguntas();
+});
 
 async function aplicarPergunta(p) {
   for (const b of el.perguntas.querySelectorAll('.pergunta')) b.classList.toggle('ativa', PERGUNTAS[Number(b.dataset.pergunta)] === p);
@@ -1361,7 +1549,7 @@ el.exportarJson.addEventListener('click', () => antesDeExportar(() => {
   if (!v) return;
   const usadas = [v.z.y, v.z.x, v.z.grupo, v.z.tamanho, ...v.z.matriz].filter((x, i, a) => x && a.indexOf(x) === i);
   const dados = {
-    programa: 'Voto Lab 2026 (Lucas Müller-Silveira)',
+    programa: 'Voto Lab (Lucas Müller-Silveira)',
     geradoEm: new Date().toISOString(),
     parametros: Object.fromEntries(parametrosAnalise()),
     resumo: el.resumoTexto.textContent.replace(/^Em resumo:\s*/, ''),
@@ -1392,8 +1580,7 @@ if (inicial.matriz) estado.zonas.matriz = inicial.matriz.split(',');
 if (!inicial.x && !inicial.y) {
   // Ponto de partida simples: mapa de quem venceu em cada local, no primeiro cargo.
   const c = estado.cargos[0];
-  estado.zonas = { x: null, y: `${c}:vencedor`, grupo: null, tamanho: null,
-    matriz: [`${c}:pctBrancos`, `${c}:pctNulos`, `${c}:pctAnulados`, `${c}:pctAbstencao`] };
+  estado.zonas = { x: null, y: `${c}:vencedor`, grupo: null, tamanho: null, matriz: [] };
   estado.tipo = 'mapa';
   estado.aba = 'mapa';
 }

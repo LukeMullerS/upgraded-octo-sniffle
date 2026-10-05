@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Explorador 2026</title>
+  <title>Análises 2026</title>
   <link rel="icon" href="icone.svg" type="image/svg+xml">
   <meta name="theme-color" content="#0b5cad">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,13 +16,14 @@
 <body class="painel">
   <header class="topo">
     <div>
-      <h1>Explorador de variáveis</h1>
+      <h1>Análises</h1>
       <p class="sub">Perguntas prontas, mapas e estatística com os dados da eleição, dos logs das urnas, do IBGE e do IPEA</p>
     </div>
     <div class="atualizacao">
       <span id="status" class="status">carregando…</span>
       <button type="button" class="secundario sem-margem" data-citar>Como citar</button>
       <button id="exportar" type="button" class="secundario sem-margem">Exportar CSV</button>
+      <label class="check modo-especialista" title="Mostra tabelas descritivas, matriz de correlação, testes extras e o modo arrastar e soltar"><input type="checkbox" id="modo-especialista"> Modo especialista</label>
       <button id="atualizar" type="button">Atualizar</button>
     </div>
   </header>
@@ -31,7 +32,7 @@
     <a href="./">Apuração</a>
     <a href="candidatos.html">Mapa da votação</a>
     <a href="brancos.html">Brancos e nulos</a>
-    <a href="explorar.html" aria-current="page">Explorador</a>
+    <a href="explorar.html" aria-current="page">Análises</a>
     <a href="urnas.html">Logs das urnas</a>
   </nav>
 
@@ -39,51 +40,54 @@
     <section id="erro" class="erro" hidden></section>
 
     <section class="cartao" data-modulo-cartao="perguntas">
-      <div class="linha"><h2>O que você quer descobrir?</h2><span class="mudo pequeno">um clique monta a análise</span></div>
+      <div class="linha"><h2><span class="passo-num">1</span> Comece com uma pergunta</h2><span class="mudo pequeno">um clique e a análise aparece abaixo</span></div>
+      <div id="temas" class="temas" role="tablist" aria-label="Temas"></div>
       <div id="perguntas" class="perguntas"></div>
     </section>
 
     <section class="cartao montagem">
-      <div class="linha"><h2>Monte sua análise</h2><span class="mudo pequeno" id="resumo-dados"></span></div>
-      <div class="frase">
-        <label>Olhando para
-          <select id="nivel"></select>
-        </label>
-        <label>quero entender
-          <select id="sel-y"></select>
-        </label>
-        <label>comparando com
-          <select id="sel-x"></select>
-        </label>
-        <label>separando por
-          <select id="sel-grupo"></select>
-        </label>
-        <label>usando
-          <select id="sel-tipo">
-            <option value="auto">Escolha automática</option>
-            <option value="mapa">Mapa</option>
-            <option value="dispersao">Correlação (dispersão)</option>
-            <option value="grupos">Comparar grupos (boxplot + ANOVA)</option>
-            <option value="testet">Teste t (2 grupos)</option>
-            <option value="regressao">Regressão múltipla</option>
-            <option value="ranking">Ranking (maiores e menores)</option>
-            <option value="distribuicao">Distribuição (histograma)</option>
-            <option value="descobertas">Descobertas automáticas</option>
-            <option value="espacial">Padrão no mapa (Moran / bolsões LISA)</option>
-            <option value="clusters">Perfis de locais (agrupamento k-médias)</option>
-          </select>
-        </label>
+      <div class="linha"><h2><span class="passo-num">2</span> Ou monte a sua</h2><span class="mudo pequeno" id="resumo-dados"></span></div>
+      <div class="passo">
+        <span class="passo-titulo">Onde?</span>
+        <select id="nivel" aria-label="Onde"></select>
       </div>
-      <div id="explicativas-bloco" class="explicativas" hidden>
-        <p class="pequeno"><strong>Variáveis explicativas</strong> (marque as que podem influenciar "quero entender"):</p>
-        <div id="explicativas" class="checks"></div>
+      <div class="passo">
+        <span class="passo-titulo">O que você quer fazer?</span>
+        <div id="acoes" class="acoes-tipo" role="radiogroup" aria-label="Tipo de análise"></div>
       </div>
+      <div class="passo">
+        <span class="passo-titulo">Com quais dados?</span>
+        <div class="campos">
+          <label id="campo-y"><span id="rotulo-y">Qual dado?</span><select id="sel-y"></select></label>
+          <label id="campo-x"><span id="rotulo-x">Comparar com</span><select id="sel-x"></select></label>
+          <label id="campo-grupo"><span id="rotulo-grupo">Separar por</span><select id="sel-grupo"></select></label>
+        </div>
+        <div id="explicativas-bloco" class="explicativas" hidden>
+          <p class="pequeno"><strong>Variáveis explicativas</strong> (marque as que podem influenciar "quero entender"):</p>
+          <div id="explicativas" class="checks"></div>
+        </div>
+        <p class="mudo pequeno">Faltando um dado (IDH, renda, religião…)? Traga em <a href="#" id="ir-fontes">Mais dados → fontes públicas</a>.</p>
+      </div>
+      <select id="sel-tipo" hidden aria-hidden="true">
+        <option value="auto">Livre</option>
+        <option value="mapa">Mapa</option>
+        <option value="dispersao">Relação entre dois dados</option>
+        <option value="grupos">Comparar grupos</option>
+        <option value="testet">Teste t (2 grupos)</option>
+        <option value="regressao">Explicar com vários fatores (regressão)</option>
+        <option value="ranking">Ranking</option>
+        <option value="distribuicao">Distribuição</option>
+        <option value="descobertas">Descobrir automaticamente</option>
+        <option value="espacial">Bolsões no mapa (Moran / LISA)</option>
+        <option value="clusters">Perfis de cidades (k-médias)</option>
+      </select>
       <p id="dica-tipo" class="mudo pequeno"></p>
     </section>
 
     <section class="cartao resultado">
       <div class="linha"><h2 id="titulo-grafico">Resultado</h2><span class="mudo pequeno" id="sub-grafico"></span></div>
       <p id="resumo-texto" class="resumo-texto"></p>
+      <div id="proximos" class="proximos" aria-label="Próximos passos"></div>
       <div class="acoes-analise" role="group" aria-label="Exportar esta análise">
         <span class="mudo pequeno">Exportar esta análise:</span>
         <button type="button" id="exportar-relatorio" class="secundario sem-margem" title="Página HTML com resumo, gráfico, mapa, estatísticas, parâmetros e referências; abre em qualquer navegador">Relatório completo</button>
@@ -106,7 +110,7 @@
     </section>
 
     <section class="cartao">
-      <div class="linha"><h2>Detalhes estatísticos</h2></div>
+      <div class="linha"><h2>Detalhes estatísticos</h2><span class="mudo pequeno">os números por trás do resumo; o Glossário explica cada um</span></div>
       <div id="resultados"></div>
     </section>
 
@@ -129,12 +133,12 @@
       </dl>
     </details>
 
-    <section class="cartao">
+    <section class="cartao" data-especialista>
       <div class="linha"><h2>Estatísticas descritivas</h2></div>
       <div class="tabela-rolagem"><table class="tabela" id="descritivas"></table></div>
     </section>
 
-    <section class="cartao" id="matriz-cartao" hidden>
+    <section class="cartao" id="matriz-cartao" data-especialista hidden>
       <div class="linha"><h2>Matriz de correlação (Pearson)</h2><span class="mudo pequeno">clique numa célula para ver a dispersão</span></div>
       <div class="tabela-rolagem"><table class="matriz" id="matriz"></table></div>
       <p class="mudo pequeno">* p &lt; 0,05 · ** p &lt; 0,01 · *** p &lt; 0,001. Correlação não é causalidade; em dados agregados por local (falácia ecológica) ela não diz nada sobre eleitores individuais.</p>
@@ -180,7 +184,7 @@
       </fieldset>
     </details>
 
-    <details class="cartao" id="avancado">
+    <details class="cartao" id="avancado" data-especialista>
       <summary>Modo avançado: arrastar variáveis (estilo JASP)</summary>
       <div class="explorador">
         <div class="variaveis">
@@ -205,7 +209,7 @@
   <div id="dica" class="dica" role="tooltip" hidden></div>
 
   <footer>
-    <p class="credito"><strong>Voto Lab 2026</strong> · por Lucas Müller-Silveira · <a href="#" data-citar>Como citar este programa</a></p>
+    <p class="credito"><strong>Voto Lab</strong> · por Lucas Müller-Silveira · <a href="#" data-citar>Como citar este programa</a></p>
     Fontes: <a href="https://resultados.tse.jus.br/oficial/app/index.html" target="_blank" rel="noopener">TSE</a> (ambiente oficial) e
     <a href="https://sidra.ibge.gov.br" target="_blank" rel="noopener">IBGE/SIDRA</a>.
   </footer>

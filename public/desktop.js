@@ -4,6 +4,7 @@
 // Desligar). As páginas do app abrem dentro das janelas em modo "embed".
 
 import './citar.js'; // janela "Como citar" (botões com data-citar)
+import { iniciarCampo } from './campo.js';
 import { icone } from './icones98.js';
 
 const CHAVE_JANELAS = 'apuracao2026:janelas';
@@ -30,7 +31,7 @@ const APPS = {
   brancos: { titulo: 'Brancos e nulos', icone: 'pastaPainel', url: 'brancos.html', w: 1000, h: 660, descricao: 'Painel completo de brancos, nulos e anulados.' },
   candidatos: { titulo: 'Mapa da votação', icone: 'mapa', url: 'candidatos.html', w: 1040, h: 700, descricao: 'Candidatos, partidos, vencedor e comparecimento em mapas por estado e cidade.' },
   logs: { titulo: 'Logs das urnas', icone: 'urna', url: 'urnas.html', w: 1000, h: 680, descricao: 'Tempo de votação, biometria e horários a partir do log de cada urna.' },
-  explorar: { titulo: 'Explorador de variáveis', icone: 'grafico', url: 'explorar.html', w: 1040, h: 680, descricao: 'Cruze variáveis da eleição e do Censo (estilo JASP).' },
+  explorar: { titulo: 'Análises', icone: 'grafico', url: 'explorar.html', w: 1040, h: 680, descricao: 'Perguntas prontas, mapas e estatística com dados do TSE, IBGE e IPEA.' },
   ...Object.fromEntries(MODULOS.map(([id, titulo, ic, descricao, w, h]) => [`brancos-${id}`, {
     titulo: `${titulo} — Brancos e nulos`, curto: titulo, icone: ic, url: 'brancos.html', modulo: id, w, h, descricao,
   }])),
@@ -38,8 +39,9 @@ const APPS = {
   leiame: { titulo: 'Leia-me.txt — Bloco de notas', icone: 'documento', nativo: 'leiame', w: 560, h: 440 },
   lixeira: { titulo: 'Lixeira', icone: 'lixeira', nativo: 'lixeira', w: 420, h: 280 },
   video: { titulo: 'Propriedades de Vídeo', icone: 'pintura', nativo: 'video', w: 380, h: 300, fixa: true },
-  sobre: { titulo: 'Sobre o Voto Lab 2026', icone: 'ajuda', nativo: 'sobre', w: 420, h: 290, fixa: true },
+  sobre: { titulo: 'Sobre o Voto Lab', icone: 'ajuda', nativo: 'sobre', w: 420, h: 290, fixa: true },
   banco: { titulo: 'Banco de dados do TSE', icone: 'banco', nativo: 'banco', w: 400, h: 380, fixa: true },
+  campo: { titulo: 'Campo Minado', icone: 'urna', nativo: 'campo', w: 272, h: 368, fixa: true, secreto: true },
   desligar: { titulo: 'Desligar o Windows', icone: 'desligar', nativo: 'desligar', w: 380, h: 250, fixa: true, modal: true },
 };
 
@@ -50,7 +52,7 @@ const EXTERNOS = {
 
 const ICONES_AREA = [
   ['apuracao', 'Apuração'], ['brancos', 'Brancos e nulos'], ['paineis', 'Painéis'],
-  ['candidatos', 'Mapa da votação'], ['explorar', 'Explorador'], ['logs', 'Logs das urnas'], ['leiame', 'Leia-me.txt'], ['tse', 'Resultados TSE'], ['ibge', 'IBGE SIDRA'], ['lixeira', 'Lixeira'],
+  ['candidatos', 'Mapa da votação'], ['explorar', 'Análises'], ['logs', 'Logs das urnas'], ['leiame', 'Leia-me.txt'], ['tse', 'Resultados TSE'], ['ibge', 'IBGE SIDRA'], ['lixeira', 'Lixeira'],
 ];
 
 const FUNDOS = [
@@ -70,7 +72,7 @@ let zTopo = 10;
 // ---------- persistência ----------
 
 function salvar() {
-  const dados = janelas.filter((j) => !APPS[j.app].modal).map((j) => ({
+  const dados = janelas.filter((j) => !APPS[j.app].modal && !APPS[j.app].secreto).map((j) => ({
     app: j.app, x: j.x, y: j.y, w: j.w, h: j.h, max: j.max, min: j.min, hash: hashDo(j), z: j.z,
   }));
   try { localStorage.setItem(CHAVE_JANELAS, JSON.stringify(dados)); } catch { /* sem armazenamento */ }
@@ -203,6 +205,7 @@ function alternarMax(j) {
 }
 
 function fechar(j) {
+  j.aoFechar?.();
   j.el.remove();
   janelas = janelas.filter((x) => x !== j);
   focar(ativa());
@@ -323,7 +326,7 @@ $('botoes-tarefas').addEventListener('click', (ev) => {
 
 $('iniciar').innerHTML = `${icone('janelas', 16)}<b>Iniciar</b>`;
 $('rapido').innerHTML = [
-  ['desktop', 'Mostrar área de trabalho', 'mostrar'], ['pastaPainel', 'Brancos e nulos', 'brancos'], ['mapa', 'Mapa da votação', 'candidatos'], ['grafico', 'Explorador', 'explorar'], ['urna', 'Logs das urnas', 'logs'],
+  ['desktop', 'Mostrar área de trabalho', 'mostrar'], ['pastaPainel', 'Brancos e nulos', 'brancos'], ['mapa', 'Mapa da votação', 'candidatos'], ['grafico', 'Análises', 'explorar'], ['urna', 'Logs das urnas', 'logs'],
 ].map(([ic, t, acao]) => `<button type="button" class="rapido-botao" data-rapido="${acao}" title="${esc(t)}">${icone(ic, 16)}</button>`).join('');
 $('rapido').addEventListener('click', (ev) => {
   const acao = ev.target.closest('[data-rapido]')?.dataset.rapido;
@@ -373,7 +376,7 @@ function montarMenuIniciar() {
     ${itemMenu('pastaPainel', 'Brancos e nulos', 'data-abrir="brancos"')}
     ${itemMenu('pasta', 'Painéis', '', subPaineis)}
     ${itemMenu('mapa', 'Mapa da votação', 'data-abrir="candidatos"')}
-    ${itemMenu('grafico', 'Explorador de variáveis', 'data-abrir="explorar"')}
+    ${itemMenu('grafico', 'Análises', 'data-abrir="explorar"')}
     ${itemMenu('urna', 'Logs das urnas', 'data-abrir="logs"')}</ul>`;
   const subProgramas = `<ul class="menu sub">
     ${itemMenu('programas', 'Eleições 2026', '', subEleicoes)}
@@ -440,6 +443,21 @@ document.addEventListener('click', (ev) => {
 document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Escape') { abrirMenuIniciar(false); $('menu-contexto').hidden = true; }
 });
+{
+  const sequencia = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+  let pos = 0;
+  document.addEventListener('keydown', (ev) => {
+    const k = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
+    pos = k === sequencia[pos] ? pos + 1 : (k === sequencia[0] ? 1 : 0);
+    if (pos === sequencia.length) { pos = 0; abrir('campo'); }
+  });
+  let toques = [];
+  $('relogio').addEventListener('click', () => {
+    const agora = Date.now();
+    toques = [...toques.filter((t) => agora - t < 3000), agora];
+    if (toques.length >= 5) { toques = []; abrir('campo'); }
+  });
+}
 
 area.addEventListener('contextmenu', (ev) => {
   if (ev.target.closest('.janela')) return;
@@ -492,6 +510,7 @@ $('icones').addEventListener('keydown', (ev) => {
 // ---------- janelas próprias ----------
 
 const NATIVOS = {
+  campo: () => '<div data-campo></div>',
   banco: () => `<div class="dialogo">
     <p>Todas as janelas usam o mesmo banco: cada arquivo do TSE é baixado uma vez, guardado no
       servidor e conferido de novo a cada 1–2 minutos (só baixa se mudou).</p>
@@ -570,7 +589,7 @@ Cuidados na leitura
     <div class="dialogo-botoes"><button type="button" data-ok>OK</button><button type="button" data-acao="fechar">Cancelar</button></div></div>`,
   sobre: () => `<div class="dialogo sobre">
     <div class="sobre-corpo">${icone('janelas', 32)}
-      <div><p><strong>Voto Lab 2026</strong> · versão 1.0<br>por Lucas Müller-Silveira</p>
+      <div><p><strong>Voto Lab</strong> · versão 1.0<br>por Lucas Müller-Silveira</p>
       <p>Apuração, mapas, brancos e nulos, logs das urnas e estatística com dados públicos do TSE, IBGE e IPEA.<br>Este programa só exibe os arquivos publicados; ele não conta votos.</p>
       <p class="mudo">Interface inspirada no Windows 98.</p></div></div>
     <div class="dialogo-botoes"><button type="button" data-citar>Como citar…</button><button type="button" data-acao="fechar">OK</button></div></div>`,
@@ -585,6 +604,11 @@ Cuidados na leitura
 };
 
 function ligarNativo(tipo, conteudo, j) {
+  if (tipo === 'campo') {
+    const jogo = iniciarCampo(conteudo.querySelector('[data-campo]'));
+    j.aoFechar = () => jogo.parar();
+    return;
+  }
   if (tipo === 'banco') {
     const pintar = () => {
       const t = conteudo.querySelector('#tabela-banco');
@@ -684,6 +708,17 @@ if (pedido.get('abrir') && APPS[pedido.get('abrir')]) {
   if (ja) restaurar(ja); else abrir(pedido.get('abrir'), { hash: h });
   history.replaceState(null, '', location.pathname);
 } else if (!janelas.length) {
-  abrir('brancos');
-  if (!estreita()) abrir('leiame', { x: Math.max(20, innerWidth - 620), y: 40 });
+  // Primeira vez: Apuração à esquerda e a janela de análise (Explorador) à direita, lado a lado.
+  // No celular as duas abrem maximizadas, com a análise na frente (a outra fica na barra de tarefas).
+  const lim = limites();
+  if (estreita()) {
+    abrir('apuracao');
+    abrir('explorar');
+  } else {
+    // Começa depois da coluna de ícones, para eles continuarem visíveis.
+    const x0 = 92;
+    const wA = Math.max(340, Math.round((lim.w - x0) * 0.38));
+    abrir('apuracao', { x: x0, y: 6, w: wA, h: lim.h - 12 });
+    abrir('explorar', { x: x0 + wA + 6, y: 6, w: lim.w - x0 - wA - 12, h: lim.h - 12 });
+  }
 }

@@ -178,7 +178,7 @@ export function relatorioHtml({ titulo, resumo = '', secoes = [], parametros = [
     return `<section><h2>${esc(s.titulo)}</h2>${svg ? `<div class="figura">${svg}</div>` : ''}${s.html ?? ''}</section>`;
   }).join('');
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(titulo)} — Voto Lab 2026</title>
+<title>${esc(titulo)} — Voto Lab</title>
 <style>
 body{font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1b2430;max-width:960px;margin:0 auto;padding:24px 16px}
 h1{font-size:1.5rem;margin:0 0 4px}h2{font-size:1.1rem;margin:28px 0 8px;border-bottom:1px solid #dde3ea;padding-bottom:4px}
@@ -190,13 +190,14 @@ footer{margin-top:32px;font-size:.85rem;color:#637083}
 @media print{body{padding:0}section{break-inside:avoid}}
 </style></head><body>
 <h1>${esc(titulo)}</h1>
-<p class="meta">Gerado em ${data.toLocaleString('pt-BR')} com o Voto Lab 2026 · ${esc(location.href)}</p>
+<p class="meta">Gerado em ${data.toLocaleString('pt-BR')} com o Voto Lab · ${esc(location.href)}</p>
 ${resumo ? `<p class="resumo">${resumo}</p>` : ''}
 ${parametros.length ? `<h2>Parâmetros da análise</h2><dl class="parametros">${parametros.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
 ${corpoSecoes}
 <section class="citacao"><h2>Como citar</h2>${refs.filter((r) => r.id !== 'bibtex').map((r) => `<p><strong>${esc(r.nome)}:</strong> ${r.html}</p>`).join('')}
 ${refs.find((r) => r.id === 'bibtex').html}
-<h2>Fontes dos dados</h2>${fontesDeDados(data).map((f) => `<p>${f}</p>`).join('')}</section>
+<h2>Fontes dos dados</h2>${fontesDeDados(data, 'abnt').map((f) => `<p>${f.html}</p>`).join('')}
+<p><strong>APA:</strong></p>${fontesDeDados(data, 'apa').map((f) => `<p>${f.html}</p>`).join('')}</section>
 <footer>Dados agregados por local: associações entre locais não descrevem eleitores individuais (falácia ecológica). Correlação não é causalidade.</footer>
 </body></html>`;
 }
