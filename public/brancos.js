@@ -2,7 +2,7 @@ import {
   CARGOS, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, criarDica, esc, fmtInt, fmtNum,
   nomeUf, pct, pctSecoes, porteDe, pp, regiaoDe, semAcento,
 } from './comum.js';
-import { METRICAS, escoreZ, histograma, regressaoLinear, resumoEstatistico, valorMetrica } from './estatistica.js';
+import { METRICAS, escoreZ, histograma, regressaoLinear, resumoEstatistico, valorMetrica } from './calculos.js';
 import { svgDispersao, svgHistograma } from './graficos.js';
 
 // O servidor relê o TSE a cada 2 minutos; a página consulta o servidor a cada 30 s

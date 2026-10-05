@@ -183,10 +183,10 @@ src/censo.js       séries do Censo/IBGE (API de agregados), guardadas em dados/
 src/logs.js        coletor dos logs das urnas (seções publicadas, amostra, cache em dados/logs)
 src/log-urna.js    leitura do logd.dat: tempos por eleitor e resumo da seção
 src/sete-zip.js    leitor de 7z (LZMA/LZMA2) em JavaScript puro
-public/logs.*      janela Logs das urnas
+public/urnas.*     janela Logs das urnas
 public/desktop.*   área de trabalho Windows 98 (gerenciador de janelas, menu Iniciar, barra de tarefas)
 public/tema.js     escolhe o visual (98 ou moderno) e o modo "janela" das páginas
 public/explorar.*  explorador de variáveis
-public/estatistica.js, graficos.js, comum.js   estatística (incl. testes), gráficos SVG e utilitários
+public/calculos.js, graficos.js, comum.js     estatística (incl. testes), gráficos SVG e utilitários
 test/              testes (npm test)
 ```

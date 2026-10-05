@@ -35,6 +35,43 @@
     var p = caixa.querySelector('[data-msg]');
     p.textContent = (p.textContent ? p.textContent + ' · ' : '') + msg;
   }
+  // Um módulo que falha acusa só o script principal. Baixa um a um o principal e o que ele
+  // importa, para dizer exatamente qual arquivo falhou e por quê.
+  function sondar(url) {
+    var vistos = {};
+    var achou = false;
+    function nome(u) { return u.split('/').pop().split('?')[0]; }
+    function visitar(u) {
+      if (vistos[u]) return Promise.resolve();
+      vistos[u] = true;
+      return fetch(u, { cache: 'no-store' }).then(function (r) {
+        var tipo = r.headers.get('content-type') || '';
+        if (!r.ok || !/javascript/.test(tipo)) {
+          achou = true;
+          var m = nome(u) + ': o servidor respondeu HTTP ' + r.status + (tipo ? ' (' + tipo + ')' : '');
+          relatar('arquivo', m);
+          mostrar(m);
+          return null;
+        }
+        return r.text().then(function (texto) {
+          var re = /(?:from\s*|import\s*\(\s*)['"](\.\/[^'"]+)['"]/g;
+          var filhos = [];
+          var m;
+          while ((m = re.exec(texto))) filhos.push(visitar(new URL(m[1], u).href));
+          return Promise.all(filhos);
+        });
+      }, function () {
+        achou = true;
+        var m = nome(u) + ' foi bloqueado pelo navegador (provavelmente um bloqueador de anúncios ou outra extensão). Libere 127.0.0.1 no bloqueador.';
+        relatar('bloqueado', m);
+        mostrar(m);
+      });
+    }
+    visitar(url).then(function () {
+      if (!achou) relatar('arquivo', 'todos os scripts baixaram normalmente na sondagem de ' + nome(url));
+    });
+  }
+
   addEventListener('error', function (ev) {
     var alvo = ev.target;
     if (alvo && alvo !== window && alvo.tagName) {
@@ -42,6 +79,7 @@
       var msg = 'não foi possível carregar ' + (alvo.src || alvo.href || alvo.tagName);
       relatar('arquivo', msg);
       mostrar(msg);
+      if (alvo.tagName === 'SCRIPT' && alvo.src) sondar(alvo.src);
       return;
     }
     relatar('erro', ev.message, (ev.filename || '').split('/').pop() + ':' + (ev.lineno || ''));
@@ -84,7 +122,7 @@
   raiz.dataset.tema = tema;
   if (tema === '98') {
     var arquivo = location.pathname.split('/').pop();
-    var app = { '': 'apuracao', 'index.html': 'apuracao', 'brancos.html': 'brancos', 'explorar.html': 'explorar', 'logs.html': 'logs' }[arquivo];
+    var app = { '': 'apuracao', 'index.html': 'apuracao', 'brancos.html': 'brancos', 'explorar.html': 'explorar', 'urnas.html': 'logs' }[arquivo];
     if (app) {
       var destino = 'desktop.html#abrir=' + app + (location.hash ? '&h=' + encodeURIComponent(location.hash) : '');
       location.replace(destino);

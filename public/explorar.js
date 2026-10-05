@@ -8,7 +8,7 @@ import {
 } from './comum.js';
 import {
   METRICAS, anovaUmFator, correlacao, histograma, quantil, regressaoLinear, resumoCaixa, testeCorrelacao, valorMetrica,
-} from './estatistica.js';
+} from './calculos.js';
 import { svgBarras, svgBoxplot, svgDispersao, svgHistograma } from './graficos.js';
 
 const $ = (id) => document.getElementById(id);
@@ -84,14 +84,14 @@ async function carregar() {
 async function carregarLogs(n) {
   const mapa = new Map();
   try {
-    const brasil = await getJson('api/logs/brasil');
+    const brasil = await getJson('api/urnas/brasil');
     if (n === 'estados') {
       for (const e of brasil.estados) mapa.set(e.uf, e.resumo);
       return mapa;
     }
     const ufs = n === 'todas' ? brasil.estados.map((e) => e.uf) : brasil.estados.some((e) => e.uf === n) ? [n] : [];
     for (const uf of ufs) {
-      const est = await getJson(`api/logs/estado?uf=${uf}`);
+      const est = await getJson(`api/urnas/estado?uf=${uf}`);
       for (const m of est.municipios) if (m.resumo) mapa.set(m.codigo, m.resumo);
     }
   } catch {

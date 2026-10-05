@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   correlacao, desvioPadrao, escoreZ, histograma, media, mediaPonderada, mediana, passoRedondo,
   quantil, resumoEstatistico, valorMetrica,
-} from '../public/estatistica.js';
+} from '../public/calculos.js';
 
 const local = (nome, total, brancos, nulos, extra = {}) => ({ nome, total, brancos, nulos, anulados: 0, ...extra });
 
@@ -56,7 +56,7 @@ test('correlação', () => {
 });
 
 test('regressão linear e caixa', async () => {
-  const { regressaoLinear, resumoCaixa } = await import('../public/estatistica.js');
+  const { regressaoLinear, resumoCaixa } = await import('../public/calculos.js');
   const r = regressaoLinear([1, 2, 3, 4], [3, 5, 7, 9]);
   assert.ok(Math.abs(r.a - 1) < 1e-9 && Math.abs(r.b - 2) < 1e-9 && Math.abs(r.r2 - 1) < 1e-9);
   assert.equal(regressaoLinear([1, 1, 1], [1, 2, 3]), null);
@@ -67,7 +67,7 @@ test('regressão linear e caixa', async () => {
 });
 
 test('valores-p conferidos com tabelas', async () => {
-  const { pValorT, pValorF, testeCorrelacao, anovaUmFator } = await import('../public/estatistica.js');
+  const { pValorT, pValorF, testeCorrelacao, anovaUmFator } = await import('../public/calculos.js');
   assert.ok(Math.abs(pValorT(2.0, 10) - 0.0734) < 0.0005);
   assert.ok(Math.abs(pValorT(2.228, 10) - 0.05) < 0.0005);
   assert.ok(Math.abs(pValorF(4.103, 2, 10) - 0.05) < 0.0005);

@@ -2,7 +2,7 @@
 // Cada função devolve uma string SVG; as marcas levam `data-dica` com o índice do item,
 // para a página mostrar a dica (tooltip) e tratar cliques por delegação.
 
-import { passoRedondo } from './estatistica.js';
+import { passoRedondo } from './calculos.js';
 
 const fmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
 const fmtInt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });

@@ -112,17 +112,17 @@ async function buscarBinario(caminho) {
 const logs = criarColetorLogs({ buscarJson, buscarBinario, pleito: PLEITO.codigo, pasta: join(DADOS, 'logs') });
 const UFS_LOGS = [...Object.keys(UFS), 'zz'];
 
-// /api/logs/*: tempo de votação e biometria a partir dos logs das urnas (ver src/logs.js).
+// /api/urnas/*: tempo de votação e biometria a partir dos logs das urnas (ver src/logs.js).
 async function apiLogs(res, pathname, params) {
   try {
-    if (pathname === '/api/logs/brasil') return json(res, 200, await logs.brasil(UFS_LOGS));
+    if (pathname === '/api/urnas/brasil') return json(res, 200, await logs.brasil(UFS_LOGS));
     const uf = params.get('uf');
     if (!UFS_LOGS.includes(uf)) return json(res, 400, { erro: 'UF inválida' });
-    if (pathname === '/api/logs/estado') {
+    if (pathname === '/api/urnas/estado') {
       const por = Math.max(0, Math.min(20, Number(params.get('por')) || 0));
       return json(res, 200, await logs.estado(uf, { por }));
     }
-    if (pathname === '/api/logs/municipio') {
+    if (pathname === '/api/urnas/municipio') {
       const mun = params.get('mun');
       if (!/^\d{5}$/.test(mun ?? '')) return json(res, 400, { erro: 'município inválido' });
       return json(res, 200, await logs.municipio(uf, mun, { coletar: params.get('coletar') === '1' }));
@@ -253,9 +253,14 @@ const servidor = http.createServer((req, res) => {
     return json(res, 200, { ok: true });
   }
   if (pathname.startsWith('/api/censo/')) return apiCenso(res, pathname, searchParams);
-  if (pathname.startsWith('/api/logs/')) return apiLogs(res, pathname, searchParams);
+  if (pathname.startsWith('/api/urnas/')) return apiLogs(res, pathname, searchParams);
   if (pathname.startsWith('/api/')) return api(res, pathname, searchParams);
   if (pathname.startsWith('/tse/')) return proxy(req, res, decodeURIComponent(pathname.slice(5)));
+  // A janela de logs se chamava logs.html (nome que alguns bloqueadores barram).
+  if (pathname === '/logs.html') {
+    res.writeHead(301, { location: `urnas.html${req.url.slice(pathname.length)}` }).end();
+    return;
+  }
   return estatico(req, res, decodeURIComponent(pathname));
 });
 

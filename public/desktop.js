@@ -26,7 +26,7 @@ const MODULOS = [
 const APPS = {
   apuracao: { titulo: 'Apuração', icone: 'computador', url: 'index.html', w: 760, h: 620, descricao: 'Resultado por cargo, estado e município.' },
   brancos: { titulo: 'Brancos e nulos', icone: 'pastaPainel', url: 'brancos.html', w: 1000, h: 660, descricao: 'Painel completo de brancos, nulos e anulados.' },
-  logs: { titulo: 'Logs das urnas', icone: 'urna', url: 'logs.html', w: 1000, h: 680, descricao: 'Tempo de votação, biometria e horários a partir do log de cada urna.' },
+  logs: { titulo: 'Logs das urnas', icone: 'urna', url: 'urnas.html', w: 1000, h: 680, descricao: 'Tempo de votação, biometria e horários a partir do log de cada urna.' },
   explorar: { titulo: 'Explorador de variáveis', icone: 'grafico', url: 'explorar.html', w: 1040, h: 680, descricao: 'Cruze variáveis da eleição e do Censo (estilo JASP).' },
   ...Object.fromEntries(MODULOS.map(([id, titulo, ic, descricao, w, h]) => [`brancos-${id}`, {
     titulo: `${titulo} — Brancos e nulos`, curto: titulo, icone: ic, url: 'brancos.html', modulo: id, w, h, descricao,

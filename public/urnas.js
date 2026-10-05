@@ -6,7 +6,7 @@ import {
   nomeUf, pct, semAcento,
 } from './comum.js';
 import { UFS } from './tse.js';
-import { METRICAS, regressaoLinear, testeCorrelacao, valorMetrica } from './estatistica.js';
+import { METRICAS, regressaoLinear, testeCorrelacao, valorMetrica } from './calculos.js';
 import { svgBarras, svgDispersao, svgHistograma } from './graficos.js';
 
 const $ = (id) => document.getElementById(id);
@@ -72,15 +72,15 @@ async function carregar({ coletar = false, por = 0, munInicial = null } = {}) {
     let logs;
     let bn = null;
     if (!uf) {
-      [logs, bn] = await Promise.all([getJson('api/logs/brasil'), carregarEstados(cargoAtual()).catch(() => null)]);
+      [logs, bn] = await Promise.all([getJson('api/urnas/brasil'), carregarEstados(cargoAtual()).catch(() => null)]);
       logs.nivel = 'brasil';
     } else {
-      const est = await getJson(`api/logs/estado?uf=${uf}${por ? `&por=${por}` : ''}`);
+      const est = await getJson(`api/urnas/estado?uf=${uf}${por ? `&por=${por}` : ''}`);
       if (pedido !== estado.pedido) return;
       preencherMunicipios(est, munInicial ?? el.mun.value);
       const mun = el.mun.value;
       if (mun) {
-        logs = await getJson(`api/logs/municipio?uf=${uf}&mun=${mun}${coletar ? '&coletar=1' : ''}`);
+        logs = await getJson(`api/urnas/municipio?uf=${uf}&mun=${mun}${coletar ? '&coletar=1' : ''}`);
         logs.nivel = 'municipio';
       } else {
         logs = est;
