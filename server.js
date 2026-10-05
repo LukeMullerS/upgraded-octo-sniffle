@@ -13,10 +13,12 @@
 
 import http from 'node:http';
 import { networkInterfaces } from 'node:os';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { criarBanco } from './src/banco.js';
+import { versionar } from './src/versao.js';
 import { criarColetor } from './src/coletor.js';
 import { PRESETS, criarCenso } from './src/censo.js';
 import { criarColetorLogs } from './src/logs.js';
@@ -197,7 +199,22 @@ async function proxy(req, res, caminho) {
   }
 }
 
-async function estatico(res, caminho) {
+// Versão dos arquivos de public/: muda sempre que algum arquivo muda (ex.: depois de um git
+// pull). Ela é acrescentada aos endereços dos scripts e estilos (?v=…), para o navegador
+// nunca misturar uma página nova com um script antigo guardado no cache.
+let versaoCache = { valor: null, em: 0 };
+async function versaoPublico() {
+  if (versaoCache.valor && Date.now() - versaoCache.em < 2000) return versaoCache.valor;
+  const h = createHash('sha1');
+  for (const nome of (await readdir(PUBLICO)).sort()) {
+    const st = await stat(join(PUBLICO, nome)).catch(() => null);
+    if (st?.isFile()) h.update(`${nome}:${st.size}:${st.mtimeMs};`);
+  }
+  versaoCache = { valor: h.digest('hex').slice(0, 10), em: Date.now() };
+  return versaoCache.valor;
+}
+
+async function estatico(req, res, caminho) {
   const relativo = normalize(caminho === '/' ? '/index.html' : caminho).replace(/^(\.\.[/\\])+/, '');
   const arquivo = join(PUBLICO, relativo);
   if (!arquivo.startsWith(PUBLICO)) {
@@ -205,8 +222,18 @@ async function estatico(res, caminho) {
     return;
   }
   try {
-    const corpo = await readFile(arquivo);
-    res.writeHead(200, { 'content-type': TIPOS[extname(arquivo)] || 'application/octet-stream' }).end(corpo);
+    const tipo = extname(arquivo);
+    const v = await versaoPublico();
+    const etag = `"${v}"`;
+    // no-cache: o navegador sempre confere com o servidor (barato: 304 se nada mudou).
+    const cabecalhos = { 'content-type': TIPOS[tipo] || 'application/octet-stream', 'cache-control': 'no-cache', etag };
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, cabecalhos).end();
+      return;
+    }
+    let corpo = await readFile(arquivo);
+    if (tipo === '.js' || tipo === '.html') corpo = Buffer.from(versionar(corpo.toString('utf8'), tipo, v));
+    res.writeHead(200, cabecalhos).end(corpo);
   } catch {
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('não encontrado');
   }
@@ -219,11 +246,17 @@ const servidor = http.createServer((req, res) => {
   }
   const { pathname, searchParams } = new URL(req.url, 'http://localhost');
   if (pathname === '/api/banco') return json(res, 200, banco.status());
+  if (pathname === '/api/erro') {
+    // Erros das páginas aparecem no terminal, para facilitar o diagnóstico.
+    const t = (k) => String(searchParams.get(k) ?? '').slice(0, 500).replace(/[\r\n]+/g, ' ');
+    console.error(`[navegador] ${t('pagina')} · ${t('tipo')}: ${t('msg')}${t('origem') ? ` (${t('origem')})` : ''}`);
+    return json(res, 200, { ok: true });
+  }
   if (pathname.startsWith('/api/censo/')) return apiCenso(res, pathname, searchParams);
   if (pathname.startsWith('/api/logs/')) return apiLogs(res, pathname, searchParams);
   if (pathname.startsWith('/api/')) return api(res, pathname, searchParams);
   if (pathname.startsWith('/tse/')) return proxy(req, res, decodeURIComponent(pathname.slice(5)));
-  return estatico(res, decodeURIComponent(pathname));
+  return estatico(req, res, decodeURIComponent(pathname));
 });
 
 // Endereços IPv4 desta máquina na rede local, para abrir o app no celular.

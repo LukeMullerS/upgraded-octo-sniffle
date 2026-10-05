@@ -4,6 +4,64 @@
 //   (desktop.html), que a abre dentro de uma janela. Dentro da janela (iframe ou
 //   ?embed=1) a página usa o visual 98 sem cabeçalho nem abas próprias.
 // * Visual "moderno": a página aparece como sempre, com um botão para voltar ao 98.
+// Erros de carregamento ficam visíveis: caixa de aviso na página e linha no terminal do
+// servidor. Também avisa se a página não iniciar (ex.: um script que não carregou).
+(function relatarErros() {
+  var pagina = location.pathname.split('/').pop() || 'index.html';
+  var caixa = null;
+  function relatar(tipo, msg, origem) {
+    try {
+      var q = 'pagina=' + encodeURIComponent(pagina) + '&tipo=' + encodeURIComponent(tipo)
+        + '&msg=' + encodeURIComponent(String(msg).slice(0, 500)) + '&origem=' + encodeURIComponent(origem || '');
+      fetch('api/erro?' + q, { cache: 'no-store' }).catch(function () {});
+    } catch (e) { /* sem servidor */ }
+  }
+  function mostrar(msg) {
+    var corpo = document.body;
+    if (!corpo) { addEventListener('DOMContentLoaded', function () { mostrar(msg); }); return; }
+    if (!caixa) {
+      caixa = document.createElement('div');
+      caixa.setAttribute('role', 'alertdialog');
+      caixa.style.cssText = 'position:fixed;z-index:99999;left:50%;top:40px;transform:translateX(-50%);width:min(440px,92vw);'
+        + 'background:#c0c0c0;color:#000;font:12px Tahoma,sans-serif;padding:3px;'
+        + 'box-shadow:inset -1px -1px #0a0a0a,inset 1px 1px #dfdfdf,inset -2px -2px #808080,inset 2px 2px #fff,4px 4px 0 rgba(0,0,0,.3)';
+      caixa.innerHTML = '<div style="background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:bold;padding:3px 5px">Erro ao abrir ' + pagina + '</div>'
+        + '<div style="display:flex;gap:10px;padding:10px"><div style="font-size:28px;line-height:1">⛔</div><div>'
+        + '<p style="margin:0 0 6px" data-msg></p><p style="margin:0 0 6px">Tente recarregar com <b>Ctrl+F5</b>. Se continuar, copie a mensagem do terminal onde o <code>npm start</code> está rodando.</p></div></div>'
+        + '<div style="text-align:right;padding:0 8px 8px"><button type="button" style="min-width:75px;font:inherit;padding:3px 10px">OK</button></div>';
+      caixa.querySelector('button').addEventListener('click', function () { caixa.remove(); caixa = null; });
+      corpo.appendChild(caixa);
+    }
+    var p = caixa.querySelector('[data-msg]');
+    p.textContent = (p.textContent ? p.textContent + ' · ' : '') + msg;
+  }
+  addEventListener('error', function (ev) {
+    var alvo = ev.target;
+    if (alvo && alvo !== window && alvo.tagName) {
+      if (alvo.tagName === 'IMG') return; // foto de candidato que não existe: normal
+      var msg = 'não foi possível carregar ' + (alvo.src || alvo.href || alvo.tagName);
+      relatar('arquivo', msg);
+      mostrar(msg);
+      return;
+    }
+    relatar('erro', ev.message, (ev.filename || '').split('/').pop() + ':' + (ev.lineno || ''));
+    mostrar(ev.message || 'erro no script');
+  }, true);
+  addEventListener('unhandledrejection', function (ev) {
+    var r = ev.reason;
+    relatar('promessa', (r && (r.stack || r.message)) || String(r));
+  });
+  addEventListener('load', function () {
+    setTimeout(function () {
+      var st = document.getElementById('status');
+      if (st && /^carregando/.test(st.textContent.trim())) {
+        relatar('travada', 'a página não iniciou em 15 s (status ainda "carregando")');
+        mostrar('A página não terminou de iniciar.');
+      }
+    }, 15000);
+  });
+}());
+
 (function tema() {
   var CHAVE = 'apuracao2026:tema';
   var tema = '98';
