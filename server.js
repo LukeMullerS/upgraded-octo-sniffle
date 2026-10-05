@@ -22,6 +22,7 @@ import { versionar } from './src/versao.js';
 import { criarColetor } from './src/coletor.js';
 import { PRESETS, criarCenso } from './src/censo.js';
 import { criarColetorLogs } from './src/logs.js';
+import { criarMapas } from './src/mapas.js';
 import { ELEICOES, UFS, PLEITO } from './public/tse.js';
 
 const PORTA = Number(process.env.PORT) || 3000;
@@ -109,18 +110,59 @@ async function buscarBinario(caminho) {
   return Buffer.from(await res.arrayBuffer());
 }
 
-const logs = criarColetorLogs({ buscarJson, buscarBinario, pleito: PLEITO.codigo, pasta: join(DADOS, 'logs') });
+// Seções totalizadas por município (acompanhamento da eleição federal, que tem todas as
+// UFs e o exterior): a compilação dos logs só procura onde já há seções totalizadas.
+const ELEICAO_REFERENCIA = '6257';
+async function totalizadas(uf) {
+  const caminho = `ele2026/${ELEICAO_REFERENCIA}/dados/${uf}/${uf}-e${ELEICAO_REFERENCIA.padStart(6, '0')}-ab.json`;
+  const r = await banco.buscar(caminho, {
+    nome: 'totalizadas',
+    processar: (b) => Object.fromEntries((b.abr ?? []).filter((a) => !a.tpabr || a.tpabr === 'mun')
+      .map((a) => [String(a.cdabr).padStart(5, '0'), Number(String(a.s?.st ?? '0').replace(/\D/g, '')) || 0])),
+    esperarMs: 20_000,
+  });
+  return r.valor ? new Map(Object.entries(r.valor)) : null;
+}
+
 const UFS_LOGS = [...Object.keys(UFS), 'zz'];
+const logs = criarColetorLogs({
+  buscarJson, buscarBinario, totalizadas, pleito: PLEITO.codigo, pasta: join(DADOS, 'logs'),
+  concorrencia: Number(process.env.LOGS_CONCORRENCIA) || 6,
+  // Compilação nacional ligada por padrão; LOGS_NACIONAL=0 desliga.
+  automatico: process.env.LOGS_NACIONAL !== '0',
+});
+
+/** Código TSE → código IBGE dos municípios de uma UF (da lista de municípios do TSE). */
+async function ibgePorTse(uf) {
+  try {
+    const lista = (await coletor.municipiosDa(ELEICAO_REFERENCIA))[uf] ?? [];
+    return new Map(lista.map((m) => [m.codigo, m.ibge]));
+  } catch {
+    return new Map();
+  }
+}
 
 // /api/urnas/*: tempo de votação e biometria a partir dos logs das urnas (ver src/logs.js).
 async function apiLogs(res, pathname, params) {
   try {
+    if (pathname === '/api/urnas/nacional') return json(res, 200, await logs.nacional());
+    if (pathname === '/api/urnas/pausar') { logs.pausar(); return json(res, 200, await logs.nacional()); }
+    if (pathname === '/api/urnas/retomar') { await logs.retomar(); return json(res, 200, await logs.nacional()); }
     if (pathname === '/api/urnas/brasil') return json(res, 200, await logs.brasil(UFS_LOGS));
+    if (pathname === '/api/urnas/municipios') {
+      // Todos os municípios já lidos (para o explorador e os mapas), com o código IBGE.
+      const lista = await logs.todosMunicipios();
+      const mapas = new Map();
+      for (const uf of new Set(lista.map((m) => m.uf))) mapas.set(uf, await ibgePorTse(uf));
+      return json(res, 200, { municipios: lista.map((m) => ({ ...m, ibge: mapas.get(m.uf)?.get(m.codigo) ?? null })) });
+    }
     const uf = params.get('uf');
     if (!UFS_LOGS.includes(uf)) return json(res, 400, { erro: 'UF inválida' });
     if (pathname === '/api/urnas/estado') {
-      const por = Math.max(0, Math.min(20, Number(params.get('por')) || 0));
-      return json(res, 200, await logs.estado(uf, { por }));
+      const r = await logs.estado(uf);
+      const ibge = await ibgePorTse(uf);
+      for (const m of r.municipios) m.ibge = ibge.get(m.codigo) ?? null;
+      return json(res, 200, r);
     }
     if (pathname === '/api/urnas/municipio') {
       const mun = params.get('mun');
@@ -132,6 +174,11 @@ async function apiLogs(res, pathname, params) {
     return json(res, 502, { erro: `falha ao ler os logs: ${erro.message}` });
   }
 }
+
+const mapas = criarMapas({
+  pasta: join(DADOS, 'mapas'),
+  ...(process.env.IBGE_MALHAS ? { base: process.env.IBGE_MALHAS.replace(/\/$/, '') } : {}),
+});
 
 // /api/censo/*: séries do IBGE para o explorador (ver src/censo.js).
 async function apiCenso(res, pathname, params) {
@@ -252,6 +299,12 @@ const servidor = http.createServer((req, res) => {
     console.error(`[navegador] ${t('pagina')} · ${t('tipo')}: ${t('msg')}${t('origem') ? ` (${t('origem')})` : ''}`);
     return json(res, 200, { ok: true });
   }
+  if (pathname === '/api/mapa') {
+    // Contornos para os mapas: sem uf = estados; uf=todas = municípios do Brasil; uf=sp = municípios de SP.
+    const uf = searchParams.get('uf') || undefined;
+    if (uf && uf !== 'todas' && !UFS[uf]) return json(res, 400, { erro: 'UF inválida' });
+    return mapas.malha({ uf }).then((g) => json(res, 200, g), (e) => json(res, 502, { erro: `falha ao obter o mapa do IBGE: ${e.message}` }));
+  }
   if (pathname.startsWith('/api/censo/')) return apiCenso(res, pathname, searchParams);
   if (pathname.startsWith('/api/urnas/')) return apiLogs(res, pathname, searchParams);
   if (pathname.startsWith('/api/')) return api(res, pathname, searchParams);
@@ -272,7 +325,7 @@ const enderecosLocais = () =>
 const salvos = await banco.carregarDisco();
 for (const sinal of ['SIGINT', 'SIGTERM']) {
   process.on(sinal, async () => {
-    await banco.salvarDisco();
+    await Promise.all([banco.salvarDisco(), logs.gravar()]);
     process.exit(0);
   });
 }

@@ -30,6 +30,14 @@ export const REGIOES = {
 export const regiaoDe = (uf) =>
   Object.entries(REGIOES).find(([, ufs]) => ufs.includes(uf))?.[0] ?? (uf === 'zz' ? 'Exterior' : '—');
 
+/** Código IBGE (2 dígitos) de cada UF, usado nos mapas. */
+export const CODIGO_IBGE_UF = {
+  ro: '11', ac: '12', am: '13', rr: '14', pa: '15', ap: '16', to: '17', ma: '21', pi: '22', ce: '23', rn: '24', pb: '25',
+  pe: '26', al: '27', se: '28', ba: '29', mg: '31', es: '32', rj: '33', sp: '35', pr: '41', sc: '42', rs: '43', ms: '50',
+  mt: '51', go: '52', df: '53',
+};
+export const UF_DO_CODIGO = Object.fromEntries(Object.entries(CODIGO_IBGE_UF).map(([uf, c]) => [c, uf]));
+
 export const nomeUf = (uf) => UFS[uf] ?? (uf === 'zz' ? 'Exterior' : uf?.toUpperCase());
 
 export const PORTES = [

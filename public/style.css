@@ -280,6 +280,23 @@ body.painel main, body.painel .filtros, body.painel .abas { max-width: 1280px; }
 .comparacao th, .comparacao td { white-space: nowrap; }
 .comparacao tbody th { font-weight: 400; color: var(--mudo); }
 
+/* ---------- mapa ---------- */
+.mapa { position: relative; }
+.mapa-opcoes { margin: 0 0 .5rem; font-size: .85rem; }
+.mapa-area { background: var(--cartao); border-radius: 8px; overflow: hidden; touch-action: none; cursor: grab; min-height: 200px; }
+.mapa-area:active { cursor: grabbing; }
+.mapa-area svg { width: 100%; height: auto; max-height: 70vh; display: block; }
+.mapa-area path { stroke: var(--cartao); stroke-width: var(--traco, .6px); vector-effect: non-scaling-stroke; cursor: pointer; }
+.mapa-area path:hover { stroke: var(--texto); stroke-width: 1.5px; }
+.mapa-area path.destaque { stroke: var(--texto); stroke-width: 2px; }
+.mapa-controles { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 4px; }
+.mapa-controles button { width: 30px; height: 30px; padding: 0; font-size: 1.1rem; line-height: 1; }
+.mapa-legenda { display: flex; flex-wrap: wrap; gap: .3rem .9rem; align-items: center; font-size: .78rem; color: var(--mudo); margin-top: .5rem; }
+.mapa-titulo { font-weight: 600; color: var(--texto); }
+.mapa-faixa { display: inline-flex; align-items: center; gap: .35rem; font-variant-numeric: tabular-nums; }
+.mapa-faixa i { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
+.mapa-faixa i.sem-dado { background: repeating-linear-gradient(45deg, #f2f1ed 0 3px, #c9c8c2 3px 5px); }
+
 /* ---------- logs das urnas ---------- */
 .acoes { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 0 0 .6rem; }
 .acao-amostra { display: inline-flex; gap: .4rem; align-items: center; font-size: .88rem; }
@@ -519,7 +536,8 @@ input[type=number] {
 [data-modulo="resumo"] [data-modulo-cartao="resumo"], [data-modulo="estat"] [data-modulo-cartao="estat"],
 [data-modulo="hist"] [data-modulo-cartao="hist"], [data-modulo="disp"] [data-modulo-cartao="disp"],
 [data-modulo="extremos"] [data-modulo-cartao="extremos"], [data-modulo="cargos"] [data-modulo-cartao="cargos"],
-[data-modulo="comparacao"] [data-modulo-cartao="comparacao"], [data-modulo="tabela"] [data-modulo-cartao="tabela"] { display: block !important; }
+[data-modulo="comparacao"] [data-modulo-cartao="comparacao"], [data-modulo="tabela"] [data-modulo-cartao="tabela"],
+[data-modulo="mapa"] [data-modulo-cartao="mapa"] { display: block !important; }
 [data-modulo] .grade-painel { display: block; }
 [data-modulo] .filtros-painel { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
 [data-modulo]:not(.filtros-abertos) .filtros-painel { display: none; }
@@ -532,3 +550,5 @@ input[type=number] {
   background: #c0c0c0; color: #000; border: none; cursor: pointer;
   box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff;
 }
+[data-tema="98"] .mapa-area { --cartao: #fff; background: #fff; box-shadow: var(--afundado); }
+[data-tema="98"] .mapa-controles button { min-height: 0; padding: 0; }

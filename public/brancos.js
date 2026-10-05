@@ -1,9 +1,10 @@
 import {
-  CARGOS, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, criarDica, esc, fmtInt, fmtNum,
+  CODIGO_IBGE_UF, UF_DO_CODIGO, CARGOS, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, criarDica, esc, fmtInt, fmtNum,
   nomeUf, pct, pctSecoes, porteDe, pp, regiaoDe, semAcento,
 } from './comum.js';
 import { METRICAS, escoreZ, histograma, regressaoLinear, resumoEstatistico, valorMetrica } from './calculos.js';
 import { svgDispersao, svgHistograma } from './graficos.js';
+import { carregarMalha, criarMapa } from './mapa.js';
 
 // O servidor relê o TSE a cada 2 minutos; a página consulta o servidor a cada 30 s
 // (a cada 5 s enquanto a primeira leitura das cidades ainda está em andamento).
@@ -17,7 +18,8 @@ const el = Object.fromEntries([
   'exportar', 'erro', 'titulo', 'horario', 'barra-secoes', 'pct-secoes', 'secoes', 'leitura', 'kpis', 'titulo-estat',
   'estat', 'titulo-hist', 'hist', 'legenda-hist', 'dispersao', 'legenda-disp', 'correlacao', 'titulo-extremos',
   'maiores', 'menores', 'titulo-cargos', 'cargos', 'comparacao-cartao', 'comparacao', 'limpar-comparacao',
-  'titulo-tabela', 'contagem', 'th-metrica', 'escala', 'linhas', 'mais', 'dica',
+  'titulo-tabela', 'contagem', 'th-metrica', 'escala', 'linhas', 'mais', 'dica', 'titulo-mapa', 'sub-mapa', 'mapa',
+  'mapa-divergente',
 ].map((id) => [id.replace(/-(\w)/g, (_, l) => l.toUpperCase()), $(id)]));
 
 const estado = {
@@ -259,11 +261,68 @@ function calcular() {
 
 // ---------- renderização ----------
 
+// ---------- mapa ----------
+
+const mapa = criarMapa(el.mapa, {
+  dica,
+  aoClicar: (cod) => {
+    const v = estado.vista;
+    if (!v) return;
+    if (nivel() === 'estados') {
+      const uf = UF_DO_CODIGO[cod];
+      if (uf && v.porId.has(uf)) abrirLocal(uf);
+    } else {
+      const l = v.base.find((x) => x.ibge === cod);
+      if (l) alternarFixado(String(l.id));
+    }
+  },
+});
+
+let pedidoMapa = 0;
+async function renderizarMapa({ base, estat }) {
+  const n = nivel();
+  const pedido = ++pedidoMapa;
+  el.tituloMapa.textContent = `Mapa · ${nomeMetrica()}`;
+  el.subMapa.textContent = n === 'estados' ? 'clique num estado para ver as cidades · role para aproximar' : 'clique numa cidade para comparar · role para aproximar';
+  let geo;
+  try {
+    geo = await carregarMalha(n === 'estados' ? undefined : n === 'todas' ? 'todas' : el.uf.value);
+  } catch (erro) {
+    if (pedido === pedidoMapa) el.mapa.querySelector('.mapa-area').innerHTML = `<p class="mudo">Mapa indisponível: ${esc(erro.message)}</p>`;
+    return;
+  }
+  if (pedido !== pedidoMapa) return;
+  const valores = new Map();
+  const rotulos = new Map();
+  const porCod = new Map();
+  for (const l of base) {
+    const cod = n === 'estados' ? CODIGO_IBGE_UF[l.uf] : l.ibge;
+    if (!cod) continue;
+    valores.set(cod, l.valor);
+    rotulos.set(cod, n === 'estados' ? l.nome : `${l.nome} · ${l.uf.toUpperCase()}`);
+    porCod.set(cod, l);
+  }
+  // Referência única para as cores (no modo "estado de cada cidade" usa a média do Brasil).
+  const ref = el.mapaDivergente.checked
+    ? (el.referencia.value === 'uf' ? (estado.estados?.brasil ? valorMetrica(estado.estados.brasil, metrica()) : null) : referenciaPara({}, metrica(), estat))
+    : null;
+  const destaques = new Set(estado.fixados.map((id) => base.find((l) => String(l.id) === id)).filter(Boolean)
+    .map((l) => (n === 'estados' ? CODIGO_IBGE_UF[l.uf] : l.ibge)));
+  mapa.desenhar({
+    geo, valores, rotulos, titulo: `% ${nomeMetrica().toLowerCase()}`, formato: (x) => pct(x), referencia: ref, destaques,
+    extra: (cod) => {
+      const l = porCod.get(cod);
+      return l ? `<span>${l.delta === null ? '' : `${pp(l.delta)} p.p. vs referência · `}${fmtInt.format(l.total)} votos</span>` : '';
+    },
+  });
+}
+
 function renderizar() {
   if (!estado.estados) return;
   const v = calcular();
   gravarHash();
   renderizarResumo();
+  renderizarMapa(v);
   renderizarChips();
   renderizarEstatisticas(v);
   renderizarHistograma(v);
@@ -673,6 +732,7 @@ function trocarCargo() {
 el.cargo.addEventListener('change', trocarCargo);
 el.uf.addEventListener('change', trocarNivel);
 el.metrica.addEventListener('change', () => { estado.faixa = null; renderizar(); });
+el.mapaDivergente.addEventListener('change', () => renderizarMapa(estado.vista));
 for (const s of [el.referencia, el.porte, el.apuracao, el.mostrar]) {
   s.addEventListener('change', () => { estado.limite = PAGINA; estado.faixa = s === el.porte || s === el.apuracao ? null : estado.faixa; renderizar(); });
 }

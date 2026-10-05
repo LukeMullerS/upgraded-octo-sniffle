@@ -79,48 +79,80 @@ test('config, aux e amostra', () => {
   assert.deepEqual(amostrar([1, 2], 5), [1, 2]);
 });
 
-test('coletor: lê as seções publicadas, guarda em disco e não relê', async () => {
+test('compilação nacional: lê o que foi publicado, usa o acompanhamento e não relê', async () => {
   const pasta = await mkdtemp(join(tmpdir(), 'logs-'));
   const base = 'ele2026/arquivo-urna/3220';
   const json = {
-    [`${base}/config/ap/ap-p003220-cs.json`]: { abr: [{ cd: 'AP', mu: [{ cd: '06050', nm: 'MACAPÁ', zon: [{ cd: '0002', sec: [{ ns: '0001' }, { ns: '0002' }] }] }] }] },
-    [`${base}/dados/ap/06050/0002/0001/p003220-ap-m06050-z0002-s0001-aux.json`]: { hashes: [{ hash: 'h1', arq: [{ nm: 'o03220ap0605000020001-log.jez' }] }] },
+    [`${base}/config/ap/ap-p003220-cs.json`]: { abr: [{ cd: 'AP', mu: [
+      { cd: '06050', nm: 'MACAPÁ', zon: [{ cd: '0002', sec: [{ ns: '0001' }, { ns: '0002' }] }] },
+      { cd: '06100', nm: 'OIAPOQUE', zon: [{ cd: '0003', sec: [{ ns: '0001' }] }] },
+    ] }] },
+    [`${base}/dados/ap/06050/0002/0001/p003220-ap-m06050-z0002-s0001-aux.json`]: { hashes: [{ hash: 'h1', arq: [{ nm: 'o-0001-log.jez' }] }] },
   };
-  const binarios = { [`${base}/dados/ap/06050/0002/0001/h1/o03220ap0605000020001-log.jez`]: fixture('lzma2.7z') };
+  const binarios = { [`${base}/dados/ap/06050/0002/0001/h1/o-0001-log.jez`]: fixture('lzma2.7z') };
   const pedidos = [];
-  const timers = [];
+  let st = new Map([['06050', 1], ['06100', 0]]);
   const opcoes = {
-    pasta,
+    pasta, ufs: ['ap', 'sp'],
     buscarJson: async (c) => { pedidos.push(c); return json[c] ?? null; },
     buscarBinario: async (c) => { pedidos.push(c); return binarios[c] ?? null; },
-    agendar: (fn) => { timers.push(fn); return timers.length; },
-    cancelar: () => {},
+    totalizadas: async (uf) => (uf === 'ap' ? st : null),
+    agendar: () => 0, cancelar: () => {},
   };
   const col = criarColetorLogs(opcoes);
-  await col.municipio('ap', '06050', { coletar: true });
-  await col.jobs.get('mun:ap:06050').rodando;
+  await col.iniciar();
+  await col.rodar();
   let r = await col.municipio('ap', '06050');
   assert.equal(r.totalSecoes, 2);
-  assert.equal(r.secoes.length, 1, 'a seção 0002 ainda não foi publicada');
+  assert.equal(r.secoes.length, 1, 'só a seção publicada');
   assert.equal(r.resumo.votos, 47);
-  assert.equal(r.progresso.lidas, 1);
-  assert.equal(r.progresso.total, 2);
-  assert.deepEqual(await readdir(join(pasta, '3220', 'ap')), ['06050.json']);
+  assert.ok(!pedidos.some((c) => c.includes('/06100/')), 'Oiapoque sem seções totalizadas não é consultado');
+  let n = await col.nacional();
+  assert.equal(n.lidas, 1);
+  assert.equal(n.porUf.find((u) => u.uf === 'ap').total, 3);
+  assert.deepEqual((await readdir(join(pasta, '3220'))).sort(), ['ap', 'resumo.json']);
 
-  // Na passada seguinte a seção 0002 aparece; a 0001 não é baixada de novo.
-  json[`${base}/dados/ap/06050/0002/0002/p003220-ap-m06050-z0002-s0002-aux.json`] = { hashes: [{ hash: 'h2', arq: [{ nm: 'o-log.jez' }] }] };
-  binarios[`${base}/dados/ap/06050/0002/0002/h2/o-log.jez`] = fixture('lzma.7z');
-  timers.forEach((fn) => fn());
-  await col.jobs.get('mun:ap:06050').rodando;
-  r = await col.municipio('ap', '06050');
-  assert.equal(r.secoes.length, 2);
-  assert.equal(pedidos.filter((c) => c.endsWith('h1/o03220ap0605000020001-log.jez')).length, 1);
+  // Passada seguinte: Macapá já tem tantas lidas quanto totalizadas → nada é pedido.
+  const antes = pedidos.length;
+  await col.rodar();
+  assert.ok(!pedidos.slice(antes).some((c) => c.includes('/06050/')), 'Macapá em dia não é consultado de novo');
 
-  // Outra instância (reinício do servidor) lê do disco.
+  // Sai a segunda seção: o acompanhamento passa a 2 e só ela é baixada.
+  st = new Map([['06050', 2], ['06100', 0]]);
+  json[`${base}/dados/ap/06050/0002/0002/p003220-ap-m06050-z0002-s0002-aux.json`] = { hashes: [{ hash: 'h2', arq: [{ nm: 'o-0002-log.jez' }] }] };
+  binarios[`${base}/dados/ap/06050/0002/0002/h2/o-0002-log.jez`] = fixture('lzma.7z');
+  await col.rodar();
+  assert.equal((await col.municipio('ap', '06050')).secoes.length, 2);
+  assert.equal(pedidos.filter((c) => c.endsWith('h1/o-0001-log.jez')).length, 1, 'seção já lida nunca é baixada de novo');
+
+  // Reinício: o índice volta do disco, sem baixar nada.
   const col2 = criarColetorLogs({ ...opcoes, buscarBinario: async () => { throw new Error('não devia baixar'); } });
   const e = await col2.estado('ap');
-  assert.equal(e.municipios[0].lidas, 2);
+  assert.equal(e.municipios.find((m) => m.codigo === '06050').lidas, 2);
   assert.equal(e.resumo.votos, 94);
   const b = await col2.brasil(['ap', 'sp']);
   assert.deepEqual(b.estados.map((x) => x.uf), ['ap']);
+  assert.equal(b.resumo.votos, 94);
+  const todos = await col2.todosMunicipios();
+  assert.deepEqual(todos.map((m) => [m.uf, m.codigo, m.lidas]), [['ap', '06050', 2]]);
+});
+
+test('compilação nacional: pausada não lê nada; município pedido na tela é lido na hora', async () => {
+  const pasta = await mkdtemp(join(tmpdir(), 'logs-'));
+  const base = 'ele2026/arquivo-urna/3220';
+  const json = {
+    [`${base}/config/ap/ap-p003220-cs.json`]: { abr: [{ cd: 'AP', mu: [{ cd: '06050', nm: 'MACAPÁ', zon: [{ cd: '0002', sec: [{ ns: '0001' }] }] }] }] },
+    [`${base}/dados/ap/06050/0002/0001/p003220-ap-m06050-z0002-s0001-aux.json`]: { hashes: [{ hash: 'h1', arq: [{ nm: 'o-log.jez' }] }] },
+  };
+  const col = criarColetorLogs({
+    pasta, ufs: ['ap'], agendar: () => 0, cancelar: () => {},
+    buscarJson: async (c) => json[c] ?? null,
+    buscarBinario: async () => fixture('lzma.7z'),
+  });
+  await col.iniciar();
+  col.pausar();
+  await col.rodar();
+  assert.equal((await col.nacional()).lidas, 0);
+  const r = await col.municipio('ap', '06050', { coletar: true });
+  assert.equal(r.secoes.length, 1);
 });

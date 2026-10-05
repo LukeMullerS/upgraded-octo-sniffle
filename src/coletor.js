@@ -204,5 +204,5 @@ export function criarColetor({
     };
   }
 
-  return { estados, municipios, todas, parar, alvos };
+  return { estados, municipios, todas, municipiosDa, parar, alvos };
 }

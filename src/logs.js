@@ -8,15 +8,18 @@
 //   {ciclo}/arquivo-urna/{pleito}/dados/{uf}/{mun}/{zona}/{seção}/{hash}/{arquivo}-log.jez (ou .logjez)
 //       log da urna, um 7z com o logd.dat
 //
-// Ler o Brasil inteiro seriam centenas de milhares de logs; por isso a coleta é por
-// município (todas as seções) ou por amostra da UF (algumas seções de cada cidade). O log de
-// uma seção não muda depois de publicado: cada uma é lida uma vez e o resumo vai para o disco
-// (dados/logs). Seções ainda não publicadas são tentadas de novo a cada 2 minutos.
+// Compilação nacional: uma varredura contínua percorre todas as UFs e lê o log de toda seção
+// publicada. Para não perguntar ao TSE por centenas de milhares de seções que ainda não
+// existem, ela só procura numa cidade quando o acompanhamento da apuração mostra mais seções
+// totalizadas do que as já lidas. O log de uma seção não muda depois de publicado: cada uma
+// é lida uma vez. Na memória fica só um acumulador (somas) por município; as seções vão para
+// o disco (dados/logs/{pleito}/{uf}/{mun}.json) e o índice de acumuladores para
+// dados/logs/{pleito}/resumo.json, de onde tudo volta ao reiniciar.
 
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { abrir7z } from './sete-zip.js';
-import { agregarResumos, resumirLog } from './log-urna.js';
+import { acumular, finalizar, juntar, novoAcumulador, resumirLog } from './log-urna.js';
 
 const pad = (v, n) => String(v).padStart(n, '0');
 
@@ -63,19 +66,36 @@ export function amostrar(lista, n) {
   return Array.from({ length: n }, (_, i) => lista[Math.floor(((i + 0.5) * lista.length) / n)]);
 }
 
+// Ordem da varredura: UFs menores primeiro, para o progresso aparecer cedo.
+export const ORDEM_UFS = ['rr', 'ap', 'ac', 'to', 'ro', 'se', 'al', 'am', 'rn', 'pb', 'pi', 'ms', 'mt', 'df', 'es',
+  'ma', 'pa', 'go', 'sc', 'ce', 'pe', 'pr', 'rs', 'ba', 'rj', 'mg', 'sp', 'zz'];
+
+const semDetalhe = ({ hist, porHora, ...resto }) => resto;
+
+/**
+ * @param {object} o
+ * @param {(caminho: string) => Promise<object|null>} o.buscarJson
+ * @param {(caminho: string) => Promise<Buffer|null>} o.buscarBinario
+ * @param {(uf: string) => Promise<Map<string, number>|null>} [o.totalizadas]  seções totalizadas por município
+ */
 export function criarColetorLogs({
-  buscarJson, buscarBinario, pasta = 'dados/logs', ciclo = 'ele2026', pleito = '3220',
-  intervaloMs = 120_000, concorrencia = 4, ociosoMs = 15 * 60_000,
-  agora = () => Date.now(), agendar = setInterval, cancelar = clearInterval,
+  buscarJson, buscarBinario, totalizadas = async () => null, pasta = 'dados/logs', ciclo = 'ele2026', pleito = '3220',
+  ufs = ORDEM_UFS, intervaloMs = 120_000, concorrencia = 6, automatico = false,
+  agora = () => Date.now(), agendar = setTimeout, cancelar = clearTimeout,
 } = {}) {
   const limitar = criarLimitador(concorrencia);
   const prefixos = [`p${pad(pleito, 6)}`, `p000${pleito}`]; // o TSE usa 6 dígitos; o 2º é só por garantia
-  const configs = new Map(); // uf → Promise<municípios>
-  const lidas = new Map(); // "uf/mun" → Map("zona-seção" → resumo)
-  const carregadas = new Map(); // "uf/mun" → Promise (leitura do disco)
-  const jobs = new Map();
-
   const base = `${ciclo}/arquivo-urna/${pleito}`;
+  const raiz = join(pasta, pleito);
+  const configs = new Map(); // uf → Promise<municípios>
+  const totais = new Map(); // uf → nº de seções (da lista do TSE)
+  const resumos = new Map(); // "uf/mun" → { acc, lidas }
+  const secoesCache = new Map(); // "uf/mun" → Promise<Map("zona-seção" → resumo)> (poucos por vez)
+  const sujos = new Set();
+  const emUso = new Map(); // "uf/mun" → leituras em andamento (não pode sair do cache)
+  const prioridade = new Set(); // "uf/mun" pedidos na tela: lidos antes do resto
+  const nac = { ativo: false, pausado: false, rodando: null, timer: null, passadas: 0, ultimaPassada: null, ufAtual: null, novas: 0, erros: new Map() };
+  let pronto = null;
 
   async function primeiroQueExiste(caminhos) {
     for (const c of caminhos) {
@@ -89,7 +109,9 @@ export function criarColetorLogs({
     if (!configs.has(uf)) {
       const p = primeiroQueExiste(prefixos.map((px) => `${base}/config/${uf}/${uf}-${px}-cs.json`)).then((bruto) => {
         if (!bruto) throw new Error('lista de seções ainda não publicada pelo TSE');
-        return lerConfigSecoes(bruto, uf);
+        const municipios = lerConfigSecoes(bruto, uf);
+        totais.set(uf, municipios.reduce((t, m) => t + m.secoes.length, 0));
+        return municipios;
       });
       p.catch(() => configs.delete(uf));
       configs.set(uf, p);
@@ -97,24 +119,73 @@ export function criarColetorLogs({
     return configs.get(uf);
   }
 
-  const arquivoMunicipio = (uf, mun) => join(pasta, pleito, uf, `${mun}.json`);
+  // ---------- disco ----------
 
-  function secoesLidas(uf, mun) {
-    const k = `${uf}/${mun}`;
-    if (!carregadas.has(k)) {
-      carregadas.set(k, readFile(arquivoMunicipio(uf, mun), 'utf8')
-        .then((t) => { lidas.set(k, new Map(Object.entries(JSON.parse(t).secoes ?? {}))); })
-        .catch(() => { if (!lidas.has(k)) lidas.set(k, new Map()); }));
+  const arquivoMunicipio = (uf, mun) => join(raiz, uf, `${mun}.json`);
+
+  /** Índice de acumuladores (e, na primeira vez, reconstrução a partir dos arquivos de município). */
+  async function carregar() {
+    try {
+      const dados = JSON.parse(await readFile(join(raiz, 'resumo.json'), 'utf8'));
+      for (const [k, v] of Object.entries(dados.municipios ?? {})) resumos.set(k, v);
+      return;
+    } catch { /* sem índice: reconstrói */ }
+    for (const uf of ufs) {
+      let arquivos = [];
+      try { arquivos = (await readdir(join(raiz, uf))).filter((f) => f.endsWith('.json')); } catch { continue; }
+      for (const f of arquivos) {
+        const mapa = await lerArquivo(uf, f.slice(0, -5));
+        guardarResumo(`${uf}/${f.slice(0, -5)}`, mapa);
+      }
     }
-    return carregadas.get(k).then(() => lidas.get(k));
   }
 
-  async function salvar(uf, mun) {
-    const mapa = lidas.get(`${uf}/${mun}`);
-    if (!mapa) return;
-    await mkdir(join(pasta, pleito, uf), { recursive: true }).catch(() => {});
-    await writeFile(arquivoMunicipio(uf, mun), JSON.stringify({ pleito, uf, municipio: mun, secoes: Object.fromEntries(mapa) })).catch(() => {});
+  async function lerArquivo(uf, mun) {
+    try {
+      return new Map(Object.entries(JSON.parse(await readFile(arquivoMunicipio(uf, mun), 'utf8')).secoes ?? {}));
+    } catch {
+      return new Map();
+    }
   }
+
+  function guardarResumo(k, mapa) {
+    const acc = novoAcumulador();
+    for (const r of mapa.values()) acumular(acc, r);
+    resumos.set(k, { acc, lidas: mapa.size });
+  }
+
+  /** Seções de um município (do disco, com cache dos últimos usados). */
+  function secoes(uf, mun) {
+    const k = `${uf}/${mun}`;
+    if (!secoesCache.has(k)) {
+      secoesCache.set(k, lerArquivo(uf, mun));
+      // Mantém poucos municípios abertos na memória (os já gravados podem sair).
+      for (const antigo of secoesCache.keys()) {
+        if (secoesCache.size <= 40) break;
+        if (!sujos.has(antigo) && !emUso.get(antigo) && antigo !== k) secoesCache.delete(antigo);
+      }
+    }
+    return secoesCache.get(k);
+  }
+
+  async function gravar() {
+    const lista = [...sujos];
+    sujos.clear();
+    for (const k of lista) {
+      const [uf, mun] = k.split('/');
+      const mapa = await secoesCache.get(k);
+      if (!mapa) continue;
+      guardarResumo(k, mapa);
+      await mkdir(join(raiz, uf), { recursive: true }).catch(() => {});
+      await writeFile(arquivoMunicipio(uf, mun), JSON.stringify({ pleito, uf, municipio: mun, secoes: Object.fromEntries(mapa) })).catch(() => sujos.add(k));
+    }
+    if (lista.length) {
+      await mkdir(raiz, { recursive: true }).catch(() => {});
+      await writeFile(join(raiz, 'resumo.json'), JSON.stringify({ pleito, municipios: Object.fromEntries(resumos) })).catch(() => {});
+    }
+  }
+
+  // ---------- leitura de seção ----------
 
   /** Lê uma seção: aux.json → log.jez → logd.dat → resumo. null se ainda não publicada. */
   async function lerSecao(uf, mun, { zona, secao }) {
@@ -130,128 +201,189 @@ export function criarColetorLogs({
     return { zona, secao, ...resumirLog(logd.dados) };
   }
 
-  async function passada(job) {
-    if (job.rodando) return job.rodando;
-    job.rodando = (async () => {
+  /**
+   * Lê as seções ainda não lidas de um município. `st` = seções totalizadas segundo o
+   * acompanhamento (null = desconhecido): se já foram lidas tantas quanto as totalizadas,
+   * não há o que procurar.
+   */
+  async function processarMunicipio(uf, m, st, forcar = false) {
+    const k = `${uf}/${m.codigo}`;
+    emUso.set(k, (emUso.get(k) ?? 0) + 1);
+    try {
+      const mapa = await secoes(uf, m.codigo);
+      if (!forcar && st !== null && st !== undefined && mapa.size >= st) return;
+      await lerPendentes(uf, m, k, mapa, forcar);
+    } finally {
+      emUso.set(k, emUso.get(k) - 1);
+      if (!emUso.get(k)) emUso.delete(k);
+    }
+  }
+
+  function lerPendentes(uf, m, k, mapa, forcar) {
+    const pendentes = m.secoes.filter((s) => !mapa.has(`${s.zona}-${s.secao}`));
+    return Promise.all(pendentes.map((s) => limitar(async () => {
+      if (nac.pausado && !forcar) return;
       try {
-        const municipios = await config(job.uf);
-        const alvos = job.mun ? municipios.filter((m) => m.codigo === job.mun) : municipios;
-        if (!alvos.length) throw new Error('município não encontrado na lista de seções do TSE');
-        job.total = 0;
-        const tarefas = [];
-        for (const m of alvos) {
-          const escolhidas = job.por ? amostrar(m.secoes, job.por) : m.secoes;
-          job.total += escolhidas.length;
-          const mapa = await secoesLidas(job.uf, m.codigo);
-          const pendentes = escolhidas.filter((s) => !mapa.has(`${s.zona}-${s.secao}`));
-          if (!pendentes.length) continue;
-          tarefas.push(Promise.all(pendentes.map((s) => limitar(async () => {
-            try {
-              const r = await lerSecao(job.uf, m.codigo, s);
-              if (r) { mapa.set(`${s.zona}-${s.secao}`, r); job.novas += 1; }
-            } catch (erro) {
-              job.erros.set(`${m.codigo}/${s.zona}-${s.secao}`, erro.message);
-            }
-          }))).then(() => salvar(job.uf, m.codigo)));
+        const r = await lerSecao(uf, m.codigo, s);
+        if (r) {
+          mapa.set(`${s.zona}-${s.secao}`, r);
+          sujos.add(k);
+          nac.novas += 1;
         }
-        await Promise.all(tarefas);
-        job.erro = null;
+        nac.erros.delete(`${k}/${s.zona}-${s.secao}`);
       } catch (erro) {
-        job.erro = erro.message;
-      } finally {
-        job.ultimaPassada = agora();
-        job.rodando = null;
+        nac.erros.set(`${k}/${s.zona}-${s.secao}`, erro.message);
       }
-    })();
-    return job.rodando;
+    })));
   }
 
-  function iniciar(chave, dados) {
-    let job = jobs.get(chave);
-    if (!job) {
-      job = { chave, ...dados, total: null, novas: 0, erros: new Map(), erro: null };
-      job.timer = agendar(() => {
-        if (agora() - job.ultimoPedido > ociosoMs) { cancelar(job.timer); jobs.delete(chave); } else passada(job);
-      }, intervaloMs);
-      job.timer?.unref?.();
-      jobs.set(chave, job);
-      passada(job);
+  // ---------- varredura nacional ----------
+
+  async function passadaNacional() {
+    nac.novas = 0;
+    for (const uf of ufs) {
+      if (nac.pausado) break;
+      nac.ufAtual = uf;
+      let municipios;
+      try { municipios = await config(uf); } catch { continue; }
+      const st = await totalizadas(uf).catch(() => null);
+      // Cidades pedidas na tela primeiro; depois as que têm seções totalizadas.
+      const ordem = [...municipios].sort((a, b) => Number(prioridade.has(`${uf}/${b.codigo}`)) - Number(prioridade.has(`${uf}/${a.codigo}`)));
+      await Promise.all(ordem.map((m) => {
+        const n = st ? (st.get(m.codigo) ?? 0) : null;
+        if (n === 0) return null; // nenhuma seção totalizada: não há log para buscar
+        return processarMunicipio(uf, m, n);
+      }));
+      await gravar();
     }
-    job.ultimoPedido = agora();
-    return job;
+    nac.ufAtual = null;
+    nac.passadas += 1;
+    nac.ultimaPassada = agora();
   }
 
-  async function progresso(job) {
-    if (!job) return null;
-    let lidasN = 0;
-    if (job.total !== null) {
-      const municipios = await config(job.uf).catch(() => []);
-      for (const m of job.mun ? municipios.filter((x) => x.codigo === job.mun) : municipios) {
-        const mapa = lidas.get(`${job.uf}/${m.codigo}`);
-        if (!mapa) continue;
-        const alvo = new Set((job.por ? amostrar(m.secoes, job.por) : m.secoes).map((s) => `${s.zona}-${s.secao}`));
-        for (const k of mapa.keys()) if (alvo.has(k)) lidasN += 1;
-      }
-    }
+  function agendarProxima() {
+    cancelar(nac.timer);
+    if (!nac.ativo || nac.pausado) return;
+    nac.timer = agendar(() => rodar(), intervaloMs);
+    nac.timer?.unref?.();
+  }
+
+  function rodar() {
+    if (nac.rodando || nac.pausado) return nac.rodando;
+    nac.rodando = passadaNacional()
+      .catch(() => {})
+      .finally(() => { nac.rodando = null; agendarProxima(); });
+    return nac.rodando;
+  }
+
+  /** Liga a compilação nacional (contínua: uma passada a cada 2 min). */
+  async function iniciar() {
+    await (pronto ??= carregar());
+    nac.ativo = true;
+    nac.pausado = false;
+    rodar();
+  }
+
+  function pausar() {
+    nac.pausado = true;
+    cancelar(nac.timer);
+  }
+
+  function retomar() {
+    if (!nac.ativo) return iniciar();
+    nac.pausado = false;
+    rodar();
+    return null;
+  }
+
+  /** Progresso da compilação: seções lidas e total por UF. */
+  async function nacional() {
+    await (pronto ??= carregar());
+    const porUf = ufs.map((uf) => {
+      let lidas = 0;
+      for (const [k, v] of resumos) if (k.startsWith(`${uf}/`)) lidas += v.lidas;
+      return { uf, total: totais.get(uf) ?? null, lidas };
+    });
+    const total = porUf.reduce((t, u) => t + (u.total ?? 0), 0);
     return {
-      tipo: job.mun ? 'municipio' : 'amostra', por: job.por ?? null, total: job.total, lidas: lidasN,
-      lendo: Boolean(job.rodando), erros: job.erros.size, erro: job.erro,
-      proximaEmSegundos: job.ultimaPassada ? Math.max(0, Math.round((job.ultimaPassada + intervaloMs - agora()) / 1000)) : null,
+      ativo: nac.ativo, pausado: nac.pausado, lendo: Boolean(nac.rodando), ufAtual: nac.ufAtual,
+      passadas: nac.passadas, novasNaPassada: nac.novas, erros: nac.erros.size,
+      ultimoErro: [...nac.erros.values()].at(-1) ?? null,
+      ultimaPassada: nac.ultimaPassada ? new Date(nac.ultimaPassada).toISOString() : null,
+      proximaEmSegundos: nac.ultimaPassada && !nac.rodando ? Math.max(0, Math.round((nac.ultimaPassada + intervaloMs - agora()) / 1000)) : null,
+      total, lidas: porUf.reduce((t, u) => t + u.lidas, 0), porUf,
     };
   }
 
-  /** Todas as seções já lidas de um município, mais o agregado. `coletar` inicia a leitura de todas. */
+  // ---------- consultas ----------
+
+  const resumoDe = (k) => resumos.get(k);
+
+  /** Seções já lidas de um município, mais o agregado. `coletar` lê agora as que faltam. */
   async function municipio(uf, mun, { coletar = false } = {}) {
-    const job = coletar ? iniciar(`mun:${uf}:${mun}`, { uf, mun }) : jobs.get(`mun:${uf}:${mun}`);
-    if (job?.rodando && !job.total) await Promise.race([job.rodando, new Promise((r) => setTimeout(r, 3000))]);
-    const mapa = await secoesLidas(uf, mun);
-    const secoes = [...mapa.values()].sort((a, b) => `${a.zona}${a.secao}`.localeCompare(`${b.zona}${b.secao}`));
+    await (pronto ??= carregar());
+    const k = `${uf}/${mun}`;
     const municipios = await config(uf).catch(() => []);
     const info = municipios.find((m) => m.codigo === mun);
+    if (coletar && info) {
+      prioridade.add(k);
+      const leitura = processarMunicipio(uf, info, null, true).then(gravar);
+      await Promise.race([leitura, new Promise((r) => setTimeout(r, 3000))]);
+    }
+    const mapa = await secoes(uf, mun);
+    const lista = [...mapa.values()].sort((a, b) => `${a.zona}${a.secao}`.localeCompare(`${b.zona}${b.secao}`));
+    const acc = novoAcumulador();
+    for (const r of lista) acumular(acc, r);
     return {
       uf, municipio: mun, nome: info?.nome ?? null, totalSecoes: info?.secoes.length ?? null,
-      progresso: await progresso(job),
-      resumo: agregarResumos(secoes),
-      secoes: secoes.map(({ hist, porHora, ...s }) => s),
+      progresso: { lidas: mapa.size, total: info?.secoes.length ?? null, lendo: Boolean(nac.rodando) },
+      resumo: finalizar(acc),
+      secoes: lista.map(semDetalhe),
     };
   }
 
-  /** Municípios da UF com o agregado das seções já lidas. `por` inicia uma amostra da UF. */
-  async function estado(uf, { por = 0 } = {}) {
-    const municipios = await config(uf);
-    const job = por ? iniciar(`amostra:${uf}:${por}`, { uf, por }) : [...jobs.values()].find((j) => j.uf === uf && !j.mun);
-    // Inclui municípios lidos em sessões anteriores (arquivos em disco).
-    try {
-      for (const f of await readdir(join(pasta, pleito, uf))) if (f.endsWith('.json')) await secoesLidas(uf, f.slice(0, -5));
-    } catch { /* nada lido ainda */ }
-    const lista = [];
-    const todas = [];
-    for (const m of municipios) {
-      const mapa = lidas.get(`${uf}/${m.codigo}`);
-      const secoes = mapa ? [...mapa.values()] : [];
-      todas.push(...secoes);
-      const { hist, porHora, ...resumo } = agregarResumos(secoes);
-      lista.push({ codigo: m.codigo, nome: m.nome, totalSecoes: m.secoes.length, lidas: secoes.length, resumo: secoes.length ? resumo : null });
-    }
-    return { uf, progresso: await progresso(job), resumo: agregarResumos(todas), municipios: lista };
+  /** Municípios da UF com o agregado das seções já lidas. */
+  async function estado(uf) {
+    await (pronto ??= carregar());
+    const municipios = await config(uf).catch(() => []);
+    const acc = novoAcumulador();
+    const lista = municipios.map((m) => {
+      const r = resumoDe(`${uf}/${m.codigo}`);
+      if (r) juntar(acc, r.acc);
+      return { codigo: m.codigo, nome: m.nome, totalSecoes: m.secoes.length, lidas: r?.lidas ?? 0, resumo: r?.acc.secoes ? semDetalhe(finalizar(r.acc)) : null };
+    });
+    return { uf, progresso: (await nacional()).porUf.find((p) => p.uf === uf) ?? null, resumo: finalizar(acc), municipios: lista };
   }
 
-  /** Agregado por UF de tudo que já foi lido (do disco e da memória). */
-  async function brasil(ufs) {
+  /** Agregado por UF (e do Brasil) de tudo que já foi lido. */
+  async function brasil(lista = ufs) {
+    await (pronto ??= carregar());
+    const total = novoAcumulador();
     const estados = [];
-    for (const uf of ufs) {
-      let arquivos = [];
-      try { arquivos = (await readdir(join(pasta, pleito, uf))).filter((f) => f.endsWith('.json')); } catch { /* nada lido */ }
-      const secoes = [];
-      for (const f of arquivos) secoes.push(...(await secoesLidas(uf, f.slice(0, -5))).values());
-      for (const [k, mapa] of lidas) if (k.startsWith(`${uf}/`) && !arquivos.includes(`${k.split('/')[1]}.json`)) secoes.push(...mapa.values());
-      if (secoes.length) {
-        const { hist, porHora, ...resumo } = agregarResumos(secoes);
-        estados.push({ uf, resumo });
+    for (const uf of lista) {
+      const acc = novoAcumulador();
+      for (const [k, v] of resumos) if (k.startsWith(`${uf}/`)) juntar(acc, v.acc);
+      if (acc.secoes) {
+        juntar(total, acc);
+        estados.push({ uf, resumo: semDetalhe(finalizar(acc)) });
       }
     }
-    return { estados };
+    return { estados, resumo: finalizar(total) };
   }
 
-  return { municipio, estado, brasil, config, lerSecao, jobs };
+  /** Resumo (sem histograma) de todos os municípios já lidos, para o explorador e os mapas. */
+  async function todosMunicipios() {
+    await (pronto ??= carregar());
+    const out = [];
+    for (const [k, v] of resumos) {
+      if (!v.acc.secoes) continue;
+      const [uf, codigo] = k.split('/');
+      out.push({ uf, codigo, lidas: v.lidas, resumo: semDetalhe(finalizar(v.acc)) });
+    }
+    return out;
+  }
+
+  if (automatico) iniciar();
+
+  return { iniciar, pausar, retomar, nacional, municipio, estado, brasil, todosMunicipios, config, lerSecao, gravar, rodar };
 }

@@ -144,46 +144,85 @@ export function resumirLog(entrada) {
   };
 }
 
-/** Junta resumos de várias seções (de um município, de uma UF…). Médias ponderadas pelos eleitores. */
-export function agregarResumos(lista) {
-  const validos = lista.filter((r) => r && r.votos);
-  const soma = (f) => validos.reduce((t, r) => t + (f(r) ?? 0), 0);
-  const hist = new Array(MAX_HIST_S / FAIXA_HIST_S + 1).fill(0);
-  const porHora = {};
-  for (const r of validos) {
-    r.hist?.forEach((c, i) => { hist[i] += c; });
-    for (const [h, n] of Object.entries(r.porHora ?? {})) porHora[h] = (porHora[h] ?? 0) + n;
-  }
-  const nCab = soma((r) => r.cabine.n);
-  const nAt = soma((r) => r.atendimento.n);
-  const nHab = soma((r) => r.habilitacao.n);
-  const votos = soma((r) => r.votos);
-  const horarios = (campo) => validos.map((r) => r[campo]).filter((v) => v !== null && v !== undefined);
-  const tipos = {
-    biometrica: soma((r) => r.tipos.biometrica),
-    manual: soma((r) => r.tipos.manual),
-    semBiometria: soma((r) => r.tipos.semBiometria),
-  };
+// ---------- acumuladores: somam seções sem guardá-las ----------
+// Um acumulador guarda só somas e contagens; acumuladores se juntam (município → UF → Brasil)
+// e `finalizar` produz as médias. Assim a compilação nacional cabe na memória.
+
+export function novoAcumulador() {
   return {
-    secoes: validos.length,
+    secoes: 0, votos: 0, cabN: 0, cabSoma: 0, atN: 0, atSoma: 0, habN: 0, habSoma: 0,
+    tipos: { biometrica: 0, manual: 0, semBiometria: 0 }, teclas: 0, correcoes: 0, comBateria: 0,
+    abertura: [0, 0], encerramento: [0, 0], primeiro: [0, 0], ultimo: [0, 0],
+    porHora: {}, hist: new Array(MAX_HIST_S / FAIXA_HIST_S + 1).fill(0),
+  };
+}
+
+const somarHorario = (par, v) => { if (v !== null && v !== undefined) { par[0] += v; par[1] += 1; } };
+
+/** Soma o resumo de uma seção (saída de resumirLog) ao acumulador. */
+export function acumular(acc, r) {
+  if (!r || !r.votos) return acc;
+  acc.secoes += 1;
+  acc.votos += r.votos;
+  acc.cabN += r.cabine.n; acc.cabSoma += r.cabine.soma ?? 0;
+  acc.atN += r.atendimento.n; acc.atSoma += r.atendimento.soma ?? 0;
+  acc.habN += r.habilitacao.n; acc.habSoma += r.habilitacao.soma ?? 0;
+  for (const k of Object.keys(acc.tipos)) acc.tipos[k] += r.tipos?.[k] ?? 0;
+  acc.teclas += r.teclasIndevidas ?? 0;
+  acc.correcoes += r.correcoes ?? 0;
+  if (r.bateria > 0) acc.comBateria += 1;
+  somarHorario(acc.abertura, r.abertura);
+  somarHorario(acc.encerramento, r.encerramento);
+  somarHorario(acc.primeiro, r.primeiroVoto);
+  somarHorario(acc.ultimo, r.ultimoVoto);
+  for (const [h, n] of Object.entries(r.porHora ?? {})) acc.porHora[h] = (acc.porHora[h] ?? 0) + n;
+  r.hist?.forEach((c, i) => { acc.hist[i] += c; });
+  return acc;
+}
+
+/** Junta dois acumuladores (o primeiro é alterado). */
+export function juntar(acc, b) {
+  if (!b) return acc;
+  for (const k of ['secoes', 'votos', 'cabN', 'cabSoma', 'atN', 'atSoma', 'habN', 'habSoma', 'teclas', 'correcoes', 'comBateria']) acc[k] += b[k];
+  for (const k of Object.keys(acc.tipos)) acc.tipos[k] += b.tipos[k];
+  for (const k of ['abertura', 'encerramento', 'primeiro', 'ultimo']) { acc[k][0] += b[k][0]; acc[k][1] += b[k][1]; }
+  for (const [h, n] of Object.entries(b.porHora)) acc.porHora[h] = (acc.porHora[h] ?? 0) + n;
+  b.hist.forEach((c, i) => { acc.hist[i] += c; });
+  return acc;
+}
+
+const mediaPar = (par) => (par[1] ? par[0] / par[1] : null);
+
+/** Médias, medianas e percentuais a partir do acumulador. */
+export function finalizar(acc) {
+  const { votos, tipos } = acc;
+  return {
+    secoes: acc.secoes,
     votos,
-    cabine: { n: nCab, media: nCab ? soma((r) => r.cabine.soma) / nCab : null, mediana: medianaHist(hist), p90: quantilHist(hist, 0.9) },
-    atendimento: { n: nAt, media: nAt ? soma((r) => r.atendimento.soma) / nAt : null },
-    habilitacao: { n: nHab, media: nHab ? soma((r) => r.habilitacao.soma) / nHab : null },
-    tipos,
+    cabine: { n: acc.cabN, media: acc.cabN ? acc.cabSoma / acc.cabN : null, mediana: medianaHist(acc.hist), p90: quantilHist(acc.hist, 0.9) },
+    atendimento: { n: acc.atN, media: acc.atN ? acc.atSoma / acc.atN : null },
+    habilitacao: { n: acc.habN, media: acc.habN ? acc.habSoma / acc.habN : null },
+    tipos: { ...tipos },
     pctBiometrica: votos ? (tipos.biometrica / votos) * 100 : null,
     pctManual: votos ? (tipos.manual / votos) * 100 : null,
     pctSemBiometria: votos ? (tipos.semBiometria / votos) * 100 : null,
-    teclasPorEleitor: votos ? soma((r) => r.teclasIndevidas) / votos : null,
-    correcoesPorMil: votos ? (soma((r) => r.correcoes) / votos) * 1000 : null,
-    secoesComBateria: validos.filter((r) => r.bateria > 0).length,
-    aberturaMedia: media(horarios('abertura')),
-    encerramentoMedio: media(horarios('encerramento')),
-    primeiroVotoMedio: media(horarios('primeiroVoto')),
-    ultimoVotoMedio: media(horarios('ultimoVoto')),
-    porHora,
-    hist,
+    teclasPorEleitor: votos ? acc.teclas / votos : null,
+    correcoesPorMil: votos ? (acc.correcoes / votos) * 1000 : null,
+    secoesComBateria: acc.comBateria,
+    aberturaMedia: mediaPar(acc.abertura),
+    encerramentoMedio: mediaPar(acc.encerramento),
+    primeiroVotoMedio: mediaPar(acc.primeiro),
+    ultimoVotoMedio: mediaPar(acc.ultimo),
+    porHora: { ...acc.porHora },
+    hist: [...acc.hist],
   };
+}
+
+/** Junta resumos de várias seções (de um município, de uma UF…). Médias ponderadas pelos eleitores. */
+export function agregarResumos(lista) {
+  const acc = novoAcumulador();
+  for (const r of lista) acumular(acc, r);
+  return finalizar(acc);
 }
 
 function quantilHist(hist, q) {

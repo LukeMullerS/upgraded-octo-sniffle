@@ -13,6 +13,7 @@ const MIN_W = 240;
 const MIN_H = 150;
 
 const MODULOS = [
+  ['mapa', 'Mapa', 'globo', 'Mapa do Brasil por estado ou por município, colorido pela métrica escolhida.', 760, 560],
   ['resumo', 'Resumo', 'calculadora', 'Brancos, nulos, anulados e abstenção do local, com o andamento das seções.', 640, 360],
   ['estat', 'Estatísticas', 'calculadora', 'Média ponderada e simples, mediana, desvio padrão, quartis, extremos e atípicos.', 560, 460],
   ['hist', 'Distribuição', 'histograma', 'Histograma da métrica escolhida; clique numa faixa para filtrar as outras janelas.', 620, 420],
