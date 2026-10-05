@@ -123,7 +123,7 @@ async function adicionarCenso(url, rotulo, preset = null, { silencioso = false }
   el.status.textContent = `baixando: ${rotulo}…`;
   el.status.className = 'status';
   try {
-    const s = { ...(await getJson(url)), preset };
+    const s = { ...(preset?.startsWith('arq:') ? await serieDeArquivo(preset) : await getJson(url)), preset };
     estado.censo.set(s.id, s);
     if (estado.catalogo) renderizarCatalogo();
     renderizarTudo();
@@ -156,12 +156,31 @@ function renderizarCatalogo() {
 }
 
 async function carregarPresets() {
-  try {
-    estado.catalogo = await getJson('api/censo/presets');
-    renderizarCatalogo();
-  } catch {
-    el.presets.innerHTML = '<span class="mudo">Censo indisponível neste servidor.</span>';
+  // Séries buscadas na hora (IBGE, IPEA) e retratos das fontes grandes (TSE, Saúde), que vêm
+  // prontos em public/fontes (gerados por scripts/atualizar-fontes.mjs).
+  const [api, arq] = await Promise.all([
+    getJson('api/censo/presets').catch(() => []),
+    getJson('fontes/indice.json').then((d) => d.series).catch(() => []),
+  ]);
+  estado.catalogo = [...arq, ...api];
+  if (estado.catalogo.length) renderizarCatalogo();
+  else el.presets.innerHTML = '<span class="mudo">Fontes públicas indisponíveis neste servidor.</span>';
+}
+
+// Retratos em public/fontes: cada arquivo é baixado uma vez e tem várias séries.
+const arquivosFonte = new Map();
+async function serieDeArquivo(preset) {
+  const [, arquivo, id] = preset.split(':');
+  if (!/^[\w-]+$/.test(arquivo ?? '')) throw new Error('série desconhecida');
+  if (!arquivosFonte.has(arquivo)) {
+    const p = getJson(`fontes/${arquivo}.json`);
+    p.catch(() => arquivosFonte.delete(arquivo));
+    arquivosFonte.set(arquivo, p);
   }
+  const d = await arquivosFonte.get(arquivo);
+  const s = d.series.find((x) => x.preset === preset || x.id.endsWith(`-${id}`));
+  if (!s) throw new Error('série não encontrada no arquivo');
+  return { ...s, fonte: d.fonte, periodo: d.geradoEm ? `retrato de ${new Date(d.geradoEm).toLocaleDateString('pt-BR')}` : '' };
 }
 
 async function mostrarTabelaSidra() {
@@ -1204,7 +1223,9 @@ function primeiraDisponivel(ids, filtro = () => true) {
  * aparecer na hora (a pessoa ajusta depois, se quiser).
  */
 // Séries públicas que dão contexto às análises que comparam com dados de fora da eleição.
-const FONTES_BASICAS = ['alfabetizacao', 'densidade', 'ipea:idhm', 'ipea:renda', 'ipea:gini', 'cor_pardos', 'rel_evangelicos', 'pibPerCapita'];
+const FONTES_BASICAS = ['alfabetizacao', 'densidade', 'pibPerCapita', 'idadeMediana', 'esgotoRede', 'cor_pardos', 'rel_evangelicos',
+  'arq:eleitorado-2026:superior', 'arq:eleitorado-2026:idosos', 'arq:eleitorado-2026:mulheres', 'arq:saude-cnes:ubsTaxa',
+  'ipea:idhm', 'ipea:renda', 'ipea:gini'];
 let carregandoBasicas = null;
 function carregarFontesBasicas() {
   const faltam = FONTES_BASICAS.filter((id) => ![...estado.censo.values()].some((x) => x.preset === id));
@@ -1294,17 +1315,21 @@ const SEN = '6259:5';
 const DEPF = '6259:6';
 const PERGUNTAS = [
   { icone: '🏆', titulo: 'Quem venceu em cada cidade?', texto: 'Mapa do candidato mais votado', nivel: 'todas', cargos: [PRES], y: `${PRES}:vencedor`, tipo: 'mapa' },
-  { icone: '💡', titulo: 'O que mais se relaciona com o voto no líder?', texto: 'Descobertas automáticas: IBGE, IPEA, logs', nivel: 'todas', cargos: [PRES], censo: ['alfabetizacao', 'densidade', 'ipea:idhm', 'ipea:gini', 'ipea:renda', 'cor_pardos', 'rel_evangelicos', 'pibPerCapita'], y: `${PRES}:lider`, tipo: 'descobertas' },
+  { icone: '💡', titulo: 'O que mais se relaciona com o voto no líder?', texto: 'Descobertas automáticas: TSE, IBGE, Saúde, IPEA', nivel: 'todas', cargos: [PRES], censo: FONTES_BASICAS, y: `${PRES}:lider`, tipo: 'descobertas' },
   { icone: '🔥', titulo: 'Onde há bolsões de voto no líder?', texto: 'Padrão no mapa (Moran e LISA)', nivel: 'todas', cargos: [PRES], y: `${PRES}:lider`, tipo: 'espacial' },
   { icone: '🧬', titulo: 'Que tipos de cidade existem?', texto: 'Perfis por IDH, densidade, escolaridade e voto', nivel: 'todas', cargos: [PRES], censo: ['ipea:idhm', 'densidade', 'alfabetizacao'], explicativas: ['censo:ipea:idhm', 'censo:densidade', 'censo:alfabetizacao', `${PRES}:lider`, `${PRES}:pctComparecimento`], tipo: 'clusters' },
   { icone: '📈', titulo: 'O IDH tem a ver com o voto?', texto: 'IPEA (IDHM 2010) × votação do líder', nivel: 'todas', cargos: [PRES], censo: ['ipea:idhm'], x: 'censo:ipea:idhm', y: `${PRES}:lider`, tipo: 'dispersao' },
   { icone: '⛪', titulo: 'Religião e voto andam juntos?', texto: 'IBGE (% evangélicos) × votação do líder', nivel: 'todas', cargos: [PRES], censo: ['rel_evangelicos'], x: 'censo:rel_evangelicos', y: `${PRES}:lider`, tipo: 'dispersao' },
+  { icone: '🎓', titulo: 'A escolaridade do eleitorado muda o voto?', texto: 'TSE (% com superior completo) × votação do líder', nivel: 'todas', cargos: [PRES], censo: ['arq:eleitorado-2026:superior'], x: 'censo:arq:eleitorado-2026:superior', y: `${PRES}:lider`, tipo: 'dispersao' },
+  { icone: '👵', titulo: 'Cidades mais velhas votam diferente?', texto: 'TSE (% de eleitores 60+) × votação do líder', nivel: 'todas', cargos: [PRES], censo: ['arq:eleitorado-2026:idosos'], x: 'censo:arq:eleitorado-2026:idosos', y: `${PRES}:lider`, tipo: 'dispersao' },
+  { icone: '🚰', titulo: 'Saneamento tem a ver com o voto?', texto: 'IBGE (% com esgoto na rede) × votação do líder', nivel: 'todas', cargos: [PRES], censo: ['esgotoRede'], x: 'censo:esgotoRede', y: `${PRES}:lider`, tipo: 'dispersao' },
+  { icone: '🏥', titulo: 'Onde há mais postos de saúde?', texto: 'Ministério da Saúde (UBS por 10 mil hab.) no mapa', nivel: 'todas', cargos: [PRES], censo: ['arq:saude-cnes:ubsTaxa'], y: 'censo:arq:saude-cnes:ubsTaxa', tipo: 'mapa' },
   { icone: '🗳️', titulo: 'Onde mais gente foi votar?', texto: 'Mapa do comparecimento', nivel: 'todas', cargos: [PRES], y: `${PRES}:pctComparecimento`, tipo: 'mapa' },
   { icone: '📚', titulo: 'A alfabetização muda o voto no líder?', texto: 'Censo 2022 × votação do 1º colocado', nivel: 'todas', cargos: [PRES], censo: ['alfabetizacao'], x: 'censo:alfabetizacao', y: `${PRES}:lider`, tipo: 'dispersao' },
   { icone: '🥊', titulo: 'Onde um cresce, o outro cai?', texto: '1º × 2º colocado por cidade', nivel: 'todas', cargos: [PRES], x: `${PRES}:lider`, y: `${PRES}:segundo`, tipo: 'dispersao' },
   { icone: '🗺️', titulo: 'O voto no líder muda por região?', texto: 'Compara as cidades de cada região', nivel: 'todas', cargos: [PRES], y: `${PRES}:lider`, grupo: 'terr:regiao', tipo: 'grupos' },
   { icone: '🧩', titulo: 'Onde o voto para deputado é mais dividido?', texto: 'Nº efetivo de partidos por região', nivel: 'todas', cargos: [DEPF], y: `${DEPF}:efetivo`, grupo: 'terr:regiao', tipo: 'grupos' },
-  { icone: '🔎', titulo: 'O que explica o voto no líder?', texto: 'Regressão: Censo, comparecimento e biometria', nivel: 'todas', cargos: [PRES], censo: ['alfabetizacao', 'densidade'], y: `${PRES}:lider`, explicativas: ['censo:alfabetizacao', 'censo:densidade', `${PRES}:pctComparecimento`, 'logs:biometria'], tipo: 'regressao' },
+  { icone: '🔎', titulo: 'O que explica o voto no líder?', texto: 'Regressão: escolaridade, idade, densidade, PIB e comparecimento', nivel: 'todas', cargos: [PRES], censo: ['alfabetizacao', 'densidade', 'arq:eleitorado-2026:superior', 'arq:eleitorado-2026:idosos', 'pibPerCapita'], y: `${PRES}:lider`, explicativas: ['censo:arq:eleitorado-2026:superior', 'censo:arq:eleitorado-2026:idosos', 'censo:densidade', 'censo:pibPerCapita', `${PRES}:pctComparecimento`], tipo: 'regressao' },
   { icone: '❌', titulo: 'Onde mais se votou nulo para presidente?', texto: 'Mapa das cidades do Brasil', nivel: 'todas', cargos: [PRES], y: `${PRES}:pctNulos`, tipo: 'mapa' },
   { icone: '🧭', titulo: 'Brancos e nulos mudam de uma região para outra?', texto: 'Compara as cidades de cada região', nivel: 'todas', cargos: [PRES], y: `${PRES}:pctBrancosNulos`, grupo: 'terr:regiao', tipo: 'grupos' },
   { icone: '📚', titulo: 'Onde há mais alfabetização, há menos votos nulos?', texto: 'Censo 2022 × resultado', nivel: 'todas', cargos: [PRES], censo: ['alfabetizacao'], x: 'censo:alfabetizacao', y: `${PRES}:pctNulos`, tipo: 'dispersao' },
@@ -1320,7 +1345,7 @@ const PERGUNTAS = [
 const TEMAS = [
   ['inicio', '⭐ Comece por aqui', ['Quem venceu em cada cidade?', 'O que mais se relaciona com o voto no líder?', 'Onde mais gente foi votar?', 'O voto no líder muda por região?', 'Que tipos de cidade existem?', 'Onde mais se votou nulo para presidente?']],
   ['voto', '🗳️ Quem venceu e onde', ['Quem venceu em cada cidade?', 'Onde um cresce, o outro cai?', 'O voto no líder muda por região?', 'Onde há bolsões de voto no líder?', 'Onde o voto para deputado é mais dividido?', 'Cidades grandes votam diferente das pequenas?']],
-  ['sociedade', '🏙️ Sociedade e voto', ['A alfabetização muda o voto no líder?', 'O IDH tem a ver com o voto?', 'Religião e voto andam juntos?', 'O que explica o voto no líder?', 'Que tipos de cidade existem?', 'O que mais se relaciona com o voto no líder?']],
+  ['sociedade', '🏙️ Sociedade e voto', ['A escolaridade do eleitorado muda o voto?', 'Cidades mais velhas votam diferente?', 'A alfabetização muda o voto no líder?', 'Saneamento tem a ver com o voto?', 'Religião e voto andam juntos?', 'O IDH tem a ver com o voto?', 'Onde há mais postos de saúde?', 'O que explica o voto no líder?', 'O que mais se relaciona com o voto no líder?']],
   ['bn', '❌ Brancos, nulos e comparecimento', ['Onde mais gente foi votar?', 'Onde mais se votou nulo para presidente?', 'Brancos e nulos mudam de uma região para outra?', 'Onde há mais alfabetização, há menos votos nulos?', 'O tempo na cabine tem a ver com os nulos?', 'Quem anula para presidente também anula para senador?', 'Quais cidades mais deixaram o voto em branco?', 'O que mais explica os votos nulos?']],
   ['avancado', '🔬 Para especialistas', ['Onde há bolsões de voto no líder?', 'O que explica o voto no líder?', 'O que mais explica os votos nulos?', 'Que tipos de cidade existem?', 'Capitais votam diferente do interior?', 'O que mais se relaciona com o voto no líder?']],
 ];
@@ -1353,7 +1378,11 @@ async function aplicarPergunta(p) {
   mostrarAba(p.tipo === 'mapa' ? 'mapa' : 'grafico');
   // Séries do Censo que a pergunta usa (baixadas uma vez e guardadas pelo servidor).
   const faltam = (p.censo ?? []).filter((id) => ![...estado.censo.values()].some((s) => s.preset === id));
-  await Promise.all(faltam.map((id) => adicionarCenso(`api/censo/serie?preset=${encodeURIComponent(id)}`, id, id)));
+  // Fonte que falhar (fora do ar) não interrompe a pergunta: só o status avisa.
+  for (let i = 0; i < faltam.length; i += 4) {
+    await Promise.all(faltam.slice(i, i + 4).map((id) => adicionarCenso(`api/censo/serie?preset=${encodeURIComponent(id)}`,
+      estado.catalogo?.find((c) => c.id === id)?.nome ?? id, id, { silencioso: true })));
+  }
   await carregar();
   el.grafico.closest('.cartao').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

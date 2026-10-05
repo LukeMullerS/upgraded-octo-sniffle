@@ -182,15 +182,24 @@ Na primeira vez que o app abre, a área de trabalho mostra a **Apuração** e as
 Além do TSE, o Explorador cruza a eleição com séries públicas, todas baixadas uma vez e guardadas em `dados/`
 (em "Mais dados → Fontes públicas", clique numa série ou em "Trazer todas"):
 
-| Fonte | Séries | API |
+| Fonte | Séries | Como chega |
 |---|---|---|
-| IBGE · Censo 2022 | população, densidade, área, alfabetização, % de pardos, pretos, brancos e indígenas | agregados v3 (tabelas 4714, 9543, 9605) |
-| IBGE · PIB dos Municípios | PIB e PIB por habitante (aprox.) | agregados v3 (5938) |
-| IBGE · Censo 2010 | % de católicos, evangélicos e sem religião | agregados v3 (137) |
-| IBGE · Localidades | região intermediária, imediata, meso e microrregião de cada cidade (para agrupar) | localidades v1 |
-| IPEA · Atlas do Desenvolvimento Humano (2010) | IDHM e componentes, Gini, renda per capita, % de pobres, esperança de vida | Ipeadata OData v4 |
+| **TSE · Perfil do eleitorado 2026** (dados abertos) | por município: eleitores, % de mulheres, % de 16–24 anos, % 60+, idade média, % com superior completo, % analfabetos, % sem fundamental completo, % casados, % pretos e pardos (entre quem informou), % com biometria, % com deficiência | retrato em `public/fontes/eleitorado-2026.json` |
+| **Ministério da Saúde · CNES/DATASUS** (API de dados abertos do SUS) | unidades básicas de saúde por 10 mil hab., hospitais e CAPS por 100 mil hab., totais | retrato em `public/fontes/saude-cnes.json` |
+| IBGE · Censo 2022 | população, densidade, área, alfabetização, % de pardos, pretos, brancos e indígenas, idade mediana, índice de envelhecimento, razão de sexo | agregados v3 (4714, 9543, 9605, 9515), na hora |
+| IBGE · Censo 2022 (domicílios) | % de domicílios com esgoto na rede geral, com água da rede geral e com lixo coletado | agregados v3 (6805, 6803, 6892), na hora |
+| IBGE · PIB dos Municípios | PIB e PIB por habitante (aprox.) | agregados v3 (5938), na hora |
+| IBGE · Censo 2010 | % de católicos, evangélicos e sem religião | agregados v3 (137), na hora |
+| IBGE · Localidades | região intermediária, imediata, meso e microrregião de cada cidade (para agrupar) | localidades v1, na hora |
+| IPEA · Atlas do Desenvolvimento Humano (2010) | IDHM e componentes, Gini, renda per capita, % de pobres, esperança de vida | Ipeadata OData v4, na hora |
 | qualquer tabela do SIDRA | pelo número da tabela, escolhendo variável e categorias | agregados v3 |
 | seu próprio CSV | qualquer indicador por código IBGE, código TSE, UF ou nome | — |
+
+As fontes grandes demais para baixar a cada consulta (o perfil do eleitorado tem 408 MB; o CNES é paginado de 20
+em 20) vêm como **retratos** prontos em `public/fontes/`, com a data em que foram gerados. Para atualizar:
+`NODE_USE_ENV_PROXY=1 node scripts/atualizar-fontes.mjs` (ou `... eleitorado` / `... saude`). O script baixa do perfil
+do eleitorado só o trecho de cada UF dentro do zip oficial (requisições com Range) e conta os estabelecimentos do
+CNES por município.
 
 As séries prontas acham a variável pelo nome nos metadados; se uma fonte mudar ou sair do ar, só aquela série
 falha (com aviso), e o resto continua. Endereços podem ser trocados por variáveis de ambiente: `IBGE_BASE`,
@@ -320,6 +329,8 @@ public/candidatos.*  mapa da votação: candidatos, partidos, vencedor, comparec
 src/coletor.js     coletor de brancos e nulos por município (acompanhamento a cada 2 min)
 src/censo.js       séries do IBGE (Censo, PIB; API de agregados), guardadas em dados/censo
 src/fontes.js      IPEA (Atlas do Desenvolvimento Humano) e IBGE Localidades, guardados em dados/fontes
+scripts/atualizar-fontes.mjs  gera os retratos de public/fontes (TSE perfil do eleitorado, Saúde/CNES)
+public/fontes/     retratos das fontes grandes (JSON por município e UF)
 src/logs.js        compilação nacional dos logs das urnas (cache em dados/logs)
 src/mapas.js       malhas do IBGE para os mapas (cache em dados/mapas)
 src/log-urna.js    leitura do logd.dat: tempos por eleitor e resumo da seção

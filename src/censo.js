@@ -39,6 +39,17 @@ export const PRESETS = [
       id: `cor_${id}`, grupo: C22, nome: `% de ${rotulo} na população (Censo 2022)`, unidade: '%',
       tabela: '9605', variavel: /popula[cç][aã]o residente/i, categoria: { classificacao: /cor ou ra[cç]a/i, nome: cat }, percentual: true,
     })),
+  { id: 'idadeMediana', grupo: C22, nome: 'Idade mediana da população (Censo 2022)', tabela: '9515', variavel: /idade mediana/i },
+  { id: 'envelhecimento', grupo: C22, nome: 'Índice de envelhecimento (idosos por 100 jovens, Censo 2022)', tabela: '9515', variavel: /envelhecimento/i },
+  { id: 'razaoSexo', grupo: C22, nome: 'Razão de sexo (homens por 100 mulheres, Censo 2022)', tabela: '9515', variavel: /raz[aã]o de sexo/i },
+  ...[
+    ['esgotoRede', '% de domicílios com esgoto na rede geral (Censo 2022)', '6805', /esgotamento/i, /^rede geral, rede pluvial ou fossa ligada/i],
+    ['aguaRede', '% de domicílios abastecidos pela rede geral de água (Censo 2022)', '6803', /rede geral de distribui/i, /^possui liga[cç][aã]o [aà] rede geral e a utiliza como forma principal/i],
+    ['lixoColetado', '% de domicílios com lixo coletado (Censo 2022)', '6892', /destino do lixo/i, /^coletado$/i],
+  ].map(([id, nome, tabela, classificacao, cat]) => ({
+    id, grupo: 'IBGE · Censo 2022 (domicílios e saneamento)', nome, unidade: '%', tabela,
+    variavel: /^domic[ií]lios particulares permanentes ocupados$/i, categoria: { classificacao, nome: cat }, percentual: true,
+  })),
   { id: 'pib', grupo: 'IBGE · PIB dos Municípios', nome: 'PIB a preços correntes (mil R$)', tabela: '5938', variavel: /produto interno bruto a pre[cç]os correntes/i },
   { id: 'pibPerCapita', grupo: 'IBGE · PIB dos Municípios', nome: 'PIB por habitante (R$, aprox.)', unidade: 'R$', razao: { numerador: 'pib', denominador: 'populacao', fator: 1000 } },
   ...[['catolicos', /cat[oó]lica apost[oó]lica romana/i, 'católicos'], ['evangelicos', /evang[eé]lica/i, 'evangélicos'], ['semReligiao', /sem religi[aã]o/i, 'sem religião']]
