@@ -706,3 +706,4 @@ body:not(.especialista) [data-especialista] { display: none !important; }
 .parecida:hover, .parecida:focus-visible { border-color: var(--destaque); }
 .parecida-nome { font-weight: 600; font-size: .9rem; }
 [data-tema="98"] .parecida { border-radius: 0; }
+.nota-modo { margin: -.2rem 1rem .6rem; }

@@ -19,7 +19,7 @@ const el = {
   status: $('status'), atualizar: $('atualizar'), auto: $('auto'), erro: $('erro'),
   titulo: $('titulo'), horario: $('horario'), barra: $('barra-secoes'), pctSecoes: $('pct-secoes'),
   secoes: $('secoes'), candidatos: $('candidatos'), mais: $('mais'), busca: $('busca'),
-  partidosCartao: $('partidos-cartao'), partidos: $('partidos'), gerais: $('gerais'),
+  partidosCartao: $('partidos-cartao'), notaNoronha: $('nota-noronha'), partidos: $('partidos'), gerais: $('gerais'),
 };
 
 const fmtInt = new Intl.NumberFormat('pt-BR');
@@ -54,33 +54,82 @@ function preencher(select, opcoes, valor) {
   if (opcoes.some(([v]) => String(v) === String(valor))) select.value = valor;
 }
 
-const eleicaoAtual = () => ELEICOES[el.eleicao.value];
-const cargoAtual = () => eleicaoAtual().cargos[Number(el.cargo.value)] ?? eleicaoAtual().cargos[0];
+// O TSE separa cada turno em várias "eleições" (6257 federal, 6259 estaduais, 6261 Conselho de
+// Fernando de Noronha…). No menu elas aparecem juntas, por ano e turno; o cargo carrega o código
+// da eleição do TSE ("6259:2" = Senador).
+const TURNOS = [
+  { id: '2026-1', nome: '2026 · 1º turno (4/10)', eleicoes: ['6257', '6259', '6261'] },
+  { id: '2026-2', nome: '2026 · 2º turno (25/10)', eleicoes: ['6258', '6260'] },
+].map((t) => ({ ...t, eleicoes: t.eleicoes.filter((e) => ELEICOES[e]) }));
+const turnoDe = (ele) => TURNOS.find((t) => t.eleicoes.includes(String(ele))) ?? TURNOS[0];
+const turnoAtual = () => TURNOS.find((t) => t.id === el.eleicao.value) ?? TURNOS[0];
+
+// Fernando de Noronha (PE) aparece como uma opção de abrangência: escolhida, a tela passa ao
+// Conselho Distrital (cargo próprio do arquipélago, sem partidos) e volta ao normal ao sair.
+const NORONHA = 'pe-noronha';
+const nomeAbr = (a) => (a === NORONHA ? 'PE · Fernando de Noronha' : ABRANGENCIAS[a]);
+const conselhoDoTurno = () => turnoAtual().eleicoes.flatMap((e) => ELEICOES[e].cargos.map((c, i) => ({ e, i, c }))).find((x) => x.c.descobrir) ?? null;
+const modoNoronha = () => el.abrangencia.value === NORONHA && !!conselhoDoTurno();
+const ufAtual = () => (el.abrangencia.value === NORONHA ? 'pe' : el.abrangencia.value);
+// Cargo escolhido no menu (guardado enquanto o modo Noronha está ativo, para voltar a ele).
+const cargoMenu = () => (el.cargo.value && el.cargo.value !== NORONHA ? el.cargo.value : estado.cargoMenu) || `${turnoAtual().eleicoes[0]}:0`;
+const eleAtual = () => (modoNoronha() ? conselhoDoTurno().e : cargoMenu().split(':')[0]);
+const eleicaoAtual = () => ELEICOES[eleAtual()];
+const cargoAtual = () => (modoNoronha() ? conselhoDoTurno().c
+  : ELEICOES[cargoMenu().split(':')[0]].cargos[Number(cargoMenu().split(':')[1])] ?? eleicaoAtual().cargos[0]);
 
 function montarFiltros(inicial = {}) {
-  preencher(el.eleicao, Object.values(ELEICOES).map((e) => [e.codigo, `${e.codigo} · ${matchMedia('(max-width: 600px)').matches ? e.curto : e.nome}`]), inicial.ele);
+  preencher(el.eleicao, TURNOS.map((t) => [t.id, t.nome]), turnoDe(inicial.ele).id);
   atualizarCargos(inicial);
 }
 
 function atualizarCargos(inicial = {}) {
-  const cargos = eleicaoAtual().cargos;
-  preencher(el.cargo, cargos.map((c, i) => [i, c.nome]), inicial.cargo ?? 0);
-  atualizarAbrangencias(inicial);
+  const opcoes = turnoAtual().eleicoes.flatMap((e) => ELEICOES[e].cargos.map((c, i) => [`${e}:${i}`, c.nome, c]))
+    .filter(([, , c]) => !c.descobrir).map(([v, t]) => [v, t]);
+  const pedido = inicial.ele !== undefined ? `${inicial.ele}:${inicial.cargo ?? 0}` : estado.cargoMenu;
+  preencher(el.cargo, opcoes, opcoes.some(([v]) => v === pedido) ? pedido : opcoes[0][0]);
+  estado.cargoMenu = el.cargo.value;
+  // Link antigo do Conselho Distrital (ele=6261): abre direto em Fernando de Noronha.
+  const conselho = ELEICOES[inicial.ele]?.cargos.some((c) => c.descobrir);
+  atualizarAbrangencias(conselho ? { ...inicial, abr: NORONHA } : inicial);
 }
 
 function atualizarAbrangencias(inicial = {}) {
   const atual = inicial.abr ?? el.abrangencia.value;
-  preencher(el.abrangencia, cargoAtual().abrangencias.map((a) => [a, ABRANGENCIAS[a]]), atual);
+  const cargo = ELEICOES[cargoMenu().split(':')[0]].cargos[Number(cargoMenu().split(':')[1])];
+  const opcoes = cargo.abrangencias.map((a) => [a, ABRANGENCIAS[a]]);
+  if (conselhoDoTurno()) {
+    const i = opcoes.findIndex(([a]) => a === 'pe');
+    opcoes.splice(i < 0 ? opcoes.length : i + 1, 0, [NORONHA, 'PE · Fernando de Noronha (Conselho Distrital)']);
+  }
+  preencher(el.abrangencia, opcoes, atual);
+  aplicarModo();
+}
+
+// Modo Noronha: o cargo vira "Conselheiro Distrital" (fixo), o município fica fixo e a nota explica.
+function aplicarModo() {
+  const noronha = modoNoronha();
+  if (noronha && el.cargo.value !== NORONHA) {
+    estado.cargoMenu = el.cargo.value;
+    el.cargo.innerHTML = `<option value="${NORONHA}">${esc(conselhoDoTurno().c.nome.replace(/\s*\(.*\)$/, ''))}</option>`;
+  } else if (!noronha && el.cargo.value === NORONHA) {
+    atualizarCargos();
+    return;
+  }
+  el.cargo.disabled = noronha;
+  el.notaNoronha.hidden = !noronha;
 }
 
 async function atualizarMunicipios(inicial = {}) {
-  const uf = el.abrangencia.value;
-  const ele = el.eleicao.value;
+  const uf = ufAtual();
+  const ele = eleAtual();
   el.municipio.innerHTML = '<option value="">Todos</option>';
-  el.municipio.disabled = uf === 'br';
+  el.municipio.disabled = uf === 'br' || modoNoronha();
+  if (modoNoronha()) { el.municipio.innerHTML = '<option value="">Fernando de Noronha</option>'; return; }
   if (uf === 'br') return;
   try {
     if (!estado.municipios[ele]) estado.municipios[ele] = lerMunicipios(await getJson(urlMunicipios(BASE, ele)));
+    if (ufAtual() !== uf || eleAtual() !== ele || modoNoronha()) return; // o filtro mudou enquanto a lista baixava
     const lista = estado.municipios[ele][uf] ?? [];
     preencher(el.municipio, [['', 'Todos'], ...lista.map((m) => [m.codigo, m.nome])], inicial.mun ?? '');
   } catch {
@@ -94,7 +143,7 @@ function lerHash() {
 }
 
 function gravarHash() {
-  const p = new URLSearchParams({ ele: el.eleicao.value, cargo: el.cargo.value, abr: el.abrangencia.value });
+  const p = new URLSearchParams({ ele: eleAtual(), cargo: modoNoronha() ? conselhoDoTurno().i : cargoMenu().split(':')[1], abr: el.abrangencia.value });
   if (el.municipio.value) p.set('mun', el.municipio.value);
   history.replaceState(null, '', `#${p}`);
 }
@@ -119,10 +168,11 @@ async function descobrirCargo(ele, uf, municipio) {
 async function carregar() {
   // Consultas se sobrepõem (atualização automática, filtros, botão): só a mais recente vale.
   const pedido = ++estado.pedido;
-  const ele = el.eleicao.value;
+  const ele = eleAtual();
   const cargo = cargoAtual();
-  const uf = el.abrangencia.value;
-  let municipio = el.municipio.value;
+  const uf = ufAtual();
+  // Fernando de Noronha: o TSE publica o Conselho Distrital só no arquivo do município.
+  let municipio = modoNoronha() ? (cargo.municipio ?? '') : el.municipio.value;
   gravarHash();
   el.status.textContent = 'consultando o TSE…';
   el.status.className = 'status';
@@ -225,7 +275,7 @@ function itemCandidato(c, posicao, d, compacto) {
   const largura = Math.max(0, Math.min(100, c.percentual));
   const foto = compacto
     ? `<span class="posicao">${posicao}º</span>`
-    : `<img class="foto-candidato" loading="lazy" alt="" src="${esc(urlFoto(BASE, d.eleicao || el.eleicao.value, d.fotoAbr, c.sqcand))}">`;
+    : `<img class="foto-candidato" loading="lazy" alt="" src="${esc(urlFoto(BASE, d.eleicao || eleAtual(), d.fotoAbr, c.sqcand))}">`;
   const extra = [c.partido, c.vice && `vice: ${c.vice}`, c.federacao].filter(Boolean).map(esc).join(' · ');
   return `<li class="candidato">
     ${foto}
@@ -262,9 +312,9 @@ function renderizarCandidatos() {
 function renderizar() {
   const d = estado.dados;
   const cargo = cargoAtual();
-  const nomeMun = el.municipio.selectedOptions[0]?.value ? ` · ${el.municipio.selectedOptions[0].textContent}` : '';
+  const nomeMun = !modoNoronha() && el.municipio.selectedOptions[0]?.value ? ` · ${el.municipio.selectedOptions[0].textContent}` : '';
   const vagas = d.cargo.vagas > 1 ? ` · ${d.cargo.vagas} vagas` : '';
-  el.titulo.textContent = `${d.cargo.nome || cargo.nome} · ${ABRANGENCIAS[el.abrangencia.value]}${nomeMun}${vagas}`;
+  el.titulo.textContent = `${modoNoronha() ? 'Conselheiro Distrital' : d.cargo.nome || cargo.nome} · ${nomeAbr(el.abrangencia.value)}${nomeMun}${vagas}`;
   el.horario.textContent = d.atualizadoEm ? `Atualizado pelo TSE em ${d.atualizadoEm}` : '';
   el.barra.style.width = `${Math.min(100, d.secoes.percentual)}%`;
   el.pctSecoes.textContent = `${fmtPct.format(d.secoes.percentual)}%`;
@@ -298,7 +348,7 @@ function renderizar() {
 }
 
 function limpar() {
-  el.titulo.textContent = `${cargoAtual().nome} · ${ABRANGENCIAS[el.abrangencia.value]}`;
+  el.titulo.textContent = `${modoNoronha() ? 'Conselheiro Distrital' : cargoAtual().nome} · ${nomeAbr(el.abrangencia.value)}`;
   el.horario.textContent = '';
   el.barra.style.width = '0';
   el.pctSecoes.textContent = '0,00%';
@@ -318,8 +368,8 @@ function agendar() {
 }
 
 el.eleicao.addEventListener('change', async () => { atualizarCargos(); await atualizarMunicipios(); carregar(); });
-el.cargo.addEventListener('change', async () => { atualizarAbrangencias(); await atualizarMunicipios(); carregar(); });
-el.abrangencia.addEventListener('change', async () => { el.municipio.value = ''; await atualizarMunicipios(); carregar(); });
+el.cargo.addEventListener('change', async () => { estado.cargoMenu = el.cargo.value; atualizarAbrangencias(); await atualizarMunicipios(); carregar(); });
+el.abrangencia.addEventListener('change', async () => { el.municipio.value = ''; aplicarModo(); await atualizarMunicipios(); carregar(); });
 el.municipio.addEventListener('change', carregar);
 el.atualizar.addEventListener('click', carregar);
 el.auto.addEventListener('change', agendar);

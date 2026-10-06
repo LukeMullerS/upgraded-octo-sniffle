@@ -78,13 +78,14 @@ export const ELEICOES = {
     // Conselho Distrital de Fernando de Noronha (PE). O TSE não documenta o código do
     // cargo; o app o descobre consultando os arquivos publicados (ver `descobrirCargo`).
     cargos: [
-      { codigo: null, nome: 'Conselheiro Distrital', majoritario: false, abrangencias: ['pe'], descobrir: true },
+      { codigo: null, nome: 'Conselheiro Distrital (Fernando de Noronha)', majoritario: false, abrangencias: ['pe'], descobrir: true, municipio: '30015' },
     ],
   },
 };
 
 // Códigos tentados, em ordem, para descobrir o cargo do Conselho Distrital.
-export const CARGOS_CANDIDATOS_CONSELHO = [13, 14, 15, 16, 17, 18, 19, 20, 11, 12, 21, 22, 23, 24, 25, 8, 7];
+// 25 é o código publicado em comum/config/ele-c.json (2026); os demais ficam como reserva.
+export const CARGOS_CANDIDATOS_CONSELHO = [25, 13, 14, 15, 16, 17, 18, 19, 20, 11, 12, 21, 22, 23, 24, 8, 7];
 
 const pad = (v, n) => String(v).padStart(n, '0');
 
