@@ -1,6 +1,6 @@
 {
-  "name": "Apuração Eleições 2026",
-  "short_name": "Apuração 2026",
+  "name": "Voto Lab — Eleições 2026",
+  "short_name": "Voto Lab",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f4f6f9",
