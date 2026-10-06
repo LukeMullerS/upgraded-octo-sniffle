@@ -160,7 +160,9 @@ export function regressaoLinear(xs, ys) {
   if (!sxx) return null;
   const b = sxy / sxx;
   const r = correlacao(xs, ys);
-  return { a: my - b * mx, b, r, r2: r === null ? null : r * r, n };
+  // Y sem variação (todos iguais): não há correlação a medir.
+  if (r === null || !Number.isFinite(r)) return null;
+  return { a: my - b * mx, b, r, r2: r * r, n };
 }
 
 /** Resumo de cinco números + média para um boxplot. */
@@ -261,6 +263,8 @@ export function anovaUmFator(grupos) {
   }
   const gl1 = k - 1;
   const gl2 = n - k;
+  // Todos os valores iguais: não há variação para comparar.
+  if (entre + dentro === 0) return null;
   const f = dentro > 0 ? entre / gl1 / (dentro / gl2) : Infinity;
   return { f, gl1, gl2, p: Number.isFinite(f) ? pValorF(f, gl1, gl2) : 0, eta2: entre / (entre + dentro) };
 }
@@ -444,20 +448,24 @@ export function moranGlobal(valores, vizinhos, { permutacoes = 499, semente = 42
     return num / zz.reduce((t, v) => t + v * v, 0) * (n / comViz);
   };
   const I = calcular(z);
+  if (!Number.isFinite(I)) return null; // valores todos iguais
   const rnd = aleatorio(semente);
   const perm = [...z];
   let maiores = 0;
+  let menores = 0;
   const sim = [];
   for (let k = 0; k < permutacoes; k += 1) {
     for (let i = n - 1; i > 0; i -= 1) { const j = Math.floor(rnd() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; }
     const Ik = calcular(perm);
     sim.push(Ik);
     if (Ik >= I) maiores += 1;
+    if (Ik <= I) menores += 1;
   }
   const mSim = media(sim);
   const dpSim = Math.sqrt(sim.reduce((t, v) => t + (v - mSim) ** 2, 0) / sim.length) || 1;
-  // p unicaudal (agrupamento) por permutação; z em relação à distribuição simulada.
-  return { I, esperado: -1 / (n - 1), z: (I - mSim) / dpSim, p: (maiores + 1) / (permutacoes + 1), n, semVizinhos: n - comViz };
+  // p bicaudal por permutação (agrupamento ou "xadrez"); z em relação à distribuição simulada.
+  const p = Math.min(1, (2 * Math.min(maiores, menores) + 1) / (permutacoes + 1));
+  return { I, esperado: -1 / (n - 1), z: (I - mSim) / dpSim, p, n, semVizinhos: n - comViz };
 }
 
 /**

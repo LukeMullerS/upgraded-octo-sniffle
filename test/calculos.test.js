@@ -151,3 +151,21 @@ test('k-médias separa grupos evidentes e a silhueta é alta', () => {
   assert.ok(silhueta(z, r.grupos) > 0.9);
   assert.equal(kmedias([[1]], 3), null);
 });
+
+test('casos sem variação não geram números falsos', async () => {
+  const { regressaoLinear, anovaUmFator } = await import('../public/calculos.js');
+  assert.equal(regressaoLinear([1, 2, 3, 4], [5, 5, 5, 5]), null, 'Y constante');
+  assert.equal(anovaUmFator([[2, 2], [2, 2, 2]]), null, 'todos iguais');
+  const g = grade(4);
+  assert.equal(moranGlobal(new Map(g.map((f) => [f.properties.codarea, 7])), vizinhancaDeMalha(g)), null, 'Moran com valores iguais');
+});
+
+test('Moran detecta autocorrelação negativa (xadrez) como significativa', () => {
+  const g = grade(8);
+  const viz = vizinhancaDeMalha(g);
+  const torre = new Map([...viz].map(([c, s]) => { const [i, j] = c.split('-').map(Number); return [c, new Set([...s].filter((o) => { const [a, b] = o.split('-').map(Number); return a === i || b === j; }))]; }));
+  const xadrez = new Map(g.map((f) => { const [i, j] = f.properties.codarea.split('-').map(Number); return [f.properties.codarea, (i + j) % 2]; }));
+  const m = moranGlobal(xadrez, torre, { permutacoes: 199 });
+  assert.ok(m.I < -0.9);
+  assert.ok(m.p < 0.05, `p=${m.p}`);
+});

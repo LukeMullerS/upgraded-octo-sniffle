@@ -144,7 +144,14 @@ export function criarBanco({
     if (!e.promessa) {
       e.item = null;
       e.promessa = new Promise((ok, falha) => {
-        e.item = { tarefa: () => baixar(e), ok, falha, nivel };
+        // Qualquer falha (corpo cortado no meio, resumo que lança erro) vira estado de erro:
+        // ninguém espera algumas dessas consultas, e uma rejeição solta derrubaria o processo.
+        e.item = { tarefa: () => baixar(e).catch((erro) => {
+          estat.erros += 1;
+          e.erro = erro?.name === 'TimeoutError' ? 'o TSE não respondeu a tempo' : (erro?.message ?? String(erro));
+          if (e.estado === 'vazio') e.estado = 'erro';
+          e.consultadoEm = agora();
+        }), ok, falha, nivel };
         filas[nivel].push(e.item);
         proximo();
       }).finally(() => { e.promessa = null; e.item = null; });
@@ -191,7 +198,16 @@ export function criarBanco({
     const usava = e.usos.has('json');
     const bruto = json(e);
     if (!usava) e.usos.delete('json');
-    const v = bruto === null ? null : processar(bruto);
+    // Arquivo guardado só como outro resumo: o inteiro está sendo baixado (json() agendou).
+    // Não guarda "null" como resultado, senão um 304 depois o deixaria preso.
+    if (bruto === null && e.estado === 'ok') return null;
+    let v;
+    try {
+      v = bruto === null ? null : processar(bruto);
+    } catch (erro) {
+      e.erro = `arquivo com formato inesperado: ${erro.message}`;
+      return null;
+    }
     e.processadores.set(nome, v);
     // Ninguém pediu o arquivo inteiro: guarda só o resumo (os de deputados são grandes).
     if (!precisaConteudo(e)) {

@@ -88,12 +88,17 @@ async function buscarFoto(caminho) {
   return promessa;
 }
 
-/** JSON de um arquivo do TSE pelo banco, sem atualização automática; null se ainda não publicado. */
+/**
+ * JSON de um arquivo dos logs das urnas (config das seções, aux.json de cada seção), direto do
+ * TSE e fora do banco: são centenas de milhares de arquivos lidos uma vez cada (guardá-los no
+ * banco faria a memória crescer sem limite), e o "ainda não publicado" precisa ser conferido
+ * de novo a cada passada. null = ainda não publicado.
+ */
 async function buscarJson(caminho) {
-  const r = await banco.buscar(caminho, { auto: false, esperarMs: 30_000 });
-  if (r.estado === 'ok') return r.valor;
-  if (r.estado === 'indisponivel') return null;
-  throw new Error(r.erro ?? 'falha ao consultar o TSE');
+  const res = await fetch(`${TSE_BASE}/${caminho}`, { headers: CABECALHOS_TSE, signal: AbortSignal.timeout(30_000) });
+  if (res.status === 404 || res.status === 403) return null;
+  if (!res.ok) throw new Error(`TSE respondeu HTTP ${res.status}`);
+  return res.json();
 }
 
 const coletor = criarColetor({ banco, sobDemanda: SERVERLESS });
@@ -238,7 +243,9 @@ function aplicarCabecalhosSeguranca(res) {
 
 const relatos = new Map(); // endereço → { inicio, n }
 function permitirRelato(req) {
-  const ip = String(req.headers['x-forwarded-for'] ?? req.socket?.remoteAddress ?? '?').split(',')[0].trim();
+  // Atrás do CDN do Vercel o endereço real vem no cabeçalho; no servidor local o cabeçalho
+  // poderia ser forjado, então vale o endereço da conexão.
+  const ip = String((SERVERLESS ? req.headers['x-forwarded-for'] : null) ?? req.socket?.remoteAddress ?? '?').split(',')[0].trim();
   const agora = Date.now();
   if (relatos.size > 5000) relatos.clear();
   const r = relatos.get(ip);
@@ -358,7 +365,10 @@ async function estatico(req, res, caminho) {
   try {
     const tipo = extname(arquivo);
     const v = await versaoPublico();
-    const etag = `"${v}"`;
+    // A versão cobre só os arquivos da raiz de public/; o tamanho e a data do próprio arquivo
+    // entram na ETag para os de subpastas (public/fontes, regerados com o servidor no ar).
+    const st = await stat(arquivo);
+    const etag = `"${v}-${st.size}-${Math.round(st.mtimeMs)}"`;
     // no-cache: o navegador sempre confere com o servidor (barato: 304 se nada mudou).
     const cabecalhos = { 'content-type': TIPOS[tipo] || 'application/octet-stream', 'cache-control': 'no-cache', etag };
     if (req.headers['if-none-match'] === etag) {
@@ -366,7 +376,7 @@ async function estatico(req, res, caminho) {
       return;
     }
     // Arquivo já versionado (e comprimido) fica em memória até a próxima mudança em public/.
-    const chave = `${v}:${arquivo}`;
+    const chave = `${etag}:${arquivo}`;
     let item = estaticos.get(chave);
     if (!item) {
       let corpo = await readFile(arquivo);

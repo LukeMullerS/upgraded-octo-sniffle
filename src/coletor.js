@@ -153,8 +153,11 @@ export function criarColetor({
     if (sobDemanda) {
       // Relê quando a última passada ficou velha ou não terminou de ler todos os municípios.
       for (const a of alvos) {
+        // Faltando municípios, relê mais cedo (30 s), mas nunca a cada consulta: cada passada
+        // confere todos os municípios ainda não lidos no TSE.
         const incompleto = !a.lista || a.municipios.size < a.lista.length;
-        if (!a.rodando && (incompleto || agora() - (a.ultimaPassada ?? 0) >= intervaloMs)) passada(a);
+        const espera = incompleto ? Math.min(30_000, intervaloMs) : intervaloMs;
+        if (!a.rodando && (a.ultimaPassada === undefined || agora() - a.ultimaPassada >= espera)) passada(a);
       }
       const rodando = alvos.map((a) => a.rodando).filter(Boolean);
       if (rodando.length) await Promise.race([Promise.all(rodando), new Promise((r) => setTimeout(r, esperarMs))]);

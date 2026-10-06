@@ -328,6 +328,7 @@ export function criarColetorLogs({
     if (coletar && info) {
       prioridade.add(k);
       const leitura = processarMunicipio(uf, info, null, true).then(gravar);
+      leitura.catch(() => {}); // continua depois da resposta; uma falha não pode ficar solta
       await Promise.race([leitura, new Promise((r) => setTimeout(r, 3000))]);
     }
     const mapa = await secoes(uf, mun);
