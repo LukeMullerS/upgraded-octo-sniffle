@@ -586,7 +586,7 @@ function colunas() {
   const d = estado.logs;
   if (d.nivel === 'municipio') {
     return [
-      ['Seção', (l) => esc(l.nome)], ['Eleitores', (l) => fmtInt.format(l.votos), 'votos'],
+      ['Seção', (l) => `${esc(l.nome)} <a class="pequeno" href="minhasecao.html#${new URLSearchParams({ uf: el.uf.value, mun: el.mun.value, zona: l.zona, secao: l.secao })}" title="Votos desta seção (boletim de urna)">votos</a>`], ['Eleitores', (l) => fmtInt.format(l.votos), 'votos'],
       ['Cabine (média)', (l) => mmss(l.cabine), 'cabine'], ['Mediana', (l) => mmss(l.mediana), 'mediana'], ['90%', (l) => mmss(l.p90), 'p90'],
       ['Atendimento', (l) => mmss(l.atendimento), 'atendimento'], ['Biometria', (l) => (l.bio === null ? '—' : pct(l.bio)), 'bio'],
       ['1º voto', (l) => hhmm(l.primeiro), 'primeiro'], ['Último', (l) => hhmm(l.ultimo), 'ultimo'],
@@ -678,7 +678,8 @@ el.cruzamento.addEventListener('click', (ev) => {
 });
 el.exportar.addEventListener('click', () => {
   const cols = colunas();
-  const txt = (h) => h.replace(/<[^>]+>/g, '').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n));
+  // Sem marcação nem links (ex.: o "votos" da seção) no CSV.
+  const txt = (h) => h.replace(/<a\b[^>]*>.*?<\/a>/g, '').replace(/<[^>]+>/g, '').replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).trim();
   baixarCsv(`logs-urnas-${el.uf.value || 'brasil'}${el.mun.value ? `-${el.mun.value}` : ''}.csv`,
     cols.map(([nome, f]) => ({ nome, valor: (l) => txt(String(f(l))) })), estado.linhas);
 });

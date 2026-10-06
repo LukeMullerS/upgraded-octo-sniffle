@@ -125,7 +125,7 @@
   raiz.dataset.tema = tema;
   if (tema === '98') {
     var arquivo = location.pathname.split('/').pop();
-    var app = { '': 'apuracao', 'index.html': 'apuracao', 'brancos.html': 'brancos', 'explorar.html': 'explorar', 'urnas.html': 'logs', 'candidatos.html': 'candidatos', 'municipio.html': 'municipio' }[arquivo];
+    var app = { '': 'apuracao', 'index.html': 'apuracao', 'brancos.html': 'brancos', 'explorar.html': 'explorar', 'urnas.html': 'logs', 'candidatos.html': 'candidatos', 'municipio.html': 'municipio', 'minhasecao.html': 'secao' }[arquivo];
     if (app) {
       var destino = 'desktop.html#abrir=' + app + (location.hash ? '&h=' + encodeURIComponent(location.hash) : '');
       location.replace(destino);

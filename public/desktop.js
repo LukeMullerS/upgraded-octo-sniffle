@@ -44,6 +44,7 @@ const APPS = {
   apuracao: { titulo: 'Apuração', icone: 'computador', url: 'index.html', w: 760, h: 620, descricao: 'Resultado por cargo, estado e município.' },
   brancos: { titulo: 'Brancos e nulos', icone: 'pastaPainel', url: 'brancos.html', w: 1000, h: 660, descricao: 'Painel completo de brancos, nulos e anulados.' },
   municipio: { titulo: 'Ficha do município', icone: 'livro', url: 'municipio.html', w: 980, h: 700, descricao: 'Tudo sobre uma cidade: eleição, eleitorado, Censo, saúde e desenvolvimento.' },
+  secao: { titulo: 'Minha seção', icone: 'documento', url: 'minhasecao.html', w: 980, h: 720, descricao: 'Os votos da sua seção eleitoral, direto do boletim de urna do TSE.' },
   candidatos: { titulo: 'Mapa da votação', icone: 'mapa', url: 'candidatos.html', w: 1040, h: 700, descricao: 'Candidatos, partidos, vencedor e comparecimento em mapas por estado e cidade.' },
   logs: { titulo: 'Logs das urnas', icone: 'urna', url: 'urnas.html', w: 1000, h: 680, descricao: 'Tempo de votação, biometria e horários a partir do log de cada urna.' },
   explorar: { titulo: 'Análises', icone: 'grafico', url: 'explorar.html', w: 1040, h: 680, descricao: 'Perguntas prontas, mapas e estatística com dados do TSE, IBGE e IPEA.' },
@@ -70,7 +71,7 @@ const EXTERNOS = {
 
 const ICONES_AREA = [
   ['apuracao', 'Apuração'], ['brancos', 'Brancos e nulos'], ['paineis', 'Painéis'],
-  ['candidatos', 'Mapa da votação'], ['municipio', 'Ficha do município'], ['explorar', 'Análises'], ['logs', 'Logs das urnas'], ['leiame', 'Leia-me.txt'], ['tse', 'Resultados TSE'], ['ibge', 'IBGE SIDRA'], ['lixeira', 'Lixeira'],
+  ['candidatos', 'Mapa da votação'], ['municipio', 'Ficha do município'], ['secao', 'Minha seção'], ['explorar', 'Análises'], ['logs', 'Logs das urnas'], ['leiame', 'Leia-me.txt'], ['tse', 'Resultados TSE'], ['ibge', 'IBGE SIDRA'], ['lixeira', 'Lixeira'],
 ];
 
 const FUNDOS = [
@@ -409,6 +410,7 @@ function montarMenuIniciar() {
     ${itemMenu('pasta', 'Painéis', '', subPaineis)}
     ${itemMenu('mapa', 'Mapa da votação', 'data-abrir="candidatos"')}
     ${itemMenu('livro', 'Ficha do município', 'data-abrir="municipio"')}
+    ${itemMenu('documento', 'Minha seção', 'data-abrir="secao"')}
     ${itemMenu('grafico', 'Análises', 'data-abrir="explorar"')}
     ${itemMenu('urna', 'Logs das urnas', 'data-abrir="logs"')}</ul>`;
   const subProgramas = `<ul class="menu sub">

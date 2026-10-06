@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Voto Lab — Eleições 2026</title>
+  <meta name="description" content="Apuração ao vivo, mapas da votação, divisão das cadeiras, ficha de cada município, análises com dados do IBGE e IPEA e os logs das urnas. Dados oficiais do TSE, de graça.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Voto Lab">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:title" content="Voto Lab — Eleições 2026">
+  <meta property="og:description" content="Apuração ao vivo, mapas da votação, divisão das cadeiras, ficha de cada município, análises com dados do IBGE e IPEA e os logs das urnas. Dados oficiais do TSE, de graça.">
+  <meta property="og:url" content="https://votolab.vercel.app/">
+  <meta property="og:image" content="https://votolab.vercel.app/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Voto Lab — Eleições 2026: apuração, mapas, cadeiras e análises">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Voto Lab — Eleições 2026">
+  <meta name="twitter:description" content="Apuração ao vivo, mapas da votação, divisão das cadeiras, ficha de cada município, análises com dados do IBGE e IPEA e os logs das urnas. Dados oficiais do TSE, de graça.">
+  <meta name="twitter:image" content="https://votolab.vercel.app/og.png">
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0b5cad">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <script src="tema.js"></script>
+</head>
+<body class="painel">
+  <header class="topo">
+    <div>
+      <h1>Minha seção</h1>
+      <p class="sub">Os votos de uma seção eleitoral, direto do boletim de urna publicado pelo TSE, comparados com a cidade</p>
+    </div>
+    <div class="atualizacao">
+      <span id="status" class="status">carregando…</span>
+      <button type="button" class="secundario sem-margem" data-citar>Como citar</button>
+      <button id="imprimir" type="button" class="secundario sem-margem">Imprimir / PDF</button>
+    </div>
+  </header>
+
+  <nav class="abas" aria-label="Páginas">
+    <a href="./">Apuração</a>
+    <a href="candidatos.html">Mapa da votação</a>
+    <a href="municipio.html">Ficha do município</a>
+    <a href="minhasecao.html" aria-current="page">Minha seção</a>
+    <a href="explorar.html">Análises</a>
+    <a href="urnas.html">Logs das urnas</a>
+  </nav>
+
+  <main>
+    <section class="cartao">
+      <p class="passo-titulo">Qual seção? <span class="mudo pequeno">(a zona e a seção estão no título de eleitor e no app e-Título)</span></p>
+      <div class="campos campos-secao">
+        <label>Turno <select id="turno"><option value="1">1º turno (4/10)</option><option value="2">2º turno (25/10)</option></select></label>
+        <label>Estado <select id="uf"></select></label>
+        <label>Cidade <input id="cidade" type="search" list="lista-cidades" placeholder="Digite a cidade" autocomplete="off"><datalist id="lista-cidades"></datalist></label>
+        <label>Zona <select id="zona" disabled></select></label>
+        <label>Seção <select id="secao" disabled></select></label>
+      </div>
+      <p id="dica-secao" class="mudo pequeno"></p>
+    </section>
+
+    <section id="erro" class="erro" hidden></section>
+
+    <div id="ficha" hidden>
+      <section class="cartao">
+        <div class="linha"><h2 id="titulo-secao">—</h2><span id="sub-secao" class="mudo pequeno"></span></div>
+        <dl id="resumo-secao" class="kpis"></dl>
+        <p id="nota-secao" class="mudo pequeno"></p>
+      </section>
+      <div id="cargos" class="grade-painel"></div>
+      <p class="mudo pequeno">Fonte: boletim de urna da seção (arquivo -bu.dat publicado pelo TSE em resultados.tse.jus.br, assinado digitalmente) e resultado oficial da cidade. Percentuais sobre os votos válidos (nominais e de legenda).</p>
+    </div>
+  </main>
+
+  <footer>
+    <p class="credito"><strong>Voto Lab</strong> · por Lucas Müller-Silveira · <a href="#" data-citar>Como citar este programa</a></p>
+    Fontes: TSE (boletins de urna, resultados, locais de votação e logs das urnas).
+  </footer>
+
+  <script type="module" src="minhasecao.js"></script>
+</body>
+</html>

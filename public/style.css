@@ -735,3 +735,8 @@ body:not(.especialista) [data-especialista] { display: none !important; }
 .cadeiras-legenda .sem-vaga { opacity: .6; }
 [data-tema="98"] .alternar [aria-pressed="true"] { background: #c0c0c0; color: #000; box-shadow: inset 1px 1px #0a0a0a, inset -1px -1px #fff; }
 [data-tema="98"] .cadeiras-legenda li { border-radius: 0; }
+
+/* Minha seção */
+.campos-secao { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: .6rem; margin-top: .4rem; }
+.campos-secao label { display: grid; gap: .2rem; font-size: .85rem; }
+.campos-secao select, .campos-secao input { width: 100%; min-width: 0; }

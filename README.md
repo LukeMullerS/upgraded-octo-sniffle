@@ -126,6 +126,22 @@ taxa de alfabetização (Censo 2022); qualquer outra tabela do SIDRA entra pelo 
 instrução), escolhendo a variável e as categorias. Também dá para **importar um CSV** (primeira coluna: código IBGE,
 código TSE, sigla da UF ou nome do local). A ligação com as cidades usa o código IBGE que o TSE publica.
 
+## Minha seção (votos de uma seção)
+
+A janela **Minha seção** (`/minhasecao.html`) mostra os votos de uma seção eleitoral: a pessoa escolhe o estado, a
+cidade, a zona e a seção (cada seção aparece com o seu local de votação; a zona e a seção estão no título de eleitor e
+no e-Título) e vê, para cada cargo, os votos de cada candidato na seção comparados com a cidade, brancos, nulos,
+comparecimento, horário de abertura e encerramento da urna e, se os logs já foram compilados, o tempo médio na cabine
+e a biometria. O endereço guarda a seção (`#uf=rr&mun=03018&zona=0001&secao=0560`) e a tabela de seções dos logs das
+urnas tem um link "votos" em cada uma.
+
+- Os votos vêm do **boletim de urna** que o TSE publica para cada seção (arquivo `-bu.dat`, ao lado do log), lido por
+  `public/bu.js` (ASN.1/BER, sem bibliotecas); os nomes e os percentuais da cidade, do resultado oficial.
+- Cada consulta baixa só os dois arquivos da seção (o `aux.json` e o boletim) pelo relay `/tse`, que aceita apenas
+  esses dois tipos de arquivo; o boletim fica em cache longo no CDN (não muda depois de publicado).
+- Seções agregadas (que votaram na urna de outra seção) mostram o boletim da seção principal, com um aviso. No 2º
+  turno, o boletim aparece assim que o TSE o publica.
+
 ## Logs das urnas (tempo de votação)
 
 A janela **Logs das urnas** mede o tempo de votação a partir do log de cada urna:
@@ -413,6 +429,7 @@ public/index.html  página
 public/app.js      filtros, consulta e renderização
 public/tse.js      configuração das eleições, URLs e normalização do JSON do TSE
 public/brancos.*   aba de brancos e nulos por estado e cidade
+public/minhasecao.* e bu.js  votos de uma seção (leitor do boletim de urna)
 public/cadeiras.js  divisão das cadeiras dos deputados e gráfico de hemiciclo
 public/candidatos.*  mapa da votação: candidatos, partidos, vencedor, comparecimento
 public/municipio.*   ficha do município (eleição, eleitorado, Censo, saúde e renda de uma cidade)
