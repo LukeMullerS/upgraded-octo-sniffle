@@ -24,6 +24,7 @@ const el = {
 
 const fmtInt = new Intl.NumberFormat('pt-BR');
 const fmtPct = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pctTxt = (v) => `${fmtPct.format(v)}%`;
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 const estado = {
@@ -166,9 +167,40 @@ async function carregar() {
       : `Não foi possível carregar os dados: ${erro.message}`;
     el.status.textContent = 'falha na consulta';
     el.status.className = 'status falha';
+    if (erro.indisponivel && eleicaoAtual().turno === 2) avisoSegundoTurno(pedido, ele, cargo, uf, municipio);
   } finally {
     if (pedido === estado.pedido) el.atualizar.disabled = false;
   }
+}
+
+// 2º turno antes da apuração: em vez de "falha", diz quando é e quem disputa (do 1º turno).
+async function avisoSegundoTurno(pedido, ele, cargo, uf, municipio) {
+  const e = ELEICOES[ele];
+  el.status.textContent = `aguardando o 2º turno (${e.data})`;
+  el.status.className = 'status';
+  const base = `O <strong>2º turno</strong> é no domingo, <strong>${esc(e.data)}</strong>. A apuração começa depois das 17h (horário de Brasília), quando as urnas fecham em todo o país, e esta janela mostra os resultados assim que o TSE publicar o primeiro boletim (com "automático" marcado, ela atualiza sozinha).`;
+  el.erro.innerHTML = base;
+  try {
+    const primeiro = cargo.codigo === 1 ? 1 : cargo.codigo;
+    const ler = async (abr, mun = '') => normalizar(await getJson(urlResultado(BASE, e.primeiroTurno, abr, primeiro, mun)));
+    const local = await ler(uf, municipio);
+    let disputa = local.candidatos.filter((c) => c.segundoTurno);
+    if (!disputa.length && cargo.codigo === 1 && uf !== 'br') disputa = (await ler('br')).candidatos.filter((c) => c.segundoTurno);
+    if (pedido !== estado.pedido) return;
+    const nomes = (lista) => lista.map((c) => `<strong>${esc(c.nomeUrna)}</strong> (${esc(c.partido)})`).join(' e ');
+    const onde = municipio ? 'nesta cidade' : uf === 'br' ? 'no Brasil' : `em ${esc(ABRANGENCIAS[uf] ?? uf.toUpperCase())}`;
+    let extra;
+    if (disputa.length) {
+      const noLocal = disputa.map((c) => local.candidatos.find((x) => x.numero === c.numero)).filter(Boolean);
+      extra = `Disputam: ${nomes(disputa)}.${noLocal.length ? ` No 1º turno, ${onde}: ${noLocal.map((c) => `${esc(c.nomeUrna)} ${pctTxt(c.percentual)}`).join(' · ')}.` : ''}`;
+    } else {
+      const eleito = local.candidatos.find((c) => c.eleito);
+      extra = eleito
+        ? `${esc(ABRANGENCIAS[uf] ?? uf.toUpperCase())} não tem 2º turno para ${esc(cargo.nome.replace(/ — 2º turno$/, '').toLowerCase())}: ${nomes([eleito])} foi eleito(a) no 1º turno, com ${pctTxt(eleito.percentual)} dos votos válidos.`
+        : '';
+    }
+    if (extra) el.erro.innerHTML = `${base}<br><br>${extra}`;
+  } catch { /* fica só o aviso da data */ }
 }
 
 // ---------- renderização ----------

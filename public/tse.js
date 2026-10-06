@@ -51,6 +51,8 @@ export const ELEICOES = {
   // avisa que não foram publicados.
   6258: {
     codigo: '6258',
+    primeiroTurno: '6257',
+    data: '25/10/2026',
     nome: 'Eleição Geral Federal — 2º turno',
     curto: 'Federal 2º turno',
     turno: 2,
@@ -60,6 +62,8 @@ export const ELEICOES = {
   },
   6260: {
     codigo: '6260',
+    primeiroTurno: '6259',
+    data: '25/10/2026',
     nome: 'Eleições Estaduais — 2º turno',
     curto: 'Estaduais 2º turno',
     turno: 2,
