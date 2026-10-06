@@ -3,7 +3,7 @@
 // cruza as que o usuário arrastar para os campos X, Y, grupo, tamanho e matriz.
 
 import {
-  CODIGO_IBGE_UF, UF_DO_CODIGO, CARGOS, PORTES, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, coresPorPartido, criarDica, esc, fmtInt, fmtNum,
+  CODIGO_IBGE_UF, UF_DO_CODIGO, CARGOS, PORTES, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, coresPorPartido, criarDica, dadosUrnas, esc, fmtInt, fmtNum,
   nomeUf, pctSecoes, porteDe, regiaoDe, semAcento,
 } from './comum.js';
 import {
@@ -102,9 +102,9 @@ async function carregarLogs(n) {
   const mapa = new Map();
   try {
     if (n === 'estados') {
-      for (const e of (await getJson('api/urnas/brasil')).estados) mapa.set(e.uf, e.resumo);
+      for (const e of (await dadosUrnas('brasil.json', 'api/urnas/brasil')).estados) mapa.set(e.uf, e.resumo);
     } else {
-      for (const m of (await getJson('api/urnas/municipios')).municipios) {
+      for (const m of (await dadosUrnas('municipios.json', 'api/urnas/municipios')).municipios) {
         if (n === 'todas' || m.uf === n) mapa.set(m.codigo, m.resumo);
       }
     }

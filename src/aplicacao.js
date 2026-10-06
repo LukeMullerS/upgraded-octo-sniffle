@@ -160,6 +160,8 @@ async function ibgePorTse(uf) {
 async function apiLogs(res, pathname, params) {
   try {
     if (pathname === '/api/urnas/nacional') return json(res, 200, await logs.nacional());
+    // No site público (serverless) ninguém liga ou desliga a compilação dos outros.
+    if (SERVERLESS && (pathname === '/api/urnas/pausar' || pathname === '/api/urnas/retomar')) return json(res, 403, { erro: 'indisponível no site público' });
     if (pathname === '/api/urnas/pausar') { logs.pausar(); return json(res, 200, await logs.nacional()); }
     if (pathname === '/api/urnas/retomar') { await logs.retomar(); return json(res, 200, await logs.nacional()); }
     if (pathname === '/api/urnas/brasil') return json(res, 200, await logs.brasil(UFS_LOGS));
@@ -202,20 +204,20 @@ async function apiCenso(res, pathname, params) {
       return json(res, 200, [
         ...PRESETS.map(({ id, nome, tabela, grupo }) => ({ id, nome, tabela: tabela ?? null, grupo, fonte: 'IBGE' })),
         ...SERIES_IPEA.map(({ id, nome, codigo, grupo }) => ({ id: `ipea:${id}`, nome, codigo, grupo, fonte: 'IPEA' })),
-      ], true);
+      ], 'referencia');
     }
-    if (pathname === '/api/fontes/regioes') return json(res, 200, await fontes.regioes(), true);
-    if (pathname === '/api/censo/metadados') return json(res, 200, await censo.metadados(params.get('tabela')));
+    if (pathname === '/api/fontes/regioes') return json(res, 200, await fontes.regioes(), 'referencia');
+    if (pathname === '/api/censo/metadados') return json(res, 200, await censo.metadados(params.get('tabela')), 'config');
     if (pathname === '/api/censo/serie') {
       const preset = params.get('preset');
-      if (preset?.startsWith('ipea:')) return json(res, 200, await fontes.serieIpea(preset.slice(5)), true);
-      if (preset) return json(res, 200, await censo.preset(preset), true);
+      if (preset?.startsWith('ipea:')) return json(res, 200, await fontes.serieIpea(preset.slice(5)), 'referencia');
+      if (preset) return json(res, 200, await censo.preset(preset), 'referencia');
       // Categorias escolhidas vêm como c<id da classificação>=<id da categoria>.
       const classificacao = {};
       for (const [k, v] of params) if (/^c\d+$/.test(k) && /^\d+$/.test(v)) classificacao[k.slice(1)] = v;
       return json(res, 200, await censo.serie({
         tabela: params.get('tabela'), variavel: params.get('variavel'), periodo: params.get('periodo'), classificacao,
-      }));
+      }), 'referencia');
     }
     return json(res, 404, { erro: 'rota desconhecida' });
   } catch (erro) {
@@ -292,6 +294,11 @@ const POLITICAS_CACHE = {
   estavel: 'public, max-age=0, s-maxage=60, stale-while-revalidate=300',
   config: 'public, max-age=60, s-maxage=3600, stale-while-revalidate=86400',
   foto: 'public, max-age=86400, s-maxage=604800',
+  // Ainda montando (coletor lendo as cidades): todos dividem a mesma resposta parcial por 5 s,
+  // em vez de cada usuário acordar a função.
+  parcial: 'public, max-age=0, s-maxage=5, stale-while-revalidate=10',
+  // Dados de referência que não mudam (malhas, Censo, IPEA, regiões): dias no CDN.
+  referencia: 'public, max-age=3600, s-maxage=604800, stale-while-revalidate=2592000',
 };
 
 /** Política de cache de um arquivo do TSE (caminho relativo, status, corpo). Exportada para os testes. */
@@ -310,7 +317,7 @@ export function politicaTse(caminho, status, corpo) {
 
 /** Resposta das APIs de resultado: "final" com 100% das seções totalizadas. */
 function politicaResultado(d) {
-  if (!completo(d)) return false; // ainda lendo: não guarda no CDN uma resposta parcial
+  if (!completo(d)) return 'parcial';
   const r = d.consolidado ?? d.brasil;
   return r?.secoes?.total > 0 && r.secoes.totalizadas >= r.secoes.total ? 'final' : 'ao-vivo';
 }
@@ -475,7 +482,9 @@ function rotear(req, res) {
   } else if (ACOES_POST.has(pathname)) {
     return json(res, 405, { erro: 'use POST' });
   }
-  if (pathname === '/api/banco') return json(res, 200, banco.status());
+  // serverless: o banco é de cada instância da função (não diz nada ao usuário); a área de
+  // trabalho para de consultar ao ver esse aviso.
+  if (pathname === '/api/banco') return json(res, 200, { ...banco.status(), serverless: SERVERLESS });
   if (pathname === '/api/erro') {
     // Erros das páginas aparecem no terminal, para facilitar o diagnóstico.
     // Sem quebras de linha nem códigos de controle (que mexeriam no terminal), e no máximo
@@ -489,7 +498,7 @@ function rotear(req, res) {
     // Contornos para os mapas: sem uf = estados; uf=todas = municípios do Brasil; uf=sp = municípios de SP.
     const uf = searchParams.get('uf') || undefined;
     if (uf && uf !== 'todas' && !UFS[uf]) return json(res, 400, { erro: 'UF inválida' });
-    return mapas.malha({ uf }).then((g) => json(res, 200, g, true), (e) => json(res, 502, { erro: `falha ao obter o mapa do IBGE: ${e.message}` }));
+    return mapas.malha({ uf }).then((g) => json(res, 200, g, 'referencia'), (e) => json(res, 502, { erro: `falha ao obter o mapa do IBGE: ${e.message}` }));
   }
   if (pathname.startsWith('/api/censo/') || pathname.startsWith('/api/fontes/')) return apiCenso(res, pathname, searchParams);
   if (pathname.startsWith('/api/urnas/')) return apiLogs(res, pathname, searchParams);

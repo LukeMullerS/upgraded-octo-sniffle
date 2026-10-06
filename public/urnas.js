@@ -4,7 +4,7 @@
 // interativo e cruzados com brancos e nulos do resultado oficial.
 
 import {
-  CARGOS, CODIGO_IBGE_UF, UF_DO_CODIGO, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, criarDica, esc,
+  CARGOS, CODIGO_IBGE_UF, UF_DO_CODIGO, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, criarDica, dadosUrnas, esc,
   fmtInt, fmtNum, nomeUf, pct, semAcento,
 } from './comum.js';
 import { UFS } from './tse.js';
@@ -55,6 +55,18 @@ async function getJson(url) {
   return d;
 }
 
+// No site público os logs vêm da base estática (public/urnas), a mesma para todos: nenhum
+// usuário faz o servidor baixar logs do TSE. Num servidor local, a compilação ao vivo vem
+// primeiro e a base estática cobre o que ela ainda não leu.
+const LOCAL = /^(localhost|127\.|192\.168\.|10\.|\[::1\])/.test(location.hostname);
+const temDados = (d) => Boolean(d?.lidas || d?.progresso?.lidas || d?.estados?.length || d?.secoes?.length);
+async function lerLogs(arquivo, api) {
+  if (!LOCAL) return dadosUrnas(arquivo, api);
+  const vivo = await getJson(api).catch(() => null);
+  if (temDados(vivo) || vivo?.ativo) return vivo;
+  return dadosUrnas(arquivo, api).catch(() => vivo);
+}
+
 const cargoAtual = () => cargoPorValor(el.cargo.value) ?? CARGOS[0];
 const metricaBn = () => el.metricaBn.value;
 const indicador = () => INDICADORES[el.indicador.value] ?? INDICADORES.cabine;
@@ -91,7 +103,7 @@ function gravarHash() {
 
 async function atualizarNacional() {
   try {
-    estado.nacional = await getJson('api/urnas/nacional');
+    estado.nacional = await lerLogs('nacional.json', 'api/urnas/nacional');
   } catch {
     estado.nacional = null;
   }
@@ -115,7 +127,10 @@ function renderizarNacional() {
   el.textoNacional.textContent = n.total
     ? `das seções lidas: ${fmtInt.format(n.lidas)} de ${fmtInt.format(n.total)}${conhecidas < n.porUf.length ? ` (lista de seções de ${conhecidas} de ${n.porUf.length} UFs)` : ''}`
     : 'aguardando a lista de seções do TSE…';
-  el.estadoCompilacao.textContent = !n.ativo ? 'leitura automática desligada neste servidor — escolha um município e use "Ler este município agora"'
+  // A leitura sob demanda ("Ler este município agora") só funciona num servidor local: no
+  // Vercel a função não continua depois da resposta (ver renderizar).
+  el.estadoCompilacao.textContent = n.retrato ? `base compilada em ${new Date(n.retrato.geradoEm).toLocaleString('pt-BR')} — a mesma para todos os usuários`
+    : !n.ativo ? (LOCAL ? 'leitura automática desligada neste servidor — escolha um município e use "Ler este município agora"' : 'base dos logs ainda não compilada para o site público')
     : n.pausado ? 'pausada'
       : n.ufAtual ? `lendo ${nomeUf(n.ufAtual)}…`
         : n.proximaEmSegundos !== null ? `próxima passada em ${Math.max(1, Math.ceil(n.proximaEmSegundos / 60))} min`
@@ -160,15 +175,17 @@ async function carregar({ coletar = false, munInicial = null } = {}) {
     let bn = null;
     atualizarNacional();
     if (!uf) {
-      [logs, bn] = await Promise.all([getJson('api/urnas/brasil'), carregarEstados(cargoAtual(), { fundo: true }).catch(() => null)]);
+      [logs, bn] = await Promise.all([lerLogs('brasil.json', 'api/urnas/brasil'), carregarEstados(cargoAtual(), { fundo: true }).catch(() => null)]);
       logs.nivel = 'brasil';
     } else {
-      const est = await getJson(`api/urnas/estado?uf=${uf}`);
+      const est = await lerLogs(`estado-${uf}.json`, `api/urnas/estado?uf=${uf}`);
       if (pedido !== estado.pedido) return;
       preencherMunicipios(est, munInicial ?? el.mun.value);
       const mun = el.mun.value;
       if (mun) {
-        logs = await getJson(`api/urnas/municipio?uf=${uf}&mun=${mun}${coletar ? '&coletar=1' : ''}`);
+        logs = coletar
+          ? await getJson(`api/urnas/municipio?uf=${uf}&mun=${mun}&coletar=1`)
+          : await lerLogs(`municipio/${uf}/${mun}.json`, `api/urnas/municipio?uf=${uf}&mun=${mun}`);
         logs.nivel = 'municipio';
         logs.estadoUf = est;
       } else {
@@ -221,7 +238,7 @@ function renderizar() {
   const r = d.resumo ?? null;
   const nomeLocal = d.nivel === 'brasil' ? 'Brasil' : d.nivel === 'estado' ? nomeUf(el.uf.value) : `${d.nome ?? d.municipio} · ${el.uf.value.toUpperCase()}`;
   el.titulo.textContent = `Logs das urnas · ${nomeLocal}`;
-  el.lerMunicipio.hidden = d.nivel !== 'municipio';
+  el.lerMunicipio.hidden = d.nivel !== 'municipio' || !LOCAL;
 
   // Progresso do local escolhido.
   let lidas = 0;

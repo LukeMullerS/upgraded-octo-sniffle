@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { politicaTse } from '../src/aplicacao.js';
 import { cargosDoTurno, lerArgumentos } from '../scripts/atualizar-resultados.mjs';
+import { lerArgumentos as argumentosUrnas } from '../scripts/atualizar-urnas.mjs';
 
 const arq = 'ele2026/6257/dados/br/br-c0001-e006257-u.json';
 const corpo = (st, ts) => Buffer.from(JSON.stringify({ s: { st: String(st), ts: String(ts) } }));
@@ -25,4 +26,15 @@ test('script de retratos: turnos e argumentos', () => {
   assert.deepEqual(lerArgumentos(['6257:1', '--tudo', '--max-minutos=8']).cargos, ['6257:1']);
   assert.throws(() => lerArgumentos(['--turno', '3']));
   assert.throws(() => lerArgumentos(['--qualquer']));
+});
+
+test('script dos logs das urnas: UFs, amostra e etapas', () => {
+  const op = argumentosUrnas(['--ufs=RR, ap,xx', '--amostra=10', '--so-baixar']);
+  assert.deepEqual(op.ufs, ['rr', 'ap']);
+  assert.equal(op.amostra, 10);
+  assert.equal(op.soBaixar, true);
+  assert.equal(argumentosUrnas([]).ufs.length, 28);
+  assert.equal(argumentosUrnas(['--so-gerar']).soGerar, true);
+  assert.throws(() => argumentosUrnas(['--ufs=xx']));
+  assert.throws(() => argumentosUrnas(['--outra']));
 });

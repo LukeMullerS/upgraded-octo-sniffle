@@ -148,6 +148,13 @@ A janela **Logs das urnas** mede o tempo de votação a partir do log de cada ur
   abertura/encerramento ou % brancos e nulos do resultado.
 - Variáveis: `LOGS_NACIONAL=0` desliga a compilação automática; `LOGS_CONCORRENCIA` (padrão 6) define quantos logs
   são baixados ao mesmo tempo.
+- **No site público (Vercel)** não há processo contínuo, e uma função não pode baixar logs depois de responder: os
+  logs vêm de uma **base estática** em `public/urnas` (Brasil, cada UF, cada cidade e a lista para o Explorador, no
+  formato das rotas `/api/urnas/*`), a mesma para todos os usuários. Ela é gerada por
+  `node scripts/atualizar-urnas.mjs [--ufs=rr,ap] [--amostra=N]` (retoma de onde parou; `--amostra` lê até N seções
+  por cidade) ou pelo workflow **Logs das urnas** do GitHub Actions (Run workflow; um job por UF em paralelo, baixando
+  direto do TSE, e um último que junta e grava no repositório). Num servidor local, a compilação ao vivo continua
+  valendo e a base estática cobre o que ela ainda não leu; "Ler este município agora" só aparece no servidor local.
 - O 7z é aberto por um leitor próprio em JavaScript (`src/sete-zip.js`, LZMA/LZMA2), sem precisar do 7-Zip.
 - No Explorador, as variáveis do grupo "Logs das urnas" (tempo médio na cabine, mediana, atendimento, % biometria…)
   aparecem para os locais com logs lidos.

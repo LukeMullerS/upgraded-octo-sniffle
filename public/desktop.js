@@ -353,12 +353,23 @@ $('rapido').addEventListener('click', (ev) => {
   else if (acao) abrir(acao);
 });
 
-// Indicador do banco na bandeja: pisca enquanto há arquivos chegando do TSE.
+// Indicador do banco na bandeja: pisca enquanto há arquivos chegando do TSE. No site público
+// (serverless) os dados vêm do CDN e o banco é de cada instância da função: consulta uma vez só,
+// para não multiplicar pedidos ao servidor por todos os usuários.
 let ultimoBanco = null;
+let timerBanco = null;
 async function consultarBanco() {
   try {
     const r = await fetch('api/banco', { cache: 'no-store' });
     ultimoBanco = await r.json();
+    if (ultimoBanco.serverless) {
+      clearInterval(timerBanco);
+      $('banco').innerHTML = icone('banco', 16);
+      $('banco').classList.remove('ativo');
+      $('banco').title = 'Banco do TSE: dados servidos pelo CDN, a mesma cópia para todos (atualizada a cada 20 s durante a apuração)';
+      janelas.forEach((j) => j.pintarBanco?.());
+      return;
+    }
     const ocupados = ultimoBanco.emAndamento + ultimoBanco.naFila;
     $('banco').innerHTML = `${icone('banco', 16)}${ocupados ? `<span>${ocupados}</span>` : ''}`;
     $('banco').classList.toggle('ativo', ocupados > 0);
@@ -372,7 +383,7 @@ async function consultarBanco() {
 }
 $('banco').addEventListener('click', () => abrir('banco'));
 consultarBanco();
-setInterval(consultarBanco, 3_000);
+timerBanco = setInterval(() => { if (!document.hidden) consultarBanco(); }, 3_000);
 
 function relogio() {
   const agora = new Date();

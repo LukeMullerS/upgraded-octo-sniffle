@@ -103,6 +103,25 @@ export async function carregarMunicipios(cargo, uf) {
   return getApi('municipios', { ele: cargo.eleicao, cargo: cargo.codigo, uf });
 }
 
+// Logs das urnas: base estática (public/urnas, gerada por scripts/atualizar-urnas.mjs), a mesma
+// para todos os usuários; sem ela (servidor local compilando ao vivo), as rotas /api/urnas/*.
+const urnasEstaticas = new Map();
+async function jsonOuNulo(url) {
+  const r = await fetch(url);
+  return r.ok ? r.json() : null;
+}
+/** `arquivo` em public/urnas (ex.: "brasil.json"); `api` = rota usada quando o arquivo não existe. */
+export async function dadosUrnas(arquivo, api) {
+  if (!urnasEstaticas.has(arquivo)) urnasEstaticas.set(arquivo, jsonOuNulo(`urnas/${arquivo}`).catch(() => null));
+  const estatico = await urnasEstaticas.get(arquivo);
+  if (estatico) return estatico;
+  urnasEstaticas.delete(arquivo);
+  const res = await fetch(api, { cache: 'no-store' });
+  const d = await res.json();
+  if (!res.ok) throw new Error(d.erro || `HTTP ${res.status}`);
+  return d;
+}
+
 /** Gera e baixa um CSV (separador ";" e vírgula decimal, como o Excel em português espera), depois da janela "Como citar". */
 export function baixarCsv(nomeArquivo, colunas, linhas) {
   antesDeExportar(() => gerarCsv(nomeArquivo, colunas, linhas));

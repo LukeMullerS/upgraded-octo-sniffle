@@ -1,0 +1,182 @@
+#!/usr/bin/env node
+// Base estática dos logs das urnas (public/urnas): tempo de votação, biometria e horários,
+// compilados uma vez e servidos a todos os usuários como arquivos, sem que o site precise
+// baixar e abrir logs do TSE a cada visita (o que uma função serverless nem consegue fazer).
+//
+// Lê o log de cada seção (aux.json → .logjez → logd.dat → resumo), guarda o resumo por cidade em
+// dados/urnas-retrato/{uf}/{mun}.json (retoma de onde parou) e gera, no formato das rotas
+// /api/urnas/*:
+//   public/urnas/nacional.json         progresso (seções lidas e total por UF)
+//   public/urnas/brasil.json           agregado por UF e do Brasil
+//   public/urnas/estado-{uf}.json      cidades da UF com o agregado de cada uma
+//   public/urnas/municipios.json       resumo de todas as cidades lidas (Análises e mapas)
+//   public/urnas/municipio/{uf}/{mun}.json   seções da cidade
+//
+// Uso:
+//   node scripts/atualizar-urnas.mjs [--ufs=rr,ap] [--amostra=N] [--concorrencia=6] [--so-gerar]
+//   --amostra=N   lê até N seções por cidade, espalhadas (padrão: todas)
+//   --so-gerar    não baixa nada: só gera public/urnas a partir de dados/urnas-retrato
+//   --so-baixar   só baixa (para dados/urnas-retrato), sem gerar public/urnas
+//   (no GitHub Actions, cada UF roda num job e o último junta tudo com --so-gerar)
+// Variáveis: TSE_BASE (padrão https://resultados.tse.jus.br/oficial).
+
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { amostrar, criarColetorLogs, ORDEM_UFS } from '../src/logs.js';
+import { acumular, finalizar, juntar, novoAcumulador } from '../src/log-urna.js';
+import { lerMunicipios } from '../public/tse.js';
+
+const BASE = (process.env.TSE_BASE || 'https://resultados.tse.jus.br/oficial').replace(/\/$/, '');
+const RAIZ = new URL('..', import.meta.url).pathname;
+const CACHE = join(RAIZ, 'dados', 'urnas-retrato');
+const SAIDA = join(RAIZ, 'public', 'urnas');
+const CABECALHOS = { 'User-Agent': 'Mozilla/5.0 (VotoLab)' };
+const PLEITO = '3220';
+
+export function lerArgumentos(argv) {
+  const op = { ufs: ORDEM_UFS, amostra: 0, concorrencia: 6, soGerar: false, soBaixar: false };
+  for (const a of argv) {
+    if (a.startsWith('--ufs=')) op.ufs = a.slice(6).split(',').map((u) => u.trim().toLowerCase()).filter((u) => ORDEM_UFS.includes(u));
+    else if (a.startsWith('--amostra=')) op.amostra = Math.max(0, Number(a.slice(10)) || 0);
+    else if (a.startsWith('--concorrencia=')) op.concorrencia = Math.max(1, Number(a.slice(15)) || 6);
+    else if (a === '--so-gerar') op.soGerar = true;
+    else if (a === '--so-baixar') op.soBaixar = true;
+    else throw new Error(`argumento desconhecido: ${a}`);
+  }
+  if (!op.ufs.length) throw new Error('nenhuma UF válida em --ufs');
+  return op;
+}
+
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** GET com novas tentativas (429/5xx); null em 404/403. */
+async function baixar(caminho, binario) {
+  for (let i = 0; i < 6; i += 1) {
+    try {
+      const r = await fetch(`${BASE}/${caminho}`, { headers: CABECALHOS, signal: AbortSignal.timeout(60_000) });
+      if (r.status === 404 || r.status === 403) return null;
+      if (r.status === 429 || r.status >= 500) { await espera((Number(r.headers.get('retry-after')) || 10) * 1000); continue; }
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return binario ? Buffer.from(await r.arrayBuffer()) : await r.json();
+    } catch (erro) {
+      if (i === 5) throw erro;
+      await espera(1500 * (i + 1));
+    }
+  }
+  return null;
+}
+
+async function lerJson(arquivo, padrao) {
+  try { return JSON.parse(await readFile(arquivo, 'utf8')); } catch { return padrao; }
+}
+
+async function emLotes(itens, n, fn) {
+  let i = 0;
+  await Promise.all(Array.from({ length: n }, async () => { while (i < itens.length) { const k = i++; await fn(itens[k]); } }));
+}
+
+const semDetalhe = ({ hist, porHora, ...resto }) => resto;
+
+/** Baixa as seções que faltam de cada cidade das UFs pedidas. */
+async function coletar(op) {
+  const coletor = criarColetorLogs({
+    buscarJson: (c) => baixar(c, false), buscarBinario: (c) => baixar(c, true), pleito: PLEITO, pasta: join(CACHE, '.coletor'), automatico: false,
+  });
+  for (const uf of op.ufs) {
+    let municipios;
+    try { municipios = await coletor.config(uf); } catch (erro) { console.log(`${uf}: ${erro.message}`); continue; }
+    await mkdir(join(CACHE, uf), { recursive: true });
+    await writeFile(join(CACHE, uf, '_config.json'), JSON.stringify(municipios.map((m) => ({ codigo: m.codigo, nome: m.nome, total: m.secoes.length }))));
+    let lidasUf = 0;
+    let novasUf = 0;
+    for (const m of municipios) {
+      const arquivo = join(CACHE, uf, `${m.codigo}.json`);
+      const salvo = await lerJson(arquivo, { secoes: {}, faltam: [] });
+      const alvo = op.amostra ? amostrar(m.secoes, op.amostra) : m.secoes;
+      const pendentes = alvo.filter((s) => !salvo.secoes[`${s.zona}-${s.secao}`]);
+      let novas = 0;
+      await emLotes(pendentes, op.concorrencia, async (s) => {
+        try {
+          const r = await coletor.lerSecao(uf, m.codigo, s);
+          if (r) { salvo.secoes[`${s.zona}-${s.secao}`] = r; novas += 1; }
+        } catch (erro) {
+          console.log(`  ${uf}/${m.codigo} ${s.zona}-${s.secao}: ${erro.message}`);
+        }
+      });
+      if (novas) await writeFile(arquivo, JSON.stringify({ uf, municipio: m.codigo, nome: m.nome, total: m.secoes.length, secoes: salvo.secoes }));
+      lidasUf += Object.keys(salvo.secoes).length;
+      novasUf += novas;
+    }
+    console.log(`${uf}: ${lidasUf} seções lidas (${novasUf} novas) em ${municipios.length} cidades`);
+  }
+}
+
+/** Código TSE → IBGE das cidades (lista de municípios da eleição federal). */
+async function ibgePorTse() {
+  const bruto = await baixar('ele2026/6257/config/mun-e006257-cm.json', false).catch(() => null);
+  const mapa = new Map();
+  for (const [uf, lista] of Object.entries(bruto ? lerMunicipios(bruto) : {})) for (const m of lista) mapa.set(`${uf}/${m.codigo}`, m.ibge ?? null);
+  return mapa;
+}
+
+/** Gera public/urnas a partir de dados/urnas-retrato (todas as UFs já baixadas). */
+async function gerar() {
+  const ibge = await ibgePorTse();
+  await rm(join(SAIDA, 'municipio'), { recursive: true, force: true });
+  await mkdir(join(SAIDA, 'municipio'), { recursive: true });
+  const totalBr = novoAcumulador();
+  const estados = [];
+  const porUf = [];
+  const todos = [];
+  const geradoEm = new Date().toISOString();
+  for (const uf of ORDEM_UFS) {
+    const config = await lerJson(join(CACHE, uf, '_config.json'), null);
+    if (!config) { porUf.push({ uf, total: null, lidas: 0 }); continue; }
+    const accUf = novoAcumulador();
+    const cidades = [];
+    let lidasUf = 0;
+    for (const m of config) {
+      const salvo = await lerJson(join(CACHE, uf, `${m.codigo}.json`), null);
+      const lista = Object.values(salvo?.secoes ?? {}).sort((a, b) => `${a.zona}${a.secao}`.localeCompare(`${b.zona}${b.secao}`));
+      const acc = novoAcumulador();
+      for (const r of lista) acumular(acc, r);
+      juntar(accUf, acc);
+      lidasUf += lista.length;
+      const resumo = acc.secoes ? finalizar(acc) : null;
+      cidades.push({ codigo: m.codigo, nome: m.nome, totalSecoes: m.total, lidas: lista.length, resumo: resumo ? semDetalhe(resumo) : null, ibge: ibge.get(`${uf}/${m.codigo}`) ?? null });
+      if (lista.length) {
+        todos.push({ uf, codigo: m.codigo, lidas: lista.length, resumo: semDetalhe(resumo), ibge: ibge.get(`${uf}/${m.codigo}`) ?? null });
+        await mkdir(join(SAIDA, 'municipio', uf), { recursive: true });
+        await writeFile(join(SAIDA, 'municipio', uf, `${m.codigo}.json`), JSON.stringify({
+          uf, municipio: m.codigo, nome: m.nome, totalSecoes: m.total,
+          progresso: { lidas: lista.length, total: m.total, lendo: false }, resumo, secoes: lista.map(semDetalhe), retrato: { geradoEm },
+        }));
+      }
+    }
+    const total = config.reduce((t, m) => t + m.total, 0);
+    const progresso = { uf, total, lidas: lidasUf };
+    porUf.push(progresso);
+    await writeFile(join(SAIDA, `estado-${uf}.json`), JSON.stringify({ uf, progresso, resumo: finalizar(accUf), municipios: cidades, retrato: { geradoEm } }));
+    if (accUf.secoes) {
+      juntar(totalBr, accUf);
+      estados.push({ uf, resumo: semDetalhe(finalizar(accUf)) });
+    }
+  }
+  const total = porUf.reduce((t, u) => t + (u.total ?? 0), 0);
+  const lidas = porUf.reduce((t, u) => t + u.lidas, 0);
+  await writeFile(join(SAIDA, 'brasil.json'), JSON.stringify({ estados, resumo: finalizar(totalBr), retrato: { geradoEm } }));
+  await writeFile(join(SAIDA, 'municipios.json'), JSON.stringify({ municipios: todos, retrato: { geradoEm } }));
+  await writeFile(join(SAIDA, 'nacional.json'), JSON.stringify({
+    ativo: false, pausado: false, lendo: false, ufAtual: null, passadas: 0, novasNaPassada: 0, erros: 0, ultimoErro: null,
+    ultimaPassada: geradoEm, proximaEmSegundos: null, total, lidas, porUf, retrato: { geradoEm },
+  }));
+  console.log(`public/urnas gerada · ${lidas} de ${total} seções · ${todos.length} cidades`);
+}
+
+async function principal() {
+  const op = lerArgumentos(process.argv.slice(2));
+  if (!op.soGerar) await coletar(op);
+  if (!op.soBaixar) await gerar();
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) await principal();
