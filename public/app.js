@@ -27,6 +27,7 @@ const fmtPct = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximu
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 const estado = {
+  pedido: 0,
   dados: null,
   limite: PAGINA,
   municipios: {}, // eleição → { uf → [{codigo, nome}] }
@@ -115,6 +116,8 @@ async function descobrirCargo(ele, uf, municipio) {
 }
 
 async function carregar() {
+  // Consultas se sobrepõem (atualização automática, filtros, botão): só a mais recente vale.
+  const pedido = ++estado.pedido;
   const ele = el.eleicao.value;
   const cargo = cargoAtual();
   const uf = el.abrangencia.value;
@@ -141,6 +144,7 @@ async function carregar() {
     }
 
     const bruto = await getJson(urlResultado(BASE, ele, uf, codigo, municipio));
+    if (pedido !== estado.pedido) return;
     const dados = normalizar(bruto);
     // Foto do presidente fica em "br"; demais cargos, na UF.
     dados.fotoAbr = cargo.codigo === 1 ? 'br' : uf;
@@ -153,6 +157,7 @@ async function carregar() {
     el.status.textContent = `consultado às ${new Date().toLocaleTimeString('pt-BR')}`;
     el.status.className = 'status ok';
   } catch (erro) {
+    if (pedido !== estado.pedido) return;
     estado.dados = null;
     limpar();
     el.erro.hidden = false;
@@ -162,7 +167,7 @@ async function carregar() {
     el.status.textContent = 'falha na consulta';
     el.status.className = 'status falha';
   } finally {
-    el.atualizar.disabled = false;
+    if (pedido === estado.pedido) el.atualizar.disabled = false;
   }
 }
 

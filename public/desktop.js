@@ -126,8 +126,9 @@ function abrir(app, opcoes = {}) {
   const h = Math.min(opcoes.h ?? a.h, lim.h - 20);
   const j = {
     id: proximoId++, app,
-    x: opcoes.x ?? Math.max(4, Math.min(lim.w - w - 4, 70 + (n % 8) * 26 + (a.fixa ? (lim.w - w) / 2 - 70 : 0))),
-    y: opcoes.y ?? Math.max(4, Math.min(lim.h - h - 4, 20 + (n % 8) * 26 + (a.fixa ? (lim.h - h) / 2 - 40 : 0))),
+    // Posição guardada de uma tela maior não pode deixar a janela fora da área visível.
+    x: Math.max(0, Math.min(lim.w - 80, opcoes.x ?? Math.max(4, Math.min(lim.w - w - 4, 70 + (n % 8) * 26 + (a.fixa ? (lim.w - w) / 2 - 70 : 0))))),
+    y: Math.max(0, Math.min(lim.h - 40, opcoes.y ?? Math.max(4, Math.min(lim.h - h - 4, 20 + (n % 8) * 26 + (a.fixa ? (lim.h - h) / 2 - 40 : 0))))),
     w, h, max: opcoes.max ?? (estreita() && !a.fixa), min: false, hash: opcoes.hash ?? '',
   };
   j.el = document.createElement('section');
@@ -708,7 +709,17 @@ addEventListener('message', (ev) => {
   if (ev.data?.tipo === 'hash') salvar();
 });
 
-addEventListener('resize', () => janelas.forEach((j) => j.max && aplicarGeometria(j)));
+addEventListener('resize', () => {
+  const lim = limites();
+  for (const j of janelas) {
+    if (!j.max) {
+      // A janela que ficou fora da tela (ao girar o celular, diminuir o navegador…) volta.
+      j.x = Math.max(0, Math.min(lim.w - 80, j.x));
+      j.y = Math.max(0, Math.min(lim.h - 40, j.y));
+    }
+    aplicarGeometria(j);
+  }
+});
 addEventListener('pagehide', salvar);
 setInterval(salvar, 15_000);
 

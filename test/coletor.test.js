@@ -205,3 +205,15 @@ test('sob demanda (serverless): a consulta faz a passada e espera por ela, sem t
   const r2 = await coletor.municipios('6257', 1, 'pe', { esperarMs: 5_000 });
   assert.equal(r2.consolidado.brancos, 35);
 });
+
+test('cargos estaduais no Brasil todo: candidatos de UFs diferentes não se somam', async () => {
+  const cand = (n, nome, vap) => ({ ...resultado({ tv: String(vap), c: String(vap) }), v: { tv: String(vap), vv: String(vap), vb: '0', tvn: '0' },
+    carg: [{ agr: [{ par: [{ sg: 'X', cand: [{ n, nmu: nome, vap: String(vap) }] }] }] }] });
+  const arq = (uf) => `ele2026/6259/dados/${uf}/${uf}-c0003-e006259-u.json`;
+  const tse = tseFalso({ [arq('sp')]: cand('13', 'ANA', 100), [arq('ba')]: cand('13', 'BIA', 50) });
+  const { coletor } = coletorDeTeste(tse);
+  const r = await coletor.estados('6259', 3, ['sp', 'ba']);
+  assert.deepEqual(r.brasil.cand, { 'sp:13': 100, 'ba:13': 50 });
+  assert.equal(r.nomes['sp:13'][0], 'ANA · SP');
+  assert.equal(r.nomes['ba:13'][0], 'BIA · BA');
+});

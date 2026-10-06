@@ -92,16 +92,35 @@ function gravarHash() {
   if (hash === location.hash) return;
   history.replaceState(null, '', hash);
   // Painéis gerais abertos na área de trabalho seguem os mesmos filtros.
+  if (silenciarPrimeira) { silenciarPrimeira = false; return; }
   if (!aplicandoRemoto) canal?.postMessage({ hash });
 }
 
 // Janelas dos painéis gerais (cada cartão desta página numa janela) compartilham os filtros.
 let aplicandoRemoto = false;
 const canal = 'BroadcastChannel' in window ? new BroadcastChannel('votolab:geral') : null;
+// Janela aberta sem filtros no link: pede o estado às outras e não transmite os padrões.
+let silenciarPrimeira = !location.hash.slice(1);
+if (silenciarPrimeira) canal?.postMessage({ pedir: true });
 canal?.addEventListener('message', (ev) => {
+  if (ev.data?.pedir) {
+    if (location.hash.slice(1) && !silenciarPrimeira && estado.dados) canal.postMessage({ hash: location.hash });
+    return;
+  }
   const hash = ev.data?.hash;
   if (!hash || hash === location.hash) return;
+  silenciarPrimeira = false;
   const p = new URLSearchParams(hash.slice(1));
+  if (!estado.dados) {
+    // Ainda carregando: guarda a escolha para quando os dados chegarem.
+    history.replaceState(null, '', hash);
+    if (cargoPorValor(p.get('cargo'))) el.cargo.value = p.get('cargo');
+    preencherNiveis(p.get('nivel') ?? nivel());
+    inicial.ver = p.get('ver') ?? '';
+    inicial.comparar = p.get('comparar') ?? '';
+    carregar();
+    return;
+  }
   aplicandoRemoto = true;
   try {
     history.replaceState(null, '', hash);
@@ -221,6 +240,7 @@ function kpi(rotulo, v, detalhe = '') {
 }
 
 function renderizar() {
+  if (!estado.dados) return;
   const c = cargoAtual();
   const r = estado.consolidado;
   const n = nivel();

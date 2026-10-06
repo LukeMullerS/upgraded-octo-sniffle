@@ -27,7 +27,11 @@ const dica = criarDica(el.dica);
 const estado = { logs: null, bn: null, nacional: null, linhas: [], limite: PAGINA, pedido: 0, timer: null, pontos: [], ordem: null };
 
 /** 64 → "1:04" (minutos:segundos). */
-const mmss = (s) => (s === null || s === undefined || !Number.isFinite(s) ? '—' : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`);
+const mmss = (s) => {
+  if (s === null || s === undefined || !Number.isFinite(s)) return '—';
+  const t = Math.round(s); // 59,6 s → 1:00 (e não "0:60")
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+};
 /** 28801 → "08:00" (hora do dia). */
 const hhmm = (s) => (s === null || s === undefined || !Number.isFinite(s) ? '—' : `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}`);
 
@@ -305,7 +309,7 @@ function montarLinhas() {
   else for (const m of estado.bn?.municipios ?? []) bnPor.set(m.codigo, m);
   const fonte = d.nivel === 'brasil'
     ? d.estados.map((e) => ({ id: e.uf, nome: nomeUf(e.uf), resumo: e.resumo, lidas: e.resumo.secoes, cod: CODIGO_IBGE_UF[e.uf] ?? null }))
-    : d.municipios.filter((m) => m.lidas).map((m) => ({ id: m.codigo, nome: m.nome, resumo: m.resumo, lidas: m.lidas, total: m.totalSecoes, cod: m.ibge ?? null }));
+    : d.municipios.filter((m) => m.lidas && m.resumo).map((m) => ({ id: m.codigo, nome: m.nome, resumo: m.resumo, lidas: m.lidas, total: m.totalSecoes, cod: m.ibge ?? null }));
   estado.linhas = fonte.map((f) => {
     const b = bnPor.get(f.id);
     const bnValor = b && METRICAS[chave].denominador(b) > 0 ? valorMetrica(b, chave) : null;

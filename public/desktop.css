@@ -199,3 +199,11 @@ legend { padding: 0 3px; }
 .pasta-grupos .item-pasta { height: 80px; }
 .pasta-grupo { grid-column: 1 / -1; margin: 6px 0 0; padding-bottom: 2px; font-size: 11px; font-weight: bold; border-bottom: 1px solid #808080; box-shadow: 0 1px #fff; }
 .pasta-grupo:first-child { margin-top: 0; }
+
+/* Celular: submenus do Iniciar abrem empilhados (à direita sairiam da tela); arrastar e
+   redimensionar janelas por toque sem o navegador tomar o gesto. */
+@media (max-width: 700px) {
+  .menu .sub { position: static; min-width: 0; box-shadow: inset 2px 0 var(--cinza-escuro); margin-left: 10px; }
+  .menu-iniciar { max-height: calc(100vh - 34px); overflow-y: auto; }
+}
+.titulo, .redim { touch-action: none; }

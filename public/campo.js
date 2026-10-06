@@ -166,7 +166,7 @@ export function iniciarCampo(raiz) {
     if (!b || fim) return;
     if (ev.button === 0) rosto.textContent = '😮';
     if (ev.pointerType !== 'mouse') {
-      toque = { i: Number(b.dataset.i), longo: false, timer: setTimeout(() => { toque.longo = true; marcar(toque.i); navigator.vibrate?.(30); }, 450) };
+      toque = { i: Number(b.dataset.i), longo: false, timer: setTimeout(() => { toque.longo = true; ultimoToqueLongo = Date.now(); marcar(toque.i); navigator.vibrate?.(30); }, 450) };
     }
   });
   grade.addEventListener('pointerup', (ev) => {
@@ -182,8 +182,11 @@ export function iniciarCampo(raiz) {
     if (b && ev.button === 0) clicar(Number(b.dataset.i));
   });
   grade.addEventListener('pointercancel', () => { if (toque) clearTimeout(toque.timer); toque = null; });
+  let ultimoToqueLongo = 0;
   grade.addEventListener('contextmenu', (ev) => {
     ev.preventDefault();
+    // No celular o toque longo já pôs a bandeira; o menu de contexto que vem junto não tira.
+    if (Date.now() - ultimoToqueLongo < 1000) return;
     const b = ev.target.closest('[data-i]');
     if (b) marcar(Number(b.dataset.i));
   });

@@ -40,12 +40,23 @@ const resumoComMarca = (bruto) => ({ marca: marca(bruto.s, bruto.e), ...resumoVo
 // "resumo2": inclui candidatos e partidos (resumos antigos guardados em disco são ignorados).
 const RESUMO = { processar: resumoComMarca, nome: 'resumo2' };
 
-/** Tira os nomes dos candidatos de cada local e junta num catálogo único (resposta menor). */
-function separarNomes(lista) {
+/**
+ * Tira os nomes dos candidatos de cada local e junta num catálogo único (resposta menor).
+ * porUf: cargos estaduais (governador, senador, deputados) vistos no Brasil todo — o nº 13 de
+ * SP e o de BA são pessoas diferentes, então a chave vira "uf:número" e o nome ganha a UF.
+ */
+function separarNomes(lista, porUf = false) {
   const nomes = {};
   const locais = lista.map(({ marca: _m, nomes: n, ...r }) => {
-    Object.assign(nomes, n);
-    return r;
+    if (!porUf || !r.uf) {
+      Object.assign(nomes, n);
+      return r;
+    }
+    const uf = r.uf;
+    const cand = {};
+    for (const [num, v] of Object.entries(r.cand ?? {})) cand[`${uf}:${num}`] = v;
+    for (const [num, x] of Object.entries(n ?? {})) nomes[`${uf}:${num}`] = [`${x[0]} · ${uf.toUpperCase()}`, x[1], x[2]];
+    return { ...r, cand };
   });
   return { locais, nomes };
 }
@@ -168,8 +179,8 @@ export function criarColetor({
     for (const a of alvos) a.primeira = null;
   }
 
-  function retrato(ele, cargo, uf, lista) {
-    const { locais: lidos, nomes } = separarNomes(lista.flatMap((a) => [...a.municipios.values()]));
+  function retrato(ele, cargo, uf, lista, porUf = false) {
+    const { locais: lidos, nomes } = separarNomes(lista.flatMap((a) => [...a.municipios.values()]), porUf);
     const passadas = lista.map((a) => a.ultimaPassada).filter(Boolean);
     const ultima = passadas.length ? Math.min(...passadas) : null;
     const erros = lista.map((a) => a.erro).filter(Boolean);
@@ -198,10 +209,10 @@ export function criarColetor({
   }
 
   /** Todas as cidades de várias UFs (o Brasil inteiro): cada UF é acompanhada como em `municipios`. */
-  async function todas(ele, cargo, ufs, { esperarMs = 4_000 } = {}) {
+  async function todas(ele, cargo, ufs, { esperarMs = 4_000, porUf = false } = {}) {
     const lista = ufs.map((uf) => acompanhar(ele, cargo, uf));
     await esperarPrimeira(lista, esperarMs);
-    return retrato(ele, cargo, 'todas', lista);
+    return retrato(ele, cargo, 'todas', lista, porUf);
   }
 
   /**
@@ -220,7 +231,8 @@ export function criarColetor({
       const uf = ufs[i];
       if (r.valor) brutos.push({ uf, nome: UFS[uf] ?? (uf === 'zz' ? 'Exterior' : uf), ...r.valor });
     });
-    const { locais: lista, nomes } = separarNomes(brutos);
+    // Sem arquivo do Brasil (cargos estaduais): candidatos de UFs diferentes não se somam.
+    const { locais: lista, nomes } = separarNomes(brutos, !abrangencias.includes('br'));
     let brasil = null;
     if (br?.valor) {
       const { marca: _m, nomes: n, ...resumo } = br.valor;

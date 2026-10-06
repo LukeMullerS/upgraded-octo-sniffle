@@ -82,30 +82,28 @@ function gravarHash() {
   if (hash === location.hash) return;
   history.replaceState(null, '', hash);
   // Outras janelas do painel (área de trabalho) recebem os mesmos filtros.
+  if (silenciarPrimeira) { silenciarPrimeira = false; return; }
   if (!estado.aplicandoRemoto) canal?.postMessage({ hash });
 }
 
 // Janelas do painel abertas ao mesmo tempo compartilham filtros, seleção e comparação.
 const canal = 'BroadcastChannel' in window ? new BroadcastChannel('apuracao2026:brancos') : null;
+// Janela aberta sem filtros no link (menu Iniciar, pasta Painéis): pede o estado às outras
+// e não transmite os próprios padrões, que apagariam a escolha de quem já estava aberto.
+let silenciarPrimeira = !location.hash.slice(1);
+if (silenciarPrimeira) canal?.postMessage({ pedir: true });
 canal?.addEventListener('message', (ev) => {
+  if (ev.data?.pedir) {
+    if (location.hash.slice(1) && !silenciarPrimeira) canal.postMessage({ hash: location.hash });
+    return;
+  }
   const hash = ev.data?.hash;
   if (!hash || hash === location.hash) return;
+  silenciarPrimeira = false; // já recebeu o estado das outras janelas
   const antes = `${el.cargo.value}|${el.uf.value}`;
   history.replaceState(null, '', hash);
   aplicarHash();
 
-// Janela de módulo (área de trabalho): filtros recolhidos atrás de um botão, já que
-// chegam sincronizados das outras janelas do painel.
-if (document.documentElement.dataset.modulo) {
-  const botao = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Filtros…' });
-  botao.setAttribute('aria-expanded', 'false');
-  botao.addEventListener('click', () => {
-    const aberto = document.documentElement.classList.toggle('filtros-abertos');
-    botao.setAttribute('aria-expanded', String(aberto));
-  });
-  el.atualizar.before(botao);
-  if (document.documentElement.dataset.modulo !== 'tabela') el.exportar.hidden = true;
-}
   estado.aplicandoRemoto = true;
   try {
     if (`${el.cargo.value}|${el.uf.value}` !== antes) {
@@ -119,6 +117,19 @@ if (document.documentElement.dataset.modulo) {
     estado.aplicandoRemoto = false;
   }
 });
+
+// Janela de módulo (área de trabalho): filtros recolhidos atrás de um botão, já que
+// chegam sincronizados das outras janelas do painel.
+if (document.documentElement.dataset.modulo) {
+  const botao = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Filtros…' });
+  botao.setAttribute('aria-expanded', 'false');
+  botao.addEventListener('click', () => {
+    const aberto = document.documentElement.classList.toggle('filtros-abertos');
+    botao.setAttribute('aria-expanded', String(aberto));
+  });
+  el.atualizar.before(botao);
+  if (document.documentElement.dataset.modulo !== 'tabela') el.exportar.hidden = true;
+}
 
 // ---------- carga ----------
 
@@ -788,7 +799,8 @@ function aplicarHash() {
   estado.faixa = null;
   if (inicial.faixa) {
     const [a, b] = inicial.faixa.split('-').map(Number);
-    if (Number.isFinite(a) && Number.isFinite(b)) estado.faixa = [a, b, 0];
+    const ultima = Number(inicial.faixa.split('-')[2]) === 1;
+    if (Number.isFinite(a) && Number.isFinite(b)) estado.faixa = [a, b, ultima ? 1 : 0];
   }
   estado.fixados = (inicial.sel ?? '').split(',').filter(Boolean).slice(0, MAX_COMPARAR);
 }

@@ -72,8 +72,10 @@ async function carregar() {
     const respostas = await Promise.all(cargos.map((c, i) => (n === 'estados' ? carregarEstados(c, { fundo: i > 0 }) : carregarMunicipios(c, n))
       .then((d) => [c.valor, d]).catch((e) => [c.valor, { erro: e.message }])));
     if (pedido !== estado.pedido) return;
+    const logs = await carregarLogs(n);
+    if (pedido !== estado.pedido) return;
     estado.dados = new Map(respostas);
-    estado.logs = await carregarLogs(n);
+    estado.logs = logs;
     // Divisão regional do IBGE (para agrupar cidades): baixada uma vez, só quando há cidades.
     if (n !== 'estados' && !estado.regioes) estado.regioes = await getJson('api/fontes/regioes').catch(() => null);
     if (pedido !== estado.pedido) return;
@@ -216,14 +218,17 @@ function numeroBr(t) {
   const s = String(t ?? '').trim().replace(/\s|%/g, '');
   if (!s) return null;
   // "1.234,5" e "1.234" (milhar) em pt-BR; "1234.5" em formato internacional.
-  const normal = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : /^-?\d{1,3}(\.\d{3})+$/.test(s) ? s.replace(/\./g, '') : s;
+  // "0.754" é decimal (IDHM, Gini…), não 754 em milhar.
+  const milhar = /^-?\d{1,3}(\.\d{3})+$/.test(s) && !/^-?0\./.test(s);
+  const normal = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : milhar ? s.replace(/\./g, '') : s;
   const n = Number(normal);
   return Number.isFinite(n) ? n : null;
 }
 
 function lerCsv(texto) {
   const linhas = texto.replace(/^﻿/, '').split(/\r?\n/).filter((l) => l.trim());
-  const sep = (linhas[0].match(/;/g) ?? []).length >= (linhas[0].match(/,/g) ?? []).length ? ';' : (linhas[0].includes('\t') ? '\t' : ',');
+  const conta = (c) => linhas[0].split(c).length - 1;
+  const sep = conta('\t') > Math.max(conta(';'), conta(',')) ? '\t' : conta(';') >= conta(',') ? ';' : ',';
   const partir = (l) => l.split(sep).map((c) => c.trim().replace(/^"|"$/g, ''));
   const cab = partir(linhas[0]);
   const corpo = linhas.slice(1).map(partir);
@@ -542,7 +547,7 @@ function renderizarSeletores({ vars, z }) {
     ? '<strong>Características usadas para agrupar</strong> (marque 2 ou mais):'
     : '<strong>Fatores</strong> (marque os que podem influenciar o dado escolhido):';
   if (regressao) {
-    el.explicativas.innerHTML = vars.filter((v) => v.tipo === 'num' && v.id !== z.y?.id).map((v) => `<label class="check"><input type="checkbox" value="${esc(v.id)}"
+    el.explicativas.innerHTML = vars.filter((v) => v.tipo === 'num' && (estado.tipo === 'clusters' || v.id !== z.y?.id)).map((v) => `<label class="check"><input type="checkbox" value="${esc(v.id)}"
       ${z.matriz.some((m) => m.id === v.id) ? 'checked' : ''}> ${esc(v.nome)}</label>`).join('');
   }
   el.dicaTipo.textContent = {
@@ -587,6 +592,7 @@ async function renderizarMapa({ linhas, z }) {
   const especial = estado.mapaEspecial;
   if (!v && !especial) {
     el.mapaExplorar.querySelector('.mapa-area').innerHTML = '<p class="mudo">Escolha um dado em "Com quais dados?" para ver o mapa.</p>';
+    el.mapaExplorar.querySelector('.mapa-legenda').innerHTML = '';
     el.notaMapa.textContent = '';
     return;
   }
@@ -595,7 +601,10 @@ async function renderizarMapa({ linhas, z }) {
   try {
     geo = await carregarMalha(n === 'estados' ? undefined : n === 'todas' ? 'todas' : n);
   } catch (erro) {
-    if (pedido === pedidoMapa) el.mapaExplorar.querySelector('.mapa-area').innerHTML = `<p class="mudo">Mapa indisponível: ${esc(erro.message)}</p>`;
+    if (pedido === pedidoMapa) {
+      el.mapaExplorar.querySelector('.mapa-area').innerHTML = `<p class="mudo">Mapa indisponível: ${esc(erro.message)}</p>`;
+      el.mapaExplorar.querySelector('.mapa-legenda').innerHTML = '';
+    }
     return;
   }
   if (pedido !== pedidoMapa) return;
@@ -667,6 +676,7 @@ function tabelaHtml(cabecalho, linhas) {
 }
 
 function renderizarAnalise({ linhas, z }) {
+  pedidoEspacial += 1; // invalida um cálculo de bolsões ainda em andamento
   let { x, y } = z;
   const { grupo, tamanho } = z;
   el.legenda.innerHTML = '';
@@ -683,7 +693,7 @@ function renderizarAnalise({ linhas, z }) {
   if (tipo === 'ranking' && y) return analiseRanking(linhas, y);
   if (tipo === 'testet' && y) return analiseTesteT(linhas, y, grupo ?? (x?.tipo === 'cat' ? x : null));
   if (tipo === 'mapa' && (y ?? x)) {
-    mostrarAba('mapa');
+    if (estado.abaAuto !== false) mostrarAba('mapa');
     const v = y ?? x;
     return v.tipo === 'cat' ? analiseUmaCategorica(linhas, v) : analiseUmaNumerica(linhas, v, null, null);
   }
@@ -1228,7 +1238,8 @@ const FONTES_BASICAS = ['alfabetizacao', 'densidade', 'pibPerCapita', 'idadeMedi
   'ipea:idhm', 'ipea:renda', 'ipea:gini'];
 let carregandoBasicas = null;
 function carregarFontesBasicas() {
-  const faltam = FONTES_BASICAS.filter((id) => ![...estado.censo.values()].some((x) => x.preset === id));
+  const noCatalogo = (id) => !estado.catalogo || estado.catalogo.some((c) => c.id === id);
+  const faltam = FONTES_BASICAS.filter((id) => noCatalogo(id) && ![...estado.censo.values()].some((x) => x.preset === id));
   if (!faltam.length || carregandoBasicas) return carregandoBasicas;
   carregandoBasicas = (async () => {
     for (let i = 0; i < faltam.length; i += 3) {
@@ -1245,7 +1256,7 @@ function escolherAcao(tipo) {
     const antes = estado.censo.size;
     carregarFontesBasicas()?.then(() => {
       if (estado.tipo !== tipo || estado.censo.size === antes) return;
-      if (tipo === 'clusters') estado.zonas.matriz = [];
+      if (tipo === 'clusters' && estado.matrizAutomatica) estado.zonas.matriz = [];
       escolherAcao(tipo);
     });
   }
@@ -1265,6 +1276,7 @@ function escolherAcao(tipo) {
     // Só séries com cobertura completa (os logs cobrem apenas as seções já lidas).
     const base = ['censo:alfabetizacao', 'censo:ipea:idhm', 'censo:densidade', `${c}:pctComparecimento`, `${c}:efetivo`];
     z.matriz = base.filter((id) => num(id) && id !== z.y);
+    estado.matrizAutomatica = true;
     if (tipo === 'clusters' && z.y && !z.matriz.includes(z.y)) z.matriz.push(z.y);
     if (z.matriz.length < 2) z.matriz = [`${c}:pctComparecimento`, `${c}:pctBrancosNulos`, `${c}:efetivo`].filter(num);
   }
@@ -1304,6 +1316,7 @@ el.modoEspecialista.addEventListener('change', () => aplicarEspecialista(el.modo
 try { aplicarEspecialista(localStorage.getItem(CHAVE_ESPECIALISTA) === '1'); } catch { aplicarEspecialista(false); }
 el.explicativas.addEventListener('change', () => {
   estado.zonas.matriz = [...el.explicativas.querySelectorAll('input:checked')].map((i) => i.value);
+  estado.matrizAutomatica = false; // escolha da pessoa: não é mais trocada sozinha
   renderizarTudo();
 });
 
@@ -1373,6 +1386,7 @@ async function aplicarPergunta(p) {
   preencherCargos();
   if (p.nivel) el.nivel.value = p.nivel;
   estado.zonas = { x: p.x ?? null, y: p.y ?? null, grupo: p.grupo ?? null, tamanho: null, matriz: p.explicativas ?? [] };
+  estado.matrizAutomatica = false;
   estado.tipo = p.tipo;
   estado.abaAuto = true;
   mostrarAba(p.tipo === 'mapa' ? 'mapa' : 'grafico');
@@ -1556,7 +1570,7 @@ el.exportarRelatorio.addEventListener('click', () => antesDeExportar(async () =>
     resumo: el.resumoTexto.innerHTML,
     parametros: parametrosAnalise(),
     secoes: [
-      ...(graficoSvg ? [{ titulo: 'Gráfico', svg: graficoSvg, html: `<p class="meta">${el.legenda.textContent}</p>` }] : []),
+      ...(graficoSvg ? [{ titulo: 'Gráfico', svg: graficoSvg, html: `<p class="meta">${esc(el.legenda.textContent)}</p>` }] : []),
       ...(mapaSvg ? [{ titulo: 'Mapa', svg: mapaSvg, html: `<p class="meta">${legendaMapa.replace(/<i[^>]*><\/i>/g, '■ ')}</p>` }] : []),
       { titulo: 'Detalhes estatísticos', html: el.resultados.innerHTML },
       { titulo: 'Estatísticas descritivas', html: `<table>${el.descritivas.innerHTML}</table>` },
@@ -1606,7 +1620,7 @@ if (inicial.cargos) estado.cargos = inicial.cargos.split(',').filter((v) => carg
 if (!estado.cargos.length) estado.cargos = [CARGOS[0].valor];
 for (const k of ['x', 'y', 'grupo', 'tamanho']) if (inicial[k]) estado.zonas[k] = inicial[k];
 if (inicial.matriz) estado.zonas.matriz = inicial.matriz.split(',');
-if (!inicial.x && !inicial.y) {
+if (!inicial.x && !inicial.y && !inicial.matriz && !inicial.tipo) {
   // Ponto de partida simples: mapa de quem venceu em cada local, no primeiro cargo.
   const c = estado.cargos[0];
   estado.zonas = { x: null, y: `${c}:vencedor`, grupo: null, tamanho: null, matriz: [] };
