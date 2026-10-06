@@ -108,6 +108,7 @@ export function criarControle({ inicial = 8, maximo = 96, minimo = 2, passo = 4,
 }
 
 let controle = null; // ligado em coletar()
+const REVER_AUSENTES_MS = 24 * 60 * 60_000; // seção sem log é conferida de novo uma vez por dia
 
 /** GET com novas tentativas; 429/5xx/timeouts avisam o controle. null em 404/403. */
 async function baixar(caminho, binario) {
@@ -228,23 +229,33 @@ async function coletar(op) {
     // Fila única da UF: todas as seções pendentes das cidades fechadas.
     const salvos = new Map();
     const tarefas = [];
+    const agora = Date.now();
     let lidasUf = 0;
+    let puladas = 0;
     for (const m of municipios) {
       const salvo = await lerJson(join(CACHE, uf, `${m.codigo}.json`), { secoes: {} });
       salvos.set(m.codigo, { m, salvo, sujo: false });
       lidasUf += Object.keys(salvo.secoes).length;
       if (!fechadas.has(m.codigo)) continue; // apuração da cidade ainda aberta: os logs ficam para depois
       const alvo = op.amostra ? amostrar(m.secoes, op.amostra) : m.secoes;
-      for (const sec of alvo) if (!salvo.secoes[`${sec.zona}-${sec.secao}`]) tarefas.push({ m, sec });
+      salvo.ausentes ??= {};
+      for (const sec of alvo) {
+        const k = `${sec.zona}-${sec.secao}`;
+        if (salvo.secoes[k]) continue;
+        // Seção sem log no TSE (agregada a outra urna, sem arquivos…): não pergunta de novo por 24 h.
+        if (agora - (salvo.ausentes[k] ?? 0) < REVER_AUSENTES_MS) { puladas += 1; continue; }
+        tarefas.push({ m, sec });
+      }
     }
     const gravar = async () => {
       for (const [codigo, x] of salvos) {
         if (!x.sujo) continue;
         x.sujo = false;
-        await writeFile(join(CACHE, uf, `${codigo}.json`), JSON.stringify({ uf, municipio: codigo, nome: x.m.nome, total: x.m.secoes.length, secoes: x.salvo.secoes }));
+        await writeFile(join(CACHE, uf, `${codigo}.json`), JSON.stringify({ uf, municipio: codigo, nome: x.m.nome, total: x.m.secoes.length, secoes: x.salvo.secoes, ausentes: x.salvo.ausentes }));
       }
     };
     let novasUf = 0;
+    let semLogUf = 0;
     const gravacao = setInterval(() => { gravar().catch(() => {}); }, 30_000); // progresso no disco a cada 30 s
     await piscina(tarefas, async ({ m, sec }) => {
       await ritmo();
@@ -252,12 +263,16 @@ async function coletar(op) {
       try {
         const r = await coletor.lerSecao(uf, m.codigo, sec);
         controle.sucesso(Date.now() - t0);
+        const x = salvos.get(m.codigo);
         if (r) {
-          const x = salvos.get(m.codigo);
           x.salvo.secoes[`${sec.zona}-${sec.secao}`] = r;
-          x.sujo = true;
+          delete x.salvo.ausentes[`${sec.zona}-${sec.secao}`];
           novasUf += 1;
+        } else {
+          x.salvo.ausentes[`${sec.zona}-${sec.secao}`] = Date.now(); // cidade já fechada e sem log: anota
+          semLogUf += 1;
         }
+        x.sujo = true;
       } catch (erro) {
         console.log(`  ${uf}/${m.codigo} ${sec.zona}-${sec.secao}: ${erro.message}`);
       }
@@ -265,7 +280,9 @@ async function coletar(op) {
     clearInterval(gravacao);
     await gravar();
     novasTotal += novasUf;
-    console.log(`${uf}: ${lidasUf + novasUf} seções lidas (${novasUf} novas) · ${fechadas.size} de ${municipios.length} cidades com 100% totalizado`);
+    console.log(`${uf}: ${lidasUf + novasUf} seções lidas (${novasUf} novas)${tarefas.length ? ` · ${tarefas.length} consultadas` : ''}`
+      + `${semLogUf ? ` · ${semLogUf} sem log no TSE` : ''}${puladas ? ` · ${puladas} sem log já conhecidas (puladas)` : ''}`
+      + ` · ${fechadas.size} de ${municipios.length} cidades com 100% totalizado`);
   }
   if (Date.now() >= fim) console.log(`parando (limite de ${op.maxMinutos} min); a próxima execução continua de onde parou`);
   return novasTotal;
