@@ -464,7 +464,8 @@ function renderizarHistograma({ base, estat }) {
     + '<span><i class="marca-ref"></i>Referência</span><span><i class="marca-ref mediana"></i>Mediana</span>';
 }
 
-// Cor de cada ponto/linha pela posição em relação à referência: azul abaixo, vermelho acima,
+// Cor de cada ponto/linha pela posição em relação à referência: verde-azulado abaixo, marrom acima
+// (sem azul × vermelho, que lembram partidos),
 // cinza quando a diferença é menor que meio desvio padrão.
 function classeDesvio(l, estat) {
   if (l.delta === null || !estat) return 'neutro';

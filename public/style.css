@@ -16,8 +16,8 @@
   --serie-bn: #4a3aa7;
   --serie-abst: #008300;
   /* Divergente: abaixo (azul) · próximo (cinza) · acima (vermelho) da referência. */
-  --div-abaixo: #2a78d6;
-  --div-acima: #e34948;
+  --div-abaixo: #01665e;
+  --div-acima: #8c510a;
   --div-neutro: #a3a29b;
   --ref: #1b2430;
   /* Paleta categórica para grupos (ordem validada para daltonismo). */
@@ -42,8 +42,8 @@
     --serie-anulados: #199e70;
     --serie-bn: #9085e9;
     --serie-abst: #008300;
-    --div-abaixo: #3987e5;
-    --div-acima: #e66767;
+    --div-abaixo: #5ab4ac;
+    --div-acima: #d8b365;
     --div-neutro: #6b6a64;
     --ref: #e6edf3;
     --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500;
@@ -705,7 +705,7 @@ body:not(.especialista) [data-especialista] { display: none !important; }
 .ind-topo { display: flex; justify-content: space-between; gap: .5rem; align-items: baseline; }
 .ind-rotulo { font-size: .85rem; }
 .ind-valor { font-size: .95rem; }
-.ind-barra { position: relative; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #cde2fb, #3987e5 50%, #0d366b); }
+.ind-barra { position: relative; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #fde725, #5ec962 25%, #21918c 50%, #3b528b 75%, #440154); }
 .ind-marca { position: absolute; top: -4px; width: 4px; height: 14px; margin-left: -2px; background: var(--texto); border-radius: 2px; box-shadow: 0 0 0 2px var(--cartao); }
 .ind-rodape { font-size: .72rem; }
 [data-tema="98"] .ind-barra { border-radius: 0; }

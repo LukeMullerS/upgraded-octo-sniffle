@@ -3,9 +3,11 @@
 
 import { esc, fmtNum } from './comum.js';
 
-// Sequencial (um tom, claro → escuro) e divergente (azul abaixo, cinza neutro, vermelho acima).
-const SEQUENCIAL = ['#cde2fb', '#86b6ef', '#3987e5', '#1c5cab', '#0d366b'];
-const DIVERGENTE = ['#1c5cab', '#86b6ef', '#e6e5e0', '#f0a3a2', '#c8302f'];
+// Escalas de indicadores sem azul × vermelho, para não se confundir com as cores dos partidos
+// (mapas de vencedor usam as cores partidárias): sequencial viridis (amarelo claro → roxo escuro,
+// legível para daltônicos) e divergente verde-azulado (abaixo) ↔ marrom (acima), neutro no meio.
+export const SEQUENCIAL = ['#fde725', '#5ec962', '#21918c', '#3b528b', '#440154'];
+export const DIVERGENTE = ['#01665e', '#5ab4ac', '#efede6', '#d8b365', '#8c510a'];
 const SEM_DADO = 'url(#mapa-sem-dado)';
 // Categórica (vencedor de cada local etc.): cores bem distintas, na ordem de importância.
 export const CATEGORICA = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#9b59d0', '#e0457b', '#5e6b7d', '#14a3b8', '#8a6d3b', '#b5b800'];

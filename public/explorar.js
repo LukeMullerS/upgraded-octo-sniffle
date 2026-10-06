@@ -936,7 +936,7 @@ function analiseRegressao(linhas, y, explicativas) {
   }
   estado.mapaEspecial = {
     titulo: `Resíduo: ${y.nome} real − previsto`, valores: residuos, referencia: 0, formato: (v) => fmtValor(v, y),
-    nota: 'Vermelho: o local tem mais do que o modelo prevê; azul: menos. Resíduos agrupados no mapa sugerem uma variável que faltou (por exemplo, a região).',
+    nota: 'Marrom: o local tem mais do que o modelo prevê; verde-azulado: menos. Resíduos agrupados no mapa sugerem uma variável que faltou (por exemplo, a região).',
   };
   const ordRes = [...residuos].sort((a, b) => b[1] - a[1]);
   const nomeL = (l) => `${l.nome}${l.uf && nivel() !== 'estados' ? ` · ${l.uf.toUpperCase()}` : ''}`;
@@ -1005,7 +1005,8 @@ function analiseDescobertas(linhas, y) {
 
 // ---------- autocorrelação espacial ----------
 
-const CORES_LISA = new Map([['Alto-Alto', '#c8302f'], ['Baixo-Baixo', '#1c5cab'], ['Alto-Baixo', '#f0a3a2'], ['Baixo-Alto', '#86b6ef']]);
+// Mesmas cores da escala divergente dos mapas (sem azul × vermelho, que lembram partidos).
+const CORES_LISA = new Map([['Alto-Alto', '#8c510a'], ['Baixo-Baixo', '#01665e'], ['Alto-Baixo', '#d8b365'], ['Baixo-Alto', '#5ab4ac']]);
 const vizinhancas = new Map(); // nível → Map(cod → Set(cod))
 let pedidoEspacial = 0;
 
