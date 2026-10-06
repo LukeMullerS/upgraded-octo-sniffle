@@ -60,8 +60,28 @@ async function getApi(caminho, params) {
 /** `fundo`: pedido de painel secundário, atendido depois do que está em destaque na tela. */
 export const carregarEstados = (cargo, { fundo = false } = {}) =>
   getApi('estados', { ele: cargo.eleicao, cargo: cargo.codigo, ...(fundo ? { fundo: '1' } : {}) });
-export const carregarMunicipios = (cargo, uf) =>
-  getApi('municipios', { ele: cargo.eleicao, cargo: cargo.codigo, uf });
+// Retratos de resultados já totalizados (public/resultados, gerados por
+// scripts/atualizar-resultados.mjs): "todas as cidades" abre na hora, sem milhares de
+// consultas ao TSE. Só valem completos; senão, o app consulta o servidor normalmente.
+const retratos = new Map();
+function retratoTodas(cargo) {
+  const chave = `${cargo.eleicao}-${cargo.codigo}`;
+  if (!retratos.has(chave)) {
+    retratos.set(chave, fetch(`resultados/${chave}.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => (d?.retrato?.completo ? d : null))
+      .catch(() => null));
+  }
+  return retratos.get(chave);
+}
+
+export async function carregarMunicipios(cargo, uf) {
+  if (uf === 'todas') {
+    const r = await retratoTodas(cargo);
+    if (r) return r;
+  }
+  return getApi('municipios', { ele: cargo.eleicao, cargo: cargo.codigo, uf });
+}
 
 /** Gera e baixa um CSV (separador ";" e vírgula decimal, como o Excel em português espera), depois da janela "Como citar". */
 export function baixarCsv(nomeArquivo, colunas, linhas) {

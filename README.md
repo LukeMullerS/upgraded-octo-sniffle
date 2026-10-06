@@ -241,6 +241,17 @@ No Explorador, essas variáveis aparecem no grupo "Candidatos" de cada cargo (ve
 margem, nº efetivo e a votação de cada candidato e partido), com perguntas prontas como "Quem venceu em cada
 cidade?", "A alfabetização muda o voto no líder?" e "Onde o voto para deputado é mais dividido?".
 
+### 2º turno e retratos de resultados
+
+- O 2º turno (25/10/2026) já está configurado: eleições **6258** (Presidente) e **6260** (Governador), códigos
+  publicados pelo TSE em `comum/config/ele-c.json`. Até a votação aparecem como "ainda não publicado"; depois, todas as
+  janelas passam a mostrá-los (escolha "Presidente — 2º turno" no cargo).
+- **Retratos de resultados** (`public/resultados/{eleição}-{cargo}.json`): com a apuração encerrada, o nível
+  "Brasil — todas as cidades" abre na hora a partir de um retrato, em vez de baixar milhares de arquivos do TSE a cada
+  consulta (o que numa função serverless não termina e ainda faz o TSE responder 429). O app só usa o retrato quando
+  ele está completo (todas as seções totalizadas). Para gerar/atualizar:
+  `node scripts/atualizar-resultados.mjs 6257:1 6259:3 6259:5`.
+
 ## Publicar no Vercel
 
 O projeto já vem pronto para o Vercel (`vercel.json` + `api/index.js`): os arquivos de `public/` são servidos como

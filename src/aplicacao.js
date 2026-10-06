@@ -49,7 +49,8 @@ const banco = criarBanco({
   cabecalhos: CABECALHOS_TSE,
   arquivoDisco: join(DADOS, 'banco.json'),
   // Serverless: cada consulta precisa baixar muitas cidades de uma vez, dentro do prazo da função.
-  ...(SERVERLESS ? { concorrencia: 32 } : {}),
+  // Mais que isso por instância e o TSE responde 429 (cada instância do Vercel tem seu banco).
+  ...(SERVERLESS ? { concorrencia: 12 } : {}),
 });
 
 // Fotos dos candidatos: imagens, num cache simples à parte do banco.
