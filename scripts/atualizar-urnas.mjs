@@ -218,9 +218,10 @@ async function coletar(op) {
   });
   const ritmo = criarRitmo(op.ritmo);
   let novasTotal = 0;
+  let pendentesTotal = 0;
   const fim = op.maxMinutos ? Date.now() + op.maxMinutos * 60_000 : Infinity;
   for (const uf of op.ufs) {
-    if (Date.now() >= fim) break;
+    if (Date.now() >= fim) { pendentesTotal += 1; break; } // UFs não alcançadas: ainda há trabalho
     let municipios;
     try { municipios = await coletor.config(uf); } catch (erro) { console.log(`${uf}: ${erro.message}`); continue; }
     await mkdir(join(CACHE, uf), { recursive: true });
@@ -279,12 +280,21 @@ async function coletar(op) {
     }, fim);
     clearInterval(gravacao);
     await gravar();
+    for (const { m, sec } of tarefas) {
+      const x = salvos.get(m.codigo);
+      const k = `${sec.zona}-${sec.secao}`;
+      if (!x.salvo.secoes[k] && !x.salvo.ausentes[k]) pendentesTotal += 1;
+    }
     novasTotal += novasUf;
     console.log(`${uf}: ${lidasUf + novasUf} seções lidas (${novasUf} novas)${tarefas.length ? ` · ${tarefas.length} consultadas` : ''}`
       + `${semLogUf ? ` · ${semLogUf} sem log no TSE` : ''}${puladas ? ` · ${puladas} sem log já conhecidas (puladas)` : ''}`
       + ` · ${fechadas.size} de ${municipios.length} cidades com 100% totalizado`);
   }
   if (Date.now() >= fim) console.log(`parando (limite de ${op.maxMinutos} min); a próxima execução continua de onde parou`);
+  // Quantas seções ainda faltam consultar (sem contar as sem log já conhecidas): o workflow do
+  // GitHub usa este número para se reiniciar sozinho até terminar.
+  await writeFile(join(CACHE, 'pendentes.txt'), String(pendentesTotal));
+  console.log(`faltam ${pendentesTotal} seções a consultar`);
   return novasTotal;
 }
 

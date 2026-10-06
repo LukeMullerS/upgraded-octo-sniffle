@@ -26,6 +26,7 @@ on:
 
 permissions:
   contents: write
+  actions: write # para se reiniciar sozinho enquanto faltarem seções
 
 concurrency:
   group: logs-urnas
@@ -85,3 +86,22 @@ jobs:
         with:
           path: dados/urnas-retrato
           key: urnas-retrato-${{ github.run_id }}
+      # Enquanto faltarem seções, dispara a próxima execução (o agendamento horário do GitHub pode
+      # atrasar ou não disparar). Para sozinho quando tudo foi lido; cancelar a execução também para.
+      - name: Continuar se ainda faltam seções
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          F1=$(cat dados/urnas-retrato/pendentes.txt 2>/dev/null || echo 0)
+          F2=$(cat dados/urnas-retrato/2t/pendentes.txt 2>/dev/null || echo 0)
+          FALTAM=$(( ${F1:-0} + ${F2:-0} ))
+          HOJE=$(date -u +%Y%m%d)
+          # Noite do 2º turno (25 e 26/10): cidades ainda fecham a apuração, então continua de qualquer jeito.
+          if [ "$HOJE" -ge 20261025 ] && [ "$HOJE" -le 20261026 ]; then FALTAM=$(( FALTAM + 1 )); fi
+          if [ "$FALTAM" -gt 0 ]; then
+            echo "faltam $FALTAM seções: disparando a próxima execução"
+            gh workflow run logs-urnas.yml --ref "$GITHUB_REF_NAME" -f ritmo="${{ github.event.inputs.ritmo || '0' }}" -f minutos="${{ github.event.inputs.minutos || '45' }}"
+          else
+            echo "todas as seções lidas: fim"
+          fi
