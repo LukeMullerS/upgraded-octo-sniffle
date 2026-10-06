@@ -305,6 +305,12 @@ const POLITICAS_CACHE = {
 export function politicaTse(caminho, status, corpo) {
   if (status >= 500) return null; // falha ao consultar o TSE: nunca fica no CDN
   if (caminho.includes('/fotos/')) return status === 200 ? 'foto' : 'ao-vivo';
+  // Boletim de urna: não muda depois de publicado. aux.json: só depois que a seção é totalizada.
+  if (caminho.includes('/arquivo-urna/')) {
+    if (status !== 200) return 'ao-vivo';
+    if (caminho.endsWith('-bu.dat')) return 'referencia';
+    try { return /totalizad/i.test(JSON.parse(String(corpo)).st ?? '') ? 'referencia' : 'ao-vivo'; } catch { return 'ao-vivo'; }
+  }
   if (caminho.includes('/config/')) return status === 200 ? 'config' : 'ao-vivo';
   if (status !== 200) return 'ao-vivo'; // ainda não publicado: confere de novo em 20 s
   try {
@@ -363,15 +369,21 @@ const CAMINHO_PROXY = new RegExp(`^ele2026/(${Object.keys(ELEICOES).join('|')})/
   + '|config/mun-e\\d{6}-cm\\.json'
   + '|fotos/[a-z]{2}/\\d{1,20}\\.jpe?g)$');
 
+// Arquivos de uma seção (para "Minha seção"): o aux.json (lista de arquivos e o hash da urna) e o
+// boletim de urna (votos da seção). Só do 1º e do 2º turno de 2026, e só esses dois tipos.
+const CAMINHO_SECAO = /^ele2026\/arquivo-urna\/322[01]\/dados\/[a-z]{2}\/\d{5}\/\d{4}\/\d{4}\/(p00322[01]-[a-z]{2}-m\d{5}-z\d{4}-s\d{4}-aux\.json|[0-9a-f]{16,200}\/o0322[01][a-z]{2}\d{13}-bu\.dat)$/;
+
 async function proxy(req, res, caminho) {
   // Só os arquivos que as páginas usam (resultados, lista de municípios e fotos das eleições
   // configuradas): o proxy não serve para buscar qualquer coisa no TSE nem para encher a memória.
-  if (!CAMINHO_PROXY.test(caminho)) {
+  const secao = CAMINHO_SECAO.test(caminho);
+  if (!secao && !CAMINHO_PROXY.test(caminho)) {
     res.writeHead(400).end('caminho inválido');
     return;
   }
   try {
-    const r = caminho.includes('/fotos/') ? await buscarFoto(caminho) : await banco.bruto(caminho);
+    // Fotos e arquivos de seção são binários (ou lidos uma vez): cache simples, fora do banco.
+    const r = caminho.includes('/fotos/') || secao ? await buscarFoto(caminho) : await banco.bruto(caminho);
     const politica = politicaTse(caminho, r.status, r.corpo);
     const cache = SERVERLESS ? (politica ? POLITICAS_CACHE[politica] : 'no-store') : 'no-cache';
     enviar(res, r.status, { 'content-type': r.tipo, 'cache-control': cache }, r.corpo);
