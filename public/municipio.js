@@ -10,7 +10,7 @@ import { antesDeExportar } from './citar.js';
 
 const $ = (id) => document.getElementById(id);
 const el = Object.fromEntries(['busca-municipio', 'lista-municipios', 'sortear', 'sugestoes', 'erro', 'ficha', 'nome-municipio', 'local-municipio',
-  'resumo-municipio', 'eleicao', 'bloco-eleitorado', 'bloco-votos', 'bloco-censo', 'bloco-domicilios', 'bloco-saude', 'bloco-renda', 'status', 'imprimir']
+  'resumo-municipio', 'parecidas', 'parecidas-resumo', 'eleicao', 'bloco-eleitorado', 'bloco-votos', 'bloco-censo', 'bloco-domicilios', 'bloco-saude', 'bloco-renda', 'status', 'imprimir']
   .map((id) => [id.replace(/-(\w)/g, (_, l) => l.toUpperCase()), $(id)]));
 
 const CARGOS_FICHA = ['6257:1', '6259:3', '6259:5'];
@@ -114,6 +114,61 @@ function linhaIndicador(rotulo, valor, f, uf, mediaBr, pos, ufSigla, onde = 'das
   </div>`;
 }
 
+// Perfil usado para achar cidades parecidas: a posição (percentil) em cada série, para que
+// população e PIB não pesem mais que porcentagens.
+const PERFIL = ['populacao', 'densidade', 'idadeMediana', 'alfabetizacao', 'cor_pardos', 'cor_pretos', 'esgotoRede', 'aguaRede',
+  'pibPerCapita', 'ipea:idhm', 'ipea:gini', 'arq:eleitorado-2026:superior'];
+
+/** As `n` cidades de perfil mais próximo (distância entre percentis), com o número de séries em comum. */
+async function parecidas(m, n = 6) {
+  const series = (await Promise.all(PERFIL.map(serie))).filter(Boolean);
+  const perfil = (ibge) => series.map((s) => posicao(s.ordenados, s.municipios[ibge]));
+  const alvo = perfil(m.ibge);
+  const minimo = Math.ceil(alvo.filter((v) => v !== null).length * 0.75);
+  if (minimo < 4) return [];
+  const out = [];
+  for (const x of estado.municipios) {
+    if (x === m || !x.ibge) continue;
+    const p = perfil(x.ibge);
+    let soma = 0;
+    let k = 0;
+    for (let i = 0; i < p.length; i += 1) if (p[i] !== null && alvo[i] !== null) { soma += (p[i] - alvo[i]) ** 2; k += 1; }
+    if (k >= minimo) out.push({ m: x, d: Math.sqrt(soma / k) });
+  }
+  return out.sort((a, b) => a.d - b.d).slice(0, n);
+}
+
+async function renderizarParecidas(m, pedido) {
+  el.parecidas.innerHTML = '<p class="mudo">calculando…</p>';
+  el.parecidasResumo.textContent = '';
+  const cargo = cargoPorValor(CARGOS_FICHA[0]);
+  const [lista, todas] = await Promise.all([parecidas(m), carregarMunicipios(cargo, 'todas').catch(() => null)]);
+  if (pedido !== estado.pedido) return;
+  if (!lista.length) { el.parecidas.innerHTML = '<p class="mudo">Dados insuficientes para comparar esta cidade.</p>'; return; }
+  const porCodigo = new Map((todas?.municipios ?? []).map((r) => [`${r.uf}-${r.codigo}`, r]));
+  const nomes = todas?.nomes ?? {};
+  const vencedor = (r) => (r?.validos ? candidatosDe(r, nomes)[0] ?? null : null);
+  const itens = lista.map(({ m: x, d }) => ({ x, d, v: vencedor(porCodigo.get(`${x.uf}-${x.codigo}`)) }));
+  const daqui = vencedor(porCodigo.get(`${m.uf}-${m.codigo}`));
+  const cores = coresPorPartido([...new Set(itens.map((i) => i.v?.numero).filter(Boolean))], (k) => nomes[k]?.[1], CATEGORICA);
+  el.parecidas.innerHTML = itens.map(({ x, d, v }) => `<a class="parecida" href="#mun=${x.uf}-${x.codigo}" data-mun="${x.uf}-${x.codigo}">
+      <span class="parecida-nome">${esc(x.nome)} <span class="mudo">(${esc(x.uf.toUpperCase())})</span></span>
+      <span class="mudo pequeno">semelhança ${Math.round(Math.max(0, 1 - d * 2) * 100)}%</span>
+      ${v ? `<span class="pequeno"><i class="ponto-cor" style="background:${cores.get(v.numero)}"></i>${esc(v.nome)} ${pct(v.pct)}</span>` : ''}
+    </a>`).join('');
+  if (daqui) {
+    const iguais = itens.filter((i) => i.v?.numero === daqui.numero).length;
+    const comV = itens.filter((i) => i.v).length;
+    if (comV) {
+      el.parecidasResumo.innerHTML = iguais === comV
+        ? `Nas ${comV} cidades mais parecidas, ${esc(daqui.nome)} também venceu para presidente: o voto aqui segue o perfil.`
+        : iguais === 0
+          ? `Em nenhuma das ${comV} cidades mais parecidas ${esc(daqui.nome)} venceu para presidente: o voto aqui foge do perfil.`
+          : `${esc(daqui.nome)}, que venceu aqui para presidente, venceu também em ${iguais} das ${comV} cidades mais parecidas.`;
+    }
+  }
+}
+
 // ---------- lista de cidades ----------
 
 async function carregarLista() {
@@ -153,6 +208,7 @@ async function mostrar(m) {
   renderizarEleicao(m, eleicao);
   renderizarIndicadores(m, indicadores, eleicao);
   renderizarResumo(m, eleicao, indicadores);
+  renderizarParecidas(m, pedido).catch(() => { el.parecidas.innerHTML = '<p class="mudo">Não foi possível comparar agora.</p>'; });
   el.status.textContent = `${m.rotulo} · consultado às ${new Date().toLocaleTimeString('pt-BR')}`;
   el.status.className = 'status ok';
 }
@@ -269,13 +325,15 @@ function escolher() {
 
 el.buscaMunicipio.addEventListener('change', escolher);
 el.buscaMunicipio.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') escolher(); });
-el.sugestoes.addEventListener('click', (ev) => {
+const abrirLink = (ev) => {
   const a = ev.target.closest('[data-mun]');
   if (!a) return;
   ev.preventDefault();
   const m = porChave(a.dataset.mun);
-  if (m) { el.buscaMunicipio.value = m.rotulo; el.sugestoes.textContent = ''; mostrar(m); }
-});
+  if (m) { el.buscaMunicipio.value = m.rotulo; el.sugestoes.textContent = ''; mostrar(m); scrollTo({ top: 0, behavior: 'smooth' }); }
+};
+el.sugestoes.addEventListener('click', abrirLink);
+el.parecidas.addEventListener('click', abrirLink);
 el.sortear.addEventListener('click', () => {
   const m = estado.municipios[Math.floor(Math.random() * estado.municipios.length)];
   if (m) { el.buscaMunicipio.value = m.rotulo; mostrar(m); }

@@ -701,3 +701,8 @@ body:not(.especialista) [data-especialista] { display: none !important; }
 .ind-rodape { font-size: .72rem; }
 [data-tema="98"] .ind-barra { border-radius: 0; }
 [data-tema="98"] .ind-marca { background: #000; border-radius: 0; box-shadow: 0 0 0 1px #fff; }
+.parecidas { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: .5rem; }
+.parecida { display: grid; gap: .1rem; padding: .5rem .6rem; border: 1px solid var(--borda); border-radius: 6px; color: inherit; text-decoration: none; }
+.parecida:hover, .parecida:focus-visible { border-color: var(--destaque); }
+.parecida-nome { font-weight: 600; font-size: .9rem; }
+[data-tema="98"] .parecida { border-radius: 0; }

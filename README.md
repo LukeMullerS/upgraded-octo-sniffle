@@ -263,6 +263,9 @@ use "Surpreenda-me") e veja
   moradia e saneamento (Censo 2022), saúde (CNES), PIB e IDHM;
 - para cada indicador, uma barra com a posição da cidade entre todas as do Brasil, o valor da UF e a mediana;
 - um "Em resumo" automático com os destaques, e Imprimir / PDF.
+- **cidades parecidas**: as seis cidades de perfil mais próximo (percentis de população, densidade, idade, cor,
+  alfabetização, saneamento, PIB, IDHM e Gini), com o vencedor para presidente em cada uma; diz se o voto da cidade
+  segue ou foge do perfil.
 
 O endereço guarda a cidade (`municipio.html#mun=pe-25313`), então a ficha pode ser compartilhada.
 
