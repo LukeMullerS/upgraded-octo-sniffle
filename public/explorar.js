@@ -3,7 +3,7 @@
 // cruza as que o usuário arrastar para os campos X, Y, grupo, tamanho e matriz.
 
 import {
-  CODIGO_IBGE_UF, UF_DO_CODIGO, CARGOS, PORTES, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, criarDica, esc, fmtInt, fmtNum,
+  CODIGO_IBGE_UF, UF_DO_CODIGO, CARGOS, PORTES, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, coresPorPartido, criarDica, esc, fmtInt, fmtNum,
   nomeUf, pctSecoes, porteDe, regiaoDe, semAcento,
 } from './comum.js';
 import {
@@ -11,7 +11,7 @@ import {
   testeCorrelacao, testeTWelch, valorMetrica,
 } from './calculos.js';
 import { svgBarras, svgBoxplot, svgDispersao, svgHistograma } from './graficos.js';
-import { carregarMalha, criarMapa } from './mapa.js';
+import { CATEGORICA, carregarMalha, criarMapa } from './mapa.js';
 import { antesDeExportar } from './citar.js';
 import { baixar, nomeArquivo, relatorioHtml } from './exportar.js';
 
@@ -638,7 +638,14 @@ async function renderizarMapa({ linhas, z }) {
     if (categorias) categorias.set(cod, String(x)); else valores.set(cod, x);
     rotulos.set(cod, n === 'estados' ? l.nome : `${l.nome} · ${l.uf?.toUpperCase()}`);
   }
-  mapa.desenhar({ geo, valores, rotulos, titulo: v.nome, formato: (x) => fmtValor(x, v), categorias });
+  // Vencedor / partido mais votado: cores dos partidos (PT vermelho, PL azul…).
+  let cores = null;
+  if (categorias && /:(vencedor|partidoVencedor)$/.test(v.id)) {
+    const contagem = new Map();
+    for (const c of categorias.values()) contagem.set(c, (contagem.get(c) ?? 0) + 1);
+    cores = coresPorPartido([...contagem.keys()].sort((a, b) => contagem.get(b) - contagem.get(a)), (c) => c, CATEGORICA);
+  }
+  mapa.desenhar({ geo, valores, rotulos, titulo: v.nome, formato: (x) => fmtValor(x, v), categorias, cores });
   el.notaMapa.textContent = n === 'estados' ? 'Clique num estado para ver as cidades dele.' : 'Role para aproximar; arraste para mover.';
 }
 

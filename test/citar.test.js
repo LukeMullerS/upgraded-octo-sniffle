@@ -29,3 +29,15 @@ test('BibTeX e fontes dos dados', () => {
   assert.match(fontesDeDados(data, 'chicago')[0].texto, /^Tribunal Superior Eleitoral\. 2026\. Resultados: Eleições 2026\. Brasília, DF: TSE\./);
   assert.match(fontesDeDados(data, 'bibtex')[0].texto, /^@misc\{tse2026resultados,/);
 });
+
+test('cores dos partidos: convenção da imprensa e sem repetir cores', async () => {
+  const { corDoPartido, coresPorPartido } = await import('../public/comum.js');
+  assert.equal(corDoPartido('LULA (PT)'), corDoPartido('PT'));
+  assert.equal(corDoPartido('XYZ'), null);
+  const paleta = ['#111', '#222', '#333'];
+  const c = coresPorPartido(['13', '22', '1301', '99'], (k) => ({ 13: 'PT', 22: 'PL', 1301: 'PT', 99: 'XYZ' })[k], paleta);
+  assert.equal(c.get('13'), corDoPartido('PT'));
+  assert.equal(c.get('22'), corDoPartido('PL'));
+  assert.notEqual(c.get('1301'), c.get('13'), 'segundo candidato do mesmo partido ganha outra cor');
+  assert.equal(new Set(c.values()).size, 4);
+});

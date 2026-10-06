@@ -46,6 +46,27 @@ export const ELEICOES = {
       { codigo: 8, nome: 'Deputado Distrital', majoritario: false, abrangencias: ['df'] },
     ],
   },
+  // 2º turno (25/10/2026): códigos 6258 e 6260, informados pelo TSE em comum/config/ele-c.json
+  // ("cdt2" das eleições do 1º turno). Antes da votação os arquivos ainda não existem e o app
+  // avisa que não foram publicados.
+  6258: {
+    codigo: '6258',
+    nome: 'Eleição Geral Federal — 2º turno',
+    curto: 'Federal 2º turno',
+    turno: 2,
+    cargos: [
+      { codigo: 1, nome: 'Presidente — 2º turno', majoritario: true, abrangencias: ['br', ...TODAS_UFS, 'zz'] },
+    ],
+  },
+  6260: {
+    codigo: '6260',
+    nome: 'Eleições Estaduais — 2º turno',
+    curto: 'Estaduais 2º turno',
+    turno: 2,
+    cargos: [
+      { codigo: 3, nome: 'Governador — 2º turno', majoritario: true, abrangencias: TODAS_UFS },
+    ],
+  },
   6261: {
     codigo: '6261',
     nome: 'Eleição Conselho Distrital 2026',

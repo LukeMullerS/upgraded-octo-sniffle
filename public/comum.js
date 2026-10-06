@@ -17,7 +17,7 @@ const CURTOS = { 1: 'Pres', 3: 'Gov', 5: 'Sen', 6: 'Dep Fed', 7: 'Dep Est', 8: '
 /** Cargos com código conhecido (o Conselho Distrital, só em Noronha, fica na tela de apuração). */
 export const CARGOS = Object.values(ELEICOES).flatMap((e) =>
   e.cargos.filter((c) => c.codigo !== null).map((c) => ({
-    ...c, eleicao: e.codigo, valor: `${e.codigo}:${c.codigo}`, curto: CURTOS[c.codigo] ?? c.nome,
+    ...c, eleicao: e.codigo, valor: `${e.codigo}:${c.codigo}`, curto: `${CURTOS[c.codigo] ?? c.nome}${e.turno === 2 ? ' 2T' : ''}`,
   })));
 
 export const cargoPorValor = (valor) => CARGOS.find((c) => c.valor === valor);
@@ -103,4 +103,45 @@ export function criarDica(elemento) {
     },
     esconder() { elemento.hidden = true; },
   };
+}
+
+// Cores dos partidos (convenção da imprensa: PT vermelho, PL azul…), para mapas e barras de
+// candidatos. Partidos sem cor própria usam a paleta categórica, sem repetir as já usadas.
+export const CORES_PARTIDO = {
+  PT: '#d1242f', PL: '#1f4fa8', MDB: '#2f9e44', PSDB: '#3d8fd6', NOVO: '#f08c00', PSOL: '#f5c400',
+  PSD: '#8c6d1f', PSB: '#e8590c', PDT: '#b5302a', REPUBLICANOS: '#0b7285', 'UNIÃO': '#1c3f6e', PP: '#5c7cfa',
+  'PC do B': '#a61e4d', PCdoB: '#a61e4d', REDE: '#12b886', PV: '#66a80f', AVANTE: '#e64980', 'MISSÃO': '#7048e8',
+  PODE: '#4dabf7', SOLIDARIEDADE: '#f76707', CIDADANIA: '#e599f7', DC: '#5f3dc4', PSTU: '#862e2e', PCB: '#9c2a2a',
+  PCO: '#6b1b1b', UP: '#ff6b6b', AGIR: '#20c997', MOBILIZA: '#94d82d', PRD: '#495057', PMB: '#c2255c',
+};
+
+/** Cor do partido (sigla, ou rótulo "NOME (PARTIDO)"); null se não houver cor própria. */
+export function corDoPartido(rotulo) {
+  if (!rotulo) return null;
+  const sigla = String(rotulo).match(/\(([^()]+)\)\s*$/)?.[1] ?? String(rotulo);
+  const chave = sigla.trim().toUpperCase();
+  return CORES_PARTIDO[chave] ?? CORES_PARTIDO[sigla.trim()] ?? null;
+}
+
+/**
+ * Cores para uma lista ordenada de chaves (candidatos ou partidos): a cor do partido quando
+ * ele aparece pela primeira vez; os demais recebem a paleta categórica sem repetir cores.
+ */
+export function coresPorPartido(chaves, partidoDe, paleta) {
+  const usadas = new Set();
+  const out = new Map();
+  for (const k of chaves) {
+    const c = corDoPartido(partidoDe(k));
+    if (c && !usadas.has(c)) { out.set(k, c); usadas.add(c); }
+  }
+  let i = 0;
+  for (const k of chaves) {
+    if (out.has(k)) continue;
+    while (usadas.has(paleta[i % paleta.length]) && i < paleta.length * 2) i += 1;
+    const c = paleta[i % paleta.length];
+    out.set(k, c);
+    usadas.add(c);
+    i += 1;
+  }
+  return out;
 }

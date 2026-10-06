@@ -3,7 +3,7 @@
 // ranking, locais vencidos, onde cada um é mais forte e mais fraco e comparação entre dois.
 
 import {
-  CARGOS, CODIGO_IBGE_UF, UF_DO_CODIGO, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, criarDica, esc,
+  CARGOS, CODIGO_IBGE_UF, UF_DO_CODIGO, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, coresPorPartido, criarDica, esc,
   fmtInt, fmtNum, nomeUf, pct, pctSecoes, semAcento,
 } from './comum.js';
 import { regressaoLinear, testeCorrelacao } from './calculos.js';
@@ -79,8 +79,8 @@ function preencherVer() {
   el.ver.value = [...el.ver.options].some((o) => o.value === atual) ? atual : geral[0][0];
   el.comparar.value = [...el.comparar.options].some((o) => o.value === comp) ? comp : '';
   // Cores fixas por candidato e partido (as mesmas no mapa e nas barras).
-  estado.cores = new Map(cands.map(([n], i) => [n, CATEGORICA[i % CATEGORICA.length]]));
-  estado.coresPar = new Map(pars.map(([sg], i) => [sg, CATEGORICA[i % CATEGORICA.length]]));
+  estado.cores = coresPorPartido(cands.map(([n]) => n), (n) => estado.nomes[n]?.[1], CATEGORICA);
+  estado.coresPar = coresPorPartido(pars.map(([sg]) => sg), (sg) => sg, CATEGORICA);
 }
 
 const inicial = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
