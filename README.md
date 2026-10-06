@@ -153,8 +153,8 @@ A janela **Logs das urnas** mede o tempo de votação a partir do log de cada ur
   formato das rotas `/api/urnas/*`), a mesma para todos os usuários. Os logs não mudam depois de publicados, como o
   resultado: cada seção é baixada **uma vez só**, e **só de cidades com 100% das seções totalizadas** (no dia da
   apuração, cada cidade entra assim que fecha). A base é montada **aos poucos**, para não sobrecarregar o TSE:
-  `node scripts/atualizar-urnas.mjs --ritmo=120 --max-minutos=45 [--ufs=rr,ap] [--turno=2]` (retoma de onde parou) e,
-  no GitHub Actions, o workflow **Logs das urnas** faz isso a cada hora, direto do TSE, gravando o progresso no
+  `node scripts/atualizar-urnas.mjs --ritmo=300 --max-minutos=45 [--ufs=rr,ap] [--turno=2]` (retoma de onde parou) e,
+  no GitHub Actions, o workflow **Logs das urnas** faz isso a cada hora (300 seções por minuto, publicando a cada 15 min), direto do TSE, gravando o progresso no
   repositório; a partir de 25/10 também o 2º turno (`public/urnas/2t`, pleito 3221). As seções de cada cidade ficam
   em linhas compactas (cerca de 70 bytes cada) que a página expande. Num servidor local, a compilação ao vivo continua
   valendo e a base estática cobre o que ela ainda não leu; "Ler este município agora" só aparece no servidor local.
