@@ -89,6 +89,16 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
     estado.svg.setAttribute('viewBox', estado.vb.map((n) => n.toFixed(2)).join(' '));
     // Contorno fino em qualquer zoom.
     estado.svg.style.setProperty('--traco', `${(estado.vb[2] / estado.inicial[2]) * 0.6}px`);
+    // Mapa em camadas (zonas → locais): o zoom decide qual aparece, como estado → cidade.
+    if (estado.limiar) {
+      const detalhe = estado.vb[2] / (estado.foco ?? estado.inicial)[2] < estado.limiar;
+      if (detalhe !== estado.detalhe) {
+        estado.detalhe = detalhe;
+        container.classList.toggle('zoom-locais', detalhe);
+        dica?.esconder();
+        estado.aoTrocarCamada?.(detalhe);
+      }
+    }
   }
 
   function zoom(fator, cx, cy) {
@@ -111,7 +121,11 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
     const b = ev.target.closest('[data-zoom]');
     if (!b || !estado) return;
     const z = Number(b.dataset.zoom);
-    if (z === 0) { estado.vb = [...estado.inicial]; aplicarVb(); } else zoom(z > 0 ? 1.6 : 1 / 1.6);
+    // ⟲: volta ao enquadramento inicial; de novo, mostra tudo (ex.: o município inteiro).
+    if (z === 0) {
+      const foco = estado.foco && estado.vb.join() !== estado.foco.join() ? estado.foco : estado.inicial;
+      estado.vb = [...foco]; aplicarVb();
+    } else zoom(z > 0 ? 1.6 : 1 / 1.6);
   });
   area.addEventListener('wheel', (ev) => {
     if (!estado) return;
@@ -233,6 +247,7 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
     area.innerHTML = `<svg viewBox="0 0 ${largura} ${altura.toFixed(1)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa: ${esc(titulo)}">
       <defs><pattern id="mapa-sem-dado" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f2f1ed"/><line x1="0" y1="0" x2="0" y2="6" stroke="#c9c8c2" stroke-width="2"/></pattern></defs>
       <g class="feicoes">${paths}</g></svg>`;
+    container.classList.remove('zoom-locais');
     estado = { svg: area.querySelector('svg'), vb: [0, 0, largura, altura], inicial: [0, 0, largura, altura], feicoes, valores, rotulos, titulo, formato, extra, categorias };
     aplicarVb();
 
@@ -245,7 +260,11 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
       return;
     }
 
-    // Legenda: faixas com os limites; divergente mostra a referência no meio.
+    legenda.innerHTML = legendaFaixas(cls, { titulo, formato, referencia, temSemDado: geo.features.some((f) => !Number.isFinite(valores.get(f.properties.codarea))) });
+  }
+
+  // Legenda: faixas com os limites; divergente mostra a referência no meio.
+  function legendaFaixas(cls, { titulo, formato, referencia = null, temSemDado = false, nota = '' }) {
     const ultimo = cls.cores.length - 1;
     const faixas = cls.cores.map((cor, i) => {
       const a = i === 0 ? cls.min : cls.cortes[i - 1];
@@ -256,12 +275,64 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
           : `${formato(a)} – ${formato(b)}`;
       return { cor, texto, vazia: i > 0 && i < ultimo && !(a <= b) };
     }).filter((f) => !f.vazia);
-    const temSemDado = geo.features.some((f) => !Number.isFinite(valores.get(f.properties.codarea)));
-    legenda.innerHTML = `<span class="mapa-titulo">${esc(titulo)}</span>`
-      + faixas.map((f) => `<span class="mapa-faixa"><i style="background:${f.cor}"></i>${esc(f.texto)}</span>`).join('')
+    return `<span class="mapa-titulo">${esc(titulo)}</span>`
+      + (cls.cortes.length || Number.isFinite(cls.min) ? faixas.map((f) => `<span class="mapa-faixa"><i style="background:${f.cor}"></i>${esc(f.texto)}</span>`).join('') : '')
       + (referencia !== null && Number.isFinite(referencia) ? `<span class="mapa-faixa mudo">centro = referência (${esc(formato(referencia))})</span>` : '')
-      + (temSemDado ? '<span class="mapa-faixa"><i class="sem-dado"></i>sem dado</span>' : '');
+      + (temSemDado ? '<span class="mapa-faixa"><i class="sem-dado"></i>sem dado</span>' : '')
+      + nota;
   }
 
-  return { desenhar };
+  const caminho = (aneis, px, py) => aneis.map((anel) => `M${anel.map(([lon, lat]) => `${px(lon)},${py(lat)}`).join('L')}Z`).join('');
+
+  /**
+   * Cidade dividida em áreas de influência dos locais de votação (aproximação visual): afastado,
+   * as zonas eleitorais; com zoom, os locais. Tudo recortado pelo contorno da cidade.
+   * @param {object} o
+   * @param {object} o.contorno  feição GeoJSON da cidade (MultiPolygon, lon/lat)
+   * @param {{cod:string, rotulo:string, aneis:number[][][], valor:number}[]} o.zonas
+   * @param {{cod:string, rotulo:string, anel:number[][], valor:number}[]} o.locais
+   * @param {number[][][]} o.bordas  segmentos [[lon,lat],[lon,lat]] entre zonas diferentes
+   */
+  function desenharCelulas({ contorno, zonas, locais, bordas = [], foco = null, titulo = '', formato = (v) => fmtNum.format(v), extra = null, limiar = 0.55, nota = '', aoTrocarCamada = null }) {
+    const geo = { features: [contorno] };
+    const lim = limites(geo);
+    const largura = 1000;
+    const escala = largura / (lim.x1 - lim.x0);
+    const altura = Math.max(200, (lim.y1 - lim.y0) * escala);
+    const px = (lon) => ((lon - lim.x0) * escala).toFixed(1);
+    const py = (lat) => ((lim.y1 - mercatorY(lat)) * escala).toFixed(1);
+    const cls = classificar([...zonas, ...locais].map((x) => x.valor));
+    const cor = (v) => { const c = cls.classe(v); return c >= 0 ? cls.cores[c] : SEM_DADO; };
+    const feicoes = new Map();
+    const valores = new Map();
+    const rotulos = new Map();
+    const registrar = (x) => { feicoes.set(x.cod, x); valores.set(x.cod, x.valor); rotulos.set(x.cod, x.rotulo); };
+    // Zona = um só bloco: o traço da cor do preenchimento esconde as divisões entre os seus locais.
+    const pathsZonas = zonas.map((z) => { registrar(z); const f = cor(z.valor); return `<path data-cod="${esc(z.cod)}" d="${caminho(z.aneis, px, py)}" fill="${f}" style="stroke:${f}"/>`; }).join('');
+    const pathsLocais = locais.map((l) => { registrar(l); return `<path data-cod="${esc(l.cod)}" d="${caminho([l.anel], px, py)}" fill="${cor(l.valor)}"/>`; }).join('');
+    const dBordas = bordas.map(([a, b]) => `M${px(a[0])},${py(a[1])}L${px(b[0])},${py(b[1])}`).join('');
+    const dCidade = contorno.geometry.coordinates.map((pol) => caminho(pol, px, py)).join('');
+    const idRecorte = `recorte-${Math.random().toString(36).slice(2, 9)}`;
+    area.innerHTML = `<svg viewBox="0 0 ${largura} ${altura.toFixed(1)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa: ${esc(titulo)}">
+      <defs><pattern id="mapa-sem-dado" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f2f1ed"/><line x1="0" y1="0" x2="0" y2="6" stroke="#c9c8c2" stroke-width="2"/></pattern>
+      <clipPath id="${idRecorte}"><path d="${dCidade}"/></clipPath></defs>
+      <g clip-path="url(#${idRecorte})"><g class="feicoes camada-zonas">${pathsZonas}</g><g class="feicoes camada-locais">${pathsLocais}</g>
+      <path class="bordas-zona" d="${dBordas}"/></g><path class="contorno-cidade" d="${dCidade}"/></svg>`;
+    container.classList.remove('zoom-locais');
+    // Foco: a parte da cidade com locais de votação (municípios enormes têm quase tudo na área urbana).
+    let vbFoco = [0, 0, largura, altura];
+    if (foco) {
+      const [lon0, lat0, lon1, lat1] = foco;
+      const fx0 = Number(px(lon0)); const fx1 = Number(px(lon1)); const fy0 = Number(py(lat1)); const fy1 = Number(py(lat0));
+      let w = Math.max(fx1 - fx0, 1) * 1.15; let h = Math.max(fy1 - fy0, 1) * 1.15;
+      if (w / h < largura / altura) w = (h * largura) / altura; else h = (w * altura) / largura; // mesma proporção do mapa
+      w = Math.min(w, largura); h = Math.min(h, altura);
+      vbFoco = [(fx0 + fx1) / 2 - w / 2, (fy0 + fy1) / 2 - h / 2, w, h];
+    }
+    estado = { svg: area.querySelector('svg'), vb: [...vbFoco], inicial: [0, 0, largura, altura], foco: vbFoco, feicoes, valores, rotulos, titulo, formato, extra, categorias: null, limiar, detalhe: false, aoTrocarCamada };
+    aplicarVb();
+    legenda.innerHTML = legendaFaixas(cls, { titulo, formato, temSemDado: [...zonas, ...locais].some((x) => !Number.isFinite(x.valor)), nota });
+  }
+
+  return { desenhar, desenharCelulas };
 }

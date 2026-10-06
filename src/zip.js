@@ -13,6 +13,11 @@ export const ehZip = (b) => b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && b
 
 /** [{ nome, dados: Uint8Array }] de um ZIP. */
 export function abrirZip(entrada) {
+  return entradasZip(entrada).map((e) => ({ nome: e.nome, dados: e.ler() }));
+}
+
+/** [{ nome, ler() }]: cada arquivo só é descomprimido quando lido (ZIPs grandes, um por vez). */
+export function entradasZip(entrada) {
   const b = entrada instanceof Uint8Array ? entrada : new Uint8Array(entrada);
   const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
   // Fim do diretório central: procura de trás para frente (pode haver comentário depois).
@@ -38,9 +43,8 @@ export function abrirZip(entrada) {
     const inicio = local + 30 + v.getUint16(local + 26, true) + v.getUint16(local + 28, true);
     const bruto = b.subarray(inicio, inicio + comprimido);
     if (nome.endsWith('/')) continue;
-    if (metodo === 0) arquivos.push({ nome, dados: bruto });
-    else if (metodo === 8) arquivos.push({ nome, dados: new Uint8Array(inflateRawSync(bruto)) });
-    else throw new Error(`ZIP com método de compressão ${metodo} não suportado`);
+    if (metodo !== 0 && metodo !== 8) throw new Error(`ZIP com método de compressão ${metodo} não suportado`);
+    arquivos.push({ nome, ler: () => (metodo === 0 ? bruto : new Uint8Array(inflateRawSync(bruto))) });
   }
   return arquivos;
 }

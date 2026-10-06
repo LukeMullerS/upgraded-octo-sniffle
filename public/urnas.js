@@ -11,6 +11,7 @@ import { UFS } from './tse.js';
 import { METRICAS, regressaoLinear, testeCorrelacao, valorMetrica } from './calculos.js';
 import { svgBarras, svgDispersao, svgHistograma } from './graficos.js';
 import { carregarMalha, criarMapa } from './mapa.js';
+import { celulasVoronoi } from './voronoi.js';
 
 const $ = (id) => document.getElementById(id);
 const el = Object.fromEntries([
@@ -354,7 +355,17 @@ const mapa = criarMapa(el.mapa, {
       const l = estado.linhas.find((x) => x.cod === cod);
       if (!l) return;
       el.mun.value = l.id;
-    } else return;
+    } else {
+      // Cidade: um local de votação (ou uma zona) filtra a tabela com as suas seções.
+      const area = estado.areasCidade?.get(cod);
+      if (!area) return;
+      estado.filtroLocal = estado.filtroLocal?.cod === cod ? null : { cod, nome: area.rotulo, secoes: area.secoes };
+      for (const p of el.mapa.querySelectorAll('path.selecionado')) p.classList.remove('selecionado');
+      if (estado.filtroLocal) el.mapa.querySelector(`path[data-cod="${CSS.escape(cod)}"]`)?.classList.add('selecionado');
+      estado.limite = PAGINA;
+      renderizarTabela();
+      return;
+    }
     estado.ordem = null;
     estado.limite = PAGINA;
     carregar();
@@ -378,6 +389,8 @@ async function renderizarMapa() {
     if (pedido === pedidoMapa) el.mapa.querySelector('.mapa-area').innerHTML = `<p class="mudo">Mapa indisponível: ${esc(erro.message)}</p>`;
     return;
   }
+  if (pedido !== pedidoMapa) return;
+  if (d.nivel === 'municipio' && await desenharCidade(d, geo, uf, pedido)) return;
   if (pedido !== pedidoMapa) return;
   let linhas = estado.linhas;
   if (d.nivel === 'municipio') {
@@ -413,6 +426,127 @@ async function renderizarMapa() {
       return `<span>${fmtInt.format(l.lidas)}${l.total ? ` de ${fmtInt.format(l.total)}` : ''} seções · ${fmtInt.format(l.votos)} eleitores</span>`;
     },
   });
+}
+
+// ---------- cidade: zonas eleitorais e locais de votação ----------
+// O TSE não publica a área de cada seção; publica onde fica cada local de votação (public/locais,
+// gerado por scripts/atualizar-locais.mjs). A cidade é dividida pela proximidade dos locais
+// (diagrama de Voronoi): só uma forma de ver o mapa, aproximada, que não entra nas análises.
+
+const locaisCache = new Map();
+function carregarLocais(uf, mun) {
+  const k = `${uf}/${mun}`;
+  if (!locaisCache.has(k)) locaisCache.set(k, fetch(`locais/${k}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null));
+  return locaisCache.get(k);
+}
+
+// Por seção só há tempo na cabine, atendimento e biometria (os demais indicadores são da cidade).
+const INDICADORES_SECAO = new Set(['cabine', 'atendimento', 'bio']);
+
+/** Junta seções num resumo com os campos que os indicadores leem (médias ponderadas pelos eleitores). */
+function resumoDeSecoes(lista) {
+  let votos = 0; let cab = 0; let nCab = 0; let at = 0; let nAt = 0; let bio = 0;
+  for (const s of lista) {
+    const v = s.votos ?? 0;
+    votos += v;
+    bio += s.tipos?.biometrica ?? 0;
+    if (Number.isFinite(s.cabine?.media)) { cab += s.cabine.media * v; nCab += v; }
+    if (Number.isFinite(s.atendimento?.media)) { at += s.atendimento.media * v; nAt += v; }
+  }
+  return { votos, secoes: lista.length, cabine: { media: nCab ? cab / nCab : null }, atendimento: { media: nAt ? at / nAt : null }, pctBiometrica: votos ? (bio / votos) * 100 : null };
+}
+
+/** Enquadramento onde está a maior parte dos locais (sem os 5% mais afastados em cada direção). */
+function focoUrbano(lista) {
+  const q = (v, p) => { const o = [...v].sort((a, b) => a - b); return o[Math.min(o.length - 1, Math.max(0, Math.round(p * (o.length - 1))))]; };
+  const lons = lista.map((g) => g.lon);
+  const lats = lista.map((g) => g.lat);
+  const corte = lista.length >= 20 ? 0.05 : 0;
+  return [q(lons, corte), q(lats, corte), q(lons, 1 - corte), q(lats, 1 - corte)];
+}
+
+async function desenharCidade(d, geo, uf, pedido) {
+  const mun = el.mun.value;
+  const info = d.estadoUf?.municipios?.find((x) => x.codigo === mun);
+  const contorno = geo.features.find((f) => String(f.properties.codarea) === String(info?.ibge));
+  const base = contorno ? await carregarLocais(uf, mun) : null;
+  if (pedido !== pedidoMapa || !base?.locais?.length) return false;
+  const porSecao = new Map((d.secoes ?? []).map((sec) => [`${sec.zona}-${sec.secao}`, sec]));
+  const temIndicador = INDICADORES_SECAO.has(el.indicador.value);
+  const valorDe = (lista) => (temIndicador && lista.length ? indicador().valor(resumoDeSecoes(lista)) : NaN);
+
+  // Locais na mesma posição viram um ponto só; sem posição, ficam fora do mapa.
+  const grupos = new Map();
+  let semPosicao = 0;
+  for (const [zona, numero, nome, bairro, , lat, lon, eleitores, secoes] of base.locais) {
+    if (lat === null || lon === null) { semPosicao += 1; continue; }
+    const k = `${lat},${lon}`;
+    if (!grupos.has(k)) grupos.set(k, { lat, lon, zona, locais: [] });
+    grupos.get(k).locais.push({ zona, numero, nome, bairro, eleitores, secoes: secoes.map((sec) => `${zona}-${sec}`) });
+  }
+  const lista = [...grupos.values()];
+  if (!lista.length) return false;
+  const lat0 = lista.reduce((t, g) => t + g.lat, 0) / lista.length;
+  const kx = Math.cos((lat0 * Math.PI) / 180);
+  const pontos = lista.map((g) => ({ x: g.lon * kx, y: g.lat }));
+  let x0 = Infinity; let y0 = Infinity; let x1 = -Infinity; let y1 = -Infinity;
+  const estender = (x, y) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); };
+  for (const pol of contorno.geometry.coordinates) for (const [lon, lat] of pol[0]) estender(lon * kx, lat);
+  for (const p of pontos) estender(p.x, p.y);
+  const m = Math.max(x1 - x0, y1 - y0) * 0.02 + 1e-6;
+  const celulas = celulasVoronoi(pontos, [x0 - m, y0 - m, x1 + m, y1 + m]);
+  const paraLonLat = (v) => [v.x / kx, v.y];
+
+  const areas = new Map();
+  const locais = lista.map((g, i) => {
+    const secoes = g.locais.flatMap((l) => l.secoes);
+    const lidas = secoes.map((k) => porSecao.get(k)).filter(Boolean);
+    const rotulo = g.locais.map((l) => l.nome).join(' · ');
+    const area = { cod: `l:${i}`, rotulo, anel: celulas[i].map(paraLonLat), valor: valorDe(lidas), grupo: g, secoes: new Set(secoes), lidas: lidas.length };
+    areas.set(area.cod, area);
+    return area;
+  });
+  const porZona = new Map();
+  lista.forEach((g, i) => { if (!porZona.has(g.zona)) porZona.set(g.zona, []); porZona.get(g.zona).push(i); });
+  const zonas = [...porZona].map(([zona, idx]) => {
+    const secoes = idx.flatMap((i) => [...locais[i].secoes]);
+    const lidas = secoes.map((k) => porSecao.get(k)).filter(Boolean);
+    const area = { cod: `z:${zona}`, rotulo: `Zona eleitoral ${Number(zona)}`, aneis: idx.map((i) => locais[i].anel), valor: valorDe(lidas), secoes: new Set(secoes), lidas: lidas.length, nLocais: idx.reduce((t, i) => t + lista[i].locais.length, 0) };
+    areas.set(area.cod, area);
+    return area;
+  });
+  // Fronteiras entre zonas: arestas cujo vizinho é de outra zona (cada uma desenhada uma vez).
+  const bordas = [];
+  celulas.forEach((cel, i) => cel.forEach((v, k) => {
+    if (v.viz === null || v.viz < i || lista[v.viz].zona === lista[i].zona) return;
+    bordas.push([paraLonLat(v), paraLonLat(cel[(k + 1) % cel.length])]);
+  }));
+  estado.areasCidade = areas;
+
+  const ind = indicador();
+  el.tituloMapa.textContent = `${nomeIndicador()} · ${info.nome}: ${porZona.size > 1 ? 'zonas eleitorais e ' : ''}locais de votação`;
+  const textoCamada = (detalhe) => (detalhe ? 'locais de votação — clique num local para ver as suas seções na tabela'
+    : porZona.size > 1 ? `${porZona.size} zonas eleitorais — aproxime (roda do mouse, + ou duplo clique) para ver os locais de votação` : 'aproxime para ver os locais de votação');
+  el.subMapa.textContent = textoCamada(false);
+  mapa.desenharCelulas({
+    contorno, zonas: porZona.size > 1 ? zonas : locais.map((l) => ({ ...l, aneis: [l.anel] })), locais, bordas,
+    foco: focoUrbano(lista),
+    titulo: nomeIndicador(), formato: ind.fmt, limiar: porZona.size > 1 ? 0.55 : 2,
+    aoTrocarCamada: (detalhe) => { el.subMapa.textContent = textoCamada(detalhe); },
+    nota: `<span class="mapa-faixa mudo">áreas aproximadas: cada ponto da cidade fica com o local de votação mais próximo</span>`
+      + (temIndicador ? '' : '<span class="mapa-faixa mudo">este indicador só existe por cidade; por local, use tempo na cabine, atendimento ou % biometria</span>')
+      + (semPosicao ? `<span class="mapa-faixa mudo">${semPosicao} local(is) sem posição no TSE ficam fora do mapa</span>` : ''),
+    extra: (cod) => {
+      const a = areas.get(cod);
+      if (!a) return '';
+      if (a.grupo) {
+        const l0 = a.grupo.locais[0];
+        return `<span>${esc(l0.bairro || '')}${l0.bairro ? ' · ' : ''}zona ${Number(l0.zona)}</span><span>${fmtInt.format(a.lidas)} de ${fmtInt.format(a.secoes.size)} seções com log · ${fmtInt.format(a.grupo.locais.reduce((t, l) => t + l.eleitores, 0))} eleitores aptos</span>`;
+      }
+      return `<span>${fmtInt.format(a.nLocais)} locais · ${fmtInt.format(a.lidas)} de ${fmtInt.format(a.secoes.size)} seções com log</span>`;
+    },
+  });
+  return true;
 }
 
 // ---------- cruzamento ----------
@@ -480,7 +614,9 @@ function renderizarTabela() {
   const termo = semAcento(el.busca.value.trim());
   const padrao = d.nivel === 'municipio' ? null : el.indicador.value === 'bn' ? 'bn' : ['abertura', 'encerramento', 'habilitacao', 'manual'].includes(el.indicador.value) ? 'ind' : el.indicador.value;
   const ordem = estado.ordem ?? padrao;
-  let linhas = estado.linhas.filter((l) => !termo || semAcento(l.nome).includes(termo));
+  const filtro = d.nivel === 'municipio' ? estado.filtroLocal : null;
+  if (filtro) el.tituloTabela.innerHTML = `Seções de ${esc(filtro.nome)} <button type="button" class="secundario sem-margem" data-limpar-local>mostrar todas</button>`;
+  let linhas = estado.linhas.filter((l) => (!termo || semAcento(l.nome).includes(termo)) && (!filtro || filtro.secoes.has(l.id)));
   if (ordem) linhas = [...linhas].sort((a, b) => (b[ordem] ?? -Infinity) - (a[ordem] ?? -Infinity));
   const cols = colunas();
   const visiveis = linhas.slice(0, estado.limite);
@@ -509,8 +645,14 @@ dica.ligar(el.hora, '[data-dica]', (alvo) => {
 
 // ---------- eventos ----------
 
-el.uf.addEventListener('change', () => { el.mun.innerHTML = '<option value="">Todos</option>'; estado.ordem = null; estado.limite = PAGINA; carregar(); });
-el.mun.addEventListener('change', () => { estado.ordem = null; estado.limite = PAGINA; carregar(); });
+el.uf.addEventListener('change', () => { el.mun.innerHTML = '<option value="">Todos</option>'; estado.ordem = null; estado.limite = PAGINA; estado.filtroLocal = null; carregar(); });
+el.mun.addEventListener('change', () => { estado.ordem = null; estado.limite = PAGINA; estado.filtroLocal = null; carregar(); });
+el.tituloTabela.addEventListener('click', (ev) => {
+  if (!ev.target.closest('[data-limpar-local]')) return;
+  estado.filtroLocal = null;
+  for (const p of el.mapa.querySelectorAll('path.selecionado')) p.classList.remove('selecionado');
+  renderizarTabela();
+});
 el.cargo.addEventListener('change', () => carregar());
 el.metricaBn.addEventListener('change', () => { gravarHash(); montarLinhas(); renderizarMapa(); renderizarCruzamento(); renderizarTabela(); });
 el.indicador.addEventListener('change', () => { gravarHash(); estado.ordem = null; montarLinhas(); renderizarMapa(); renderizarTabela(); });

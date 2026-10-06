@@ -289,6 +289,15 @@ body.painel main, body.painel .filtros, body.painel .abas { max-width: 1280px; }
 .mapa-area path { stroke: var(--cartao); stroke-width: var(--traco, .6px); vector-effect: non-scaling-stroke; cursor: pointer; }
 .mapa-area path:hover { stroke: var(--texto); stroke-width: 1.5px; }
 .mapa-area path.destaque { stroke: var(--texto); stroke-width: 2px; }
+/* Cidade em camadas: zonas eleitorais e, com zoom, locais de votação (áreas aproximadas) */
+.mapa .camada-locais { display: none; }
+.mapa.zoom-locais .camada-locais { display: inline; }
+.mapa.zoom-locais .camada-zonas { display: none; }
+.mapa-area .camada-zonas path { stroke-width: .4px; }
+.mapa-area path.bordas-zona { fill: none; stroke: var(--texto); stroke-width: 1.4px; stroke-opacity: .7; pointer-events: none; cursor: default; }
+.mapa.zoom-locais .mapa-area path.bordas-zona { stroke-width: 2px; }
+.mapa-area path.contorno-cidade { fill: none; stroke: var(--texto); stroke-width: 1.6px; pointer-events: none; cursor: default; }
+.mapa-area .camada-locais path.selecionado { stroke: var(--texto); stroke-width: 3px; }
 .mapa-controles { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 4px; }
 .mapa-controles button { width: 30px; height: 30px; padding: 0; font-size: 1.1rem; line-height: 1; }
 .mapa-legenda { display: flex; flex-wrap: wrap; gap: .3rem .9rem; align-items: center; font-size: .78rem; color: var(--mudo); margin-top: .5rem; }

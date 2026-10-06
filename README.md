@@ -160,6 +160,13 @@ A janela **Logs das urnas** mede o tempo de votação a partir do log de cada ur
   valendo e a base estática cobre o que ela ainda não leu; "Ler este município agora" só aparece no servidor local.
 - Em 2026 o TSE passou a publicar o log como **ZIP** (antes, 7z) e mudou algumas mensagens (o eleitor pode ser
   identificado pelo título ou pelo CPF): os dois formatos são lidos.
+- **Mapa por zona eleitoral e local de votação**: ao abrir uma cidade, o mapa a mostra dividida pelas zonas
+  eleitorais e, com zoom, pelos locais de votação (clique num local para ver as suas seções na tabela). O TSE não
+  publica a área de cada seção; publica onde fica cada local (latitude e longitude) e quais seções votam nele
+  (`public/locais/{uf}/{mun}.json`, gerado por `node scripts/atualizar-locais.mjs` a partir do conjunto "Eleitorado
+  por local de votação"). A cidade é dividida pela proximidade dos locais (diagrama de Voronoi, `public/voronoi.js`):
+  é só uma forma aproximada de ver o mapa e **não entra nas análises**. Por local há tempo na cabine, atendimento e
+  % de biometria; os demais indicadores existem por cidade.
 - O 7z é aberto por um leitor próprio em JavaScript (`src/sete-zip.js`, LZMA/LZMA2), sem precisar do 7-Zip.
 - No Explorador, as variáveis do grupo "Logs das urnas" (tempo médio na cabine, mediana, atendimento, % biometria…)
   aparecem para os locais com logs lidos.
@@ -424,7 +431,9 @@ public/urnas.*     janela Logs das urnas
 public/desktop.*   área de trabalho Windows 98 (gerenciador de janelas, menu Iniciar, barra de tarefas)
 public/tema.js     escolhe o visual (98 ou moderno) e o modo "janela" das páginas
 public/explorar.*  janela Análises (perguntas prontas, mapa, testes, regressão)
-public/mapa.js     mapas coropléticos em SVG (zoom, arrastar, legenda por quantis)
+public/mapa.js     mapas coropléticos em SVG (zoom, arrastar, legenda por quantis; cidade em zonas/locais)
+public/voronoi.js  áreas aproximadas dos locais de votação (diagrama de Voronoi)
+public/locais/     locais de votação por cidade (posição e seções), de scripts/atualizar-locais.mjs
 public/citar.js    "Como citar" (ABNT, APA, MLA, Chicago, BibTeX)
 public/exportar.js PNG/SVG de gráficos e mapas, relatório HTML
 public/calculos.js, graficos.js, comum.js     estatística (incl. testes), gráficos SVG e utilitários
