@@ -77,7 +77,7 @@ async function retrato(valor) {
   const completo = lidos.length === alvos.length && lidos.every((l) => l.secoes.total > 0 && l.secoes.totalizadas >= l.secoes.total);
   const saida = {
     eleicao: ele, cargo: cargo.codigo, uf: 'todas', total: alvos.length, lidos: lidos.length, lendo: false,
-    retrato: { geradoEm: new Date().toISOString(), completo, fonte: `${BASE}/${'ele2026'}/${ele}/dados` },
+    retrato: { geradoEm: new Date().toISOString(), completo, fonte: `https://resultados.tse.jus.br/oficial/ele2026/${ele}/dados` },
     erro: null,
     consolidado: lidos.length ? somarResumos(lidos.map((l) => ({ ...l, nomes: {} }))) : null,
     municipios: lidos,

@@ -2,7 +2,7 @@
 
 import { antesDeExportar } from './citar.js';
 import './exportar.js'; // botões de exportar PNG/SVG em todos os cartões com gráfico ou mapa
-import { ELEICOES, UFS } from './tse.js';
+import { ELEICOES, UFS, somarResumos } from './tse.js';
 
 export const fmtInt = new Intl.NumberFormat('pt-BR');
 export const fmtPct = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -75,11 +75,31 @@ function retratoTodas(cargo) {
   return retratos.get(chave);
 }
 
-export async function carregarMunicipios(cargo, uf) {
-  if (uf === 'todas') {
-    const r = await retratoTodas(cargo);
-    if (r) return r;
+/** As cidades de uma UF tiradas do retrato nacional, no formato de /api/municipios?uf=… */
+export function recortarUf(retrato, uf) {
+  const prefixo = `${uf}:`;
+  // Cargos estaduais: no retrato os candidatos vêm como "uf:número" e "NOME · UF".
+  const local = (mapa) => {
+    if (!Object.keys(mapa ?? {}).some((k) => k.includes(':'))) return mapa;
+    const out = {};
+    for (const [k, v] of Object.entries(mapa)) if (k.startsWith(prefixo)) out[k.slice(prefixo.length)] = v;
+    return out;
+  };
+  const sufixo = ` · ${uf.toUpperCase()}`;
+  const nomes = {};
+  for (const [k, v] of Object.entries(local(retrato.nomes) ?? {})) {
+    nomes[k] = [String(v[0]).endsWith(sufixo) ? v[0].slice(0, -sufixo.length) : v[0], ...v.slice(1)];
   }
+  const municipios = retrato.municipios.filter((m) => m.uf === uf).map((m) => ({ ...m, cand: local(m.cand) }));
+  const consolidado = municipios.length ? somarResumos(municipios) : null;
+  if (consolidado) delete consolidado.nomes;
+  return { ...retrato, uf, total: municipios.length, lidos: municipios.length, consolidado, municipios, nomes };
+}
+
+export async function carregarMunicipios(cargo, uf) {
+  const r = await retratoTodas(cargo);
+  if (r && uf === 'todas') return r;
+  if (r && r.municipios.some((m) => m.uf === uf)) return recortarUf(r, uf);
   return getApi('municipios', { ele: cargo.eleicao, cargo: cargo.codigo, uf });
 }
 
