@@ -16,6 +16,7 @@
       fetch('api/erro?' + q, { cache: 'no-store' }).catch(function () {});
     } catch (e) { /* sem servidor */ }
   }
+  var local = /^(localhost|127\.|192\.168\.|10\.|\[::1\])/.test(location.hostname);
   function mostrar(msg) {
     var corpo = document.body;
     if (!corpo) { addEventListener('DOMContentLoaded', function () { mostrar(msg); }); return; }
@@ -27,7 +28,7 @@
         + 'box-shadow:inset -1px -1px #0a0a0a,inset 1px 1px #dfdfdf,inset -2px -2px #808080,inset 2px 2px #fff,4px 4px 0 rgba(0,0,0,.3)';
       caixa.innerHTML = '<div style="background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:bold;padding:3px 5px">Erro ao abrir ' + pagina + '</div>'
         + '<div style="display:flex;gap:10px;padding:10px"><div style="font-size:28px;line-height:1">⛔</div><div>'
-        + '<p style="margin:0 0 6px" data-msg></p><p style="margin:0 0 6px">Tente recarregar com <b>Ctrl+F5</b>. Se continuar, copie a mensagem do terminal onde o <code>npm start</code> está rodando.</p></div></div>'
+        + '<p style="margin:0 0 6px" data-msg></p><p style="margin:0 0 6px">Tente recarregar com <b>Ctrl+F5</b>. ' + (local ? 'Se continuar, copie a mensagem do terminal onde o <code>npm start</code> está rodando.' : 'Se continuar, tente desativar extensões do navegador para este site.') + '</p></div></div>'
         + '<div style="text-align:right;padding:0 8px 8px"><button type="button" style="min-width:75px;font:inherit;padding:3px 10px">OK</button></div>';
       caixa.querySelector('button').addEventListener('click', function () { caixa.remove(); caixa = null; });
       corpo.appendChild(caixa);
@@ -62,7 +63,7 @@
         });
       }, function () {
         achou = true;
-        var m = nome(u) + ' foi bloqueado pelo navegador (provavelmente um bloqueador de anúncios ou outra extensão). Libere 127.0.0.1 no bloqueador.';
+        var m = nome(u) + ' foi bloqueado pelo navegador (provavelmente um bloqueador de anúncios ou outra extensão). Libere ' + location.hostname + ' no bloqueador.';
         relatar('bloqueado', m);
         mostrar(m);
       });
@@ -76,6 +77,8 @@
     var alvo = ev.target;
     if (alvo && alvo !== window && alvo.tagName) {
       if (alvo.tagName === 'IMG') return; // foto de candidato que não existe: normal
+      // Estatísticas de visita (Vercel): opcionais; bloqueadores de anúncios costumam barrá-las.
+      if (alvo.hasAttribute && alvo.hasAttribute('data-opcional')) return;
       var msg = 'não foi possível carregar ' + (alvo.src || alvo.href || alvo.tagName);
       relatar('arquivo', msg);
       mostrar(msg);
@@ -159,6 +162,7 @@
     var s = document.createElement('script');
     s.defer = true;
     s.src = src;
+    s.setAttribute('data-opcional', '');
     document.head.appendChild(s);
   });
 }());
