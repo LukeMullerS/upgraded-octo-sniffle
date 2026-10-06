@@ -301,6 +301,47 @@ const somarMapas = (mapas) => {
   return out;
 };
 
+// Retratos compactos (public/resultados): os percentuais saem do arquivo, porque o navegador os
+// recalcula exatamente a partir das contagens, e o número efetivo fica com 6 casas decimais.
+// Corta cerca de 40% do arquivo comprimido sem perder informação visível.
+const PERCENTUAIS = {
+  pctComparecimento: (r) => pct(r.comparecimento, r.aptosTotalizadas),
+  pctAbstencao: (r) => pct(r.abstencao, r.aptosTotalizadas),
+  pctValidos: (r) => pct(r.validos, r.total),
+  pctBrancos: (r) => pct(r.brancos, r.total),
+  pctNulos: (r) => pct(r.nulos, r.total),
+  pctAnulados: (r) => pct(r.anulados, r.total),
+  pctBrancosNulos: (r) => pct(r.brancos + r.nulos, r.total),
+};
+const ORDEM_RESUMO = ['codigo', 'nome', 'uf', 'ibge', 'atualizadoEm', 'secoes', 'eleitorado', 'aptosTotalizadas', 'comparecimento',
+  'pctComparecimento', 'abstencao', 'pctAbstencao', 'total', 'validos', 'pctValidos', 'brancos', 'nulos', 'anulados', 'pctBrancos',
+  'pctNulos', 'pctAnulados', 'pctBrancosNulos', 'candidatos', 'cand', 'par', 'efetivoCand', 'efetivoPar'];
+const seis = (v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v);
+
+export function compactarRetrato(retrato) {
+  const municipios = retrato.municipios.map((m) => {
+    const out = { ...m, efetivoCand: seis(m.efetivoCand), efetivoPar: seis(m.efetivoPar) };
+    for (const k of Object.keys(PERCENTUAIS)) delete out[k];
+    return out;
+  });
+  return { ...retrato, retrato: { ...retrato.retrato, compacto: true }, municipios };
+}
+
+/** Desfaz compactarRetrato: devolve cada cidade com os mesmos campos, na mesma ordem, de /api/municipios. */
+export function expandirRetrato(retrato) {
+  if (!retrato?.retrato?.compacto) return retrato;
+  const municipios = retrato.municipios.map((m) => {
+    const out = {};
+    for (const k of ORDEM_RESUMO) {
+      if (k in PERCENTUAIS) out[k] = PERCENTUAIS[k](m);
+      else if (k in m) out[k] = m[k];
+    }
+    for (const k of Object.keys(m)) if (!(k in out)) out[k] = m[k];
+    return out;
+  });
+  return { ...retrato, municipios };
+}
+
 /** Soma resumos (para consolidar o Brasil a partir das UFs, ou uma UF a partir das cidades). */
 export function somarResumos(lista) {
   const soma = (f) => lista.reduce((t, r) => t + f(r), 0);

@@ -250,7 +250,9 @@ cidade?", "A alfabetização muda o voto no líder?" e "Onde o voto para deputad
   "Brasil — todas as cidades" abre na hora a partir de um retrato, em vez de baixar milhares de arquivos do TSE a cada
   consulta (o que numa função serverless não termina e ainda faz o TSE responder 429). O app só usa o retrato quando
   ele está completo (todas as seções totalizadas). Para gerar/atualizar:
-  `node scripts/atualizar-resultados.mjs 6257:1 6259:3 6259:5`.
+  `node scripts/atualizar-resultados.mjs 6257:1 6259:3 6259:5 6259:6 6259:7 6259:8` (todos os cargos do 1º turno já têm retrato).
+  Uma UF sozinha também sai do retrato nacional. Os arquivos são compactos: os percentuais são recalculados no
+  navegador a partir das contagens (cerca de 40% menores, sem perder informação).
 
 ## Ficha do município
 
@@ -281,6 +283,13 @@ TSE. É só importar o repositório no Vercel, sem build. Diferenças em relaç�
   lenta; as cidades de um estado vão se completando a cada atualização da página;
 - para acompanhar tudo em tempo real (inclusive todos os logs), prefira rodar `npm start` num computador ou num
   servidor sempre ligado (Render, Railway, Fly.io, uma VPS).
+
+### Cache dos arquivos no Vercel
+
+No deploy, `scripts/versionar.mjs` (o `buildCommand` do `vercel.json`) copia `public/` para `dist/` e põe `?v=<versão>`
+em todas as referências a `.js` e `.css`. Com a versão no endereço, o navegador guarda esses arquivos por um ano sem
+perguntar de novo ao servidor; a versão (hash de todo o código) muda a cada deploy com código novo, e as páginas HTML
+continuam sem cache, então ninguém fica com arquivos antigos.
 
 ## Segurança
 
@@ -358,6 +367,7 @@ public/municipio.*   ficha do município (eleição, eleitorado, Censo, saúde e
 src/coletor.js     coletor de brancos e nulos por município (acompanhamento a cada 2 min)
 src/censo.js       séries do IBGE (Censo, PIB; API de agregados), guardadas em dados/censo
 src/fontes.js      IPEA (Atlas do Desenvolvimento Humano) e IBGE Localidades, guardados em dados/fontes
+scripts/versionar.mjs  build do Vercel (public/ → dist/ com ?v= nos .js e .css)
 scripts/atualizar-resultados.mjs  gera os retratos de public/resultados (todas as cidades de um cargo)
 scripts/atualizar-fontes.mjs  gera os retratos de public/fontes (TSE perfil do eleitorado, Saúde/CNES)
 public/fontes/     retratos das fontes grandes (JSON por município e UF)

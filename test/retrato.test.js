@@ -30,3 +30,26 @@ test('recorte de cargo nacional mantém os números dos candidatos', () => {
   assert.deepEqual(r.nomes, { 13: ['LULA', 'PT', 0] });
   assert.equal(r.consolidado.cand[22], 60);
 });
+
+import { compactarRetrato, expandirRetrato } from '../public/tse.js';
+import { versionarTexto } from '../scripts/versionar.mjs';
+
+test('retrato compacto volta com os mesmos campos, na mesma ordem, e percentuais exatos', () => {
+  const m = { ...cidade('pe', '1', { 13: 50, 22: 20 }), pctComparecimento: 80, pctAbstencao: 20, pctValidos: 87.5, pctBrancos: 6.25, pctNulos: 6.25, pctAnulados: 0, pctBrancosNulos: 12.5, efetivoCand: 1.6949152542, efetivoPar: null };
+  const ordem = ['codigo', 'nome', 'uf', 'atualizadoEm', 'secoes', 'eleitorado', 'aptosTotalizadas', 'comparecimento', 'pctComparecimento', 'abstencao', 'pctAbstencao', 'total', 'validos', 'pctValidos', 'brancos', 'nulos', 'anulados', 'pctBrancos', 'pctNulos', 'pctAnulados', 'pctBrancosNulos', 'candidatos', 'cand', 'par', 'efetivoCand', 'efetivoPar'];
+  const original = Object.fromEntries(ordem.map((k) => [k, m[k]]));
+  const compacto = compactarRetrato({ retrato: { completo: true }, municipios: [original] });
+  assert.equal(compacto.retrato.compacto, true);
+  assert.equal('pctValidos' in compacto.municipios[0], false);
+  const volta = expandirRetrato(JSON.parse(JSON.stringify(compacto))).municipios[0];
+  assert.deepEqual(Object.keys(volta), ordem);
+  assert.deepEqual({ ...volta, efetivoCand: 0 }, { ...original, efetivoCand: 0 });
+  assert.ok(Math.abs(volta.efetivoCand - original.efetivoCand) < 1e-6);
+});
+
+test('versionar põe ?v= em todos os imports relativos, scripts e folhas de estilo', () => {
+  const js = "import { a } from './comum.js';\nimport './exportar.js';\nconst m = await import('./campo.js');\nimport x from 'externo';";
+  assert.equal(versionarTexto(js, 'js', 'abc'), "import { a } from './comum.js?v=abc';\nimport './exportar.js?v=abc';\nconst m = await import('./campo.js?v=abc');\nimport x from 'externo';");
+  const html = '<link rel="stylesheet" href="style.css"><link rel="manifest" href="manifest.json"><script src="tema.js"></script><script type="module" src="app.js"></script><a href="x.js">';
+  assert.equal(versionarTexto(html, 'html', 'abc'), '<link rel="stylesheet" href="style.css?v=abc"><link rel="manifest" href="manifest.json"><script src="tema.js?v=abc"></script><script type="module" src="app.js?v=abc"></script><a href="x.js">');
+});

@@ -11,7 +11,7 @@
 // TSE_BASE muda a origem (padrão: https://resultados.tse.jus.br/oficial).
 
 import { mkdir, writeFile } from 'node:fs/promises';
-import { ELEICOES, lerMunicipios, resumoVotos, somarResumos, urlMunicipios, urlResultado } from '../public/tse.js';
+import { ELEICOES, compactarRetrato, lerMunicipios, resumoVotos, somarResumos, urlMunicipios, urlResultado } from '../public/tse.js';
 
 const BASE = (process.env.TSE_BASE || 'https://resultados.tse.jus.br/oficial').replace(/\/$/, '');
 const CONCORRENCIA = Number(process.env.CONCORRENCIA) || 4;
@@ -85,7 +85,7 @@ async function retrato(valor) {
   };
   delete saida.consolidado?.nomes;
   await mkdir(SAIDA, { recursive: true });
-  await writeFile(new URL(`${ele}-${cargo.codigo}.json`, SAIDA), JSON.stringify(saida));
+  await writeFile(new URL(`${ele}-${cargo.codigo}.json`, SAIDA), JSON.stringify(compactarRetrato(saida)));
   console.log(`gravado public/resultados/${ele}-${cargo.codigo}.json · ${lidos.length}/${alvos.length} cidades · completo: ${completo}`);
 }
 

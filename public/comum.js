@@ -2,7 +2,7 @@
 
 import { antesDeExportar } from './citar.js';
 import './exportar.js'; // botões de exportar PNG/SVG em todos os cartões com gráfico ou mapa
-import { ELEICOES, UFS, somarResumos } from './tse.js';
+import { ELEICOES, UFS, expandirRetrato, somarResumos } from './tse.js';
 
 export const fmtInt = new Intl.NumberFormat('pt-BR');
 export const fmtPct = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -69,7 +69,7 @@ function retratoTodas(cargo) {
   if (!retratos.has(chave)) {
     retratos.set(chave, fetch(`resultados/${chave}.json`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => (d?.retrato?.completo ? d : null))
+      .then((d) => (d?.retrato?.completo ? expandirRetrato(d) : null))
       .catch(() => null));
   }
   return retratos.get(chave);
