@@ -252,6 +252,20 @@ cidade?", "A alfabetização muda o voto no líder?" e "Onde o voto para deputad
   ele está completo (todas as seções totalizadas). Para gerar/atualizar:
   `node scripts/atualizar-resultados.mjs 6257:1 6259:3 6259:5`.
 
+## Ficha do município
+
+A janela **Ficha do município** (`/municipio.html`) reúne tudo sobre uma cidade numa página só: digite o nome (ou
+use "Surpreenda-me") e veja
+
+- o resultado do 1º turno para Presidente, Governador e Senador, com os cinco mais votados na cidade comparados com
+  o estado e o Brasil (cores dos partidos);
+- quem vota (perfil do eleitorado do TSE), comparecimento e votos (posição entre as cidades da UF), população,
+  moradia e saneamento (Censo 2022), saúde (CNES), PIB e IDHM;
+- para cada indicador, uma barra com a posição da cidade entre todas as do Brasil, o valor da UF e a mediana;
+- um "Em resumo" automático com os destaques, e Imprimir / PDF.
+
+O endereço guarda a cidade (`municipio.html#mun=pe-25313`), então a ficha pode ser compartilhada.
+
 ## Publicar no Vercel
 
 O projeto já vem pronto para o Vercel (`vercel.json` + `api/index.js`): os arquivos de `public/` são servidos como
@@ -337,9 +351,11 @@ public/app.js      filtros, consulta e renderização
 public/tse.js      configuração das eleições, URLs e normalização do JSON do TSE
 public/brancos.*   aba de brancos e nulos por estado e cidade
 public/candidatos.*  mapa da votação: candidatos, partidos, vencedor, comparecimento
+public/municipio.*   ficha do município (eleição, eleitorado, Censo, saúde e renda de uma cidade)
 src/coletor.js     coletor de brancos e nulos por município (acompanhamento a cada 2 min)
 src/censo.js       séries do IBGE (Censo, PIB; API de agregados), guardadas em dados/censo
 src/fontes.js      IPEA (Atlas do Desenvolvimento Humano) e IBGE Localidades, guardados em dados/fontes
+scripts/atualizar-resultados.mjs  gera os retratos de public/resultados (todas as cidades de um cargo)
 scripts/atualizar-fontes.mjs  gera os retratos de public/fontes (TSE perfil do eleitorado, Saúde/CNES)
 public/fontes/     retratos das fontes grandes (JSON por município e UF)
 src/logs.js        compilação nacional dos logs das urnas (cache em dados/logs)

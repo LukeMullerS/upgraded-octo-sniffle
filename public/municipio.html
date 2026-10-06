@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ficha do município</title>
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0b5cad">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <script src="tema.js"></script>
+</head>
+<body class="painel">
+  <header class="topo">
+    <div>
+      <h1>Ficha do município</h1>
+      <p class="sub">Tudo sobre uma cidade: resultado da eleição, eleitorado, Censo, saúde e desenvolvimento, comparado com o estado e o Brasil</p>
+    </div>
+    <div class="atualizacao">
+      <span id="status" class="status">carregando…</span>
+      <button type="button" class="secundario sem-margem" data-citar>Como citar</button>
+      <button id="imprimir" type="button" class="secundario sem-margem">Imprimir / PDF</button>
+    </div>
+  </header>
+
+  <nav class="abas" aria-label="Páginas">
+    <a href="./">Apuração</a>
+    <a href="candidatos.html">Mapa da votação</a>
+    <a href="municipio.html" aria-current="page">Ficha do município</a>
+    <a href="explorar.html">Análises</a>
+    <a href="urnas.html">Logs das urnas</a>
+  </nav>
+
+  <main>
+    <section class="cartao busca-municipio">
+      <label for="busca-municipio" class="passo-titulo">Qual cidade?</label>
+      <div class="busca-linha">
+        <input id="busca-municipio" type="search" list="lista-municipios" placeholder="Digite o nome da cidade (ex.: Recife)" autocomplete="off">
+        <datalist id="lista-municipios"></datalist>
+        <button id="sortear" type="button" class="secundario sem-margem" title="Uma cidade qualquer">🎲 Surpreenda-me</button>
+      </div>
+      <p id="sugestoes" class="mudo pequeno"></p>
+    </section>
+
+    <section id="erro" class="erro" hidden></section>
+
+    <div id="ficha" hidden>
+      <section class="cartao">
+        <div class="linha"><h2 id="nome-municipio">—</h2><span class="mudo pequeno" id="local-municipio"></span></div>
+        <p id="resumo-municipio" class="resumo-texto"></p>
+      </section>
+
+      <section class="cartao">
+        <div class="linha"><h2>Eleição 2026 — 1º turno</h2><span class="mudo pequeno">votos válidos na cidade, no estado e no Brasil</span></div>
+        <div id="eleicao" class="ficha-eleicao"></div>
+      </section>
+
+      <div class="grade-painel">
+        <section class="cartao"><div class="linha"><h2>Quem vota</h2><span class="mudo pequeno">TSE · perfil do eleitorado 2026</span></div><div id="bloco-eleitorado" class="indicadores"></div></section>
+        <section class="cartao"><div class="linha"><h2>Comparecimento e votos</h2><span class="mudo pequeno">TSE · resultado 2026</span></div><div id="bloco-votos" class="indicadores"></div></section>
+        <section class="cartao"><div class="linha"><h2>População e território</h2><span class="mudo pequeno">IBGE · Censo 2022</span></div><div id="bloco-censo" class="indicadores"></div></section>
+        <section class="cartao"><div class="linha"><h2>Moradia e saneamento</h2><span class="mudo pequeno">IBGE · Censo 2022</span></div><div id="bloco-domicilios" class="indicadores"></div></section>
+        <section class="cartao"><div class="linha"><h2>Saúde</h2><span class="mudo pequeno">Ministério da Saúde · CNES</span></div><div id="bloco-saude" class="indicadores"></div></section>
+        <section class="cartao"><div class="linha"><h2>Renda e desenvolvimento</h2><span class="mudo pequeno">IBGE (PIB) · IPEA (Atlas 2010)</span></div><div id="bloco-renda" class="indicadores"></div></section>
+      </div>
+      <p class="mudo pequeno">A barra mostra onde a cidade fica entre todas as cidades do Brasil (à esquerda, os menores valores; à direita, os maiores). "Estado" é o valor da UF.</p>
+    </div>
+  </main>
+
+  <footer>
+    <p class="credito"><strong>Voto Lab</strong> · por Lucas Müller-Silveira · <a href="#" data-citar>Como citar este programa</a></p>
+    Fontes: TSE (resultados e perfil do eleitorado), IBGE (Censo 2022, PIB, Localidades), Ministério da Saúde (CNES), IPEA (Atlas do Desenvolvimento Humano).
+  </footer>
+
+  <script type="module" src="municipio.js"></script>
+</body>
+</html>

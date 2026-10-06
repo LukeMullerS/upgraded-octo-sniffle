@@ -680,3 +680,24 @@ body:not(.especialista) [data-especialista] { display: none !important; }
 [data-tema="98"] .acao-nome, [data-tema="98"] .passo-titulo { font-size: 11px; }
 [data-tema="98"] .campos label { color: #000; font-size: 11px; }
 [data-tema="98"] .passo { border-top: 1px solid #808080; box-shadow: 0 1px #fff inset; }
+
+/* Ficha do município */
+.busca-linha { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .4rem; }
+.busca-linha input { flex: 1 1 260px; min-width: 0; font-size: 1rem; padding: .45rem .6rem; }
+.ficha-eleicao { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: .8rem 1.2rem; }
+.ficha-cargo h3 { margin: 0 0 .4rem; font-size: .95rem; }
+.cand-linha { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(60px, 1fr) auto; grid-template-rows: auto auto; column-gap: .5rem; align-items: center; margin-bottom: .35rem; }
+.cand-linha .cand-nome { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cand-linha .cand-barra { height: 8px; background: var(--borda); border-radius: 4px; overflow: hidden; }
+.cand-linha .cand-barra > span { display: block; height: 100%; }
+.cand-linha > .mudo.pequeno { grid-column: 1 / -1; font-size: .72rem; }
+.indicadores { display: grid; gap: .55rem; }
+.indicador { display: grid; gap: .15rem; }
+.ind-topo { display: flex; justify-content: space-between; gap: .5rem; align-items: baseline; }
+.ind-rotulo { font-size: .85rem; }
+.ind-valor { font-size: .95rem; }
+.ind-barra { position: relative; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #cde2fb, #3987e5 50%, #0d366b); }
+.ind-marca { position: absolute; top: -4px; width: 4px; height: 14px; margin-left: -2px; background: var(--texto); border-radius: 2px; box-shadow: 0 0 0 2px var(--cartao); }
+.ind-rodape { font-size: .72rem; }
+[data-tema="98"] .ind-barra { border-radius: 0; }
+[data-tema="98"] .ind-marca { background: #000; border-radius: 0; box-shadow: 0 0 0 1px #fff; }
