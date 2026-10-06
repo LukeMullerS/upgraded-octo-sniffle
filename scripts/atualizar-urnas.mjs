@@ -17,7 +17,9 @@
 //   --amostra=N   lê até N seções por cidade, espalhadas (padrão: todas)
 //   --so-gerar    não baixa nada: só gera public/urnas a partir de dados/urnas-retrato
 //   --so-baixar   só baixa (para dados/urnas-retrato), sem gerar public/urnas
-//   --ritmo=N     no máximo N seções por minuto (padrão 60), para não sobrecarregar o TSE
+//   --concorrencia=N, --concorrencia-max=N   downloads simultâneos no início (8) e no máximo (96):
+//                 entre os dois, o script se ajusta sozinho ao que o TSE aguenta (recua a qualquer 429/5xx)
+//   --ritmo=N     teto opcional de seções por minuto (padrão: sem teto, só o ajuste automático)
 //   --max-minutos=N  para de baixar depois de N minutos (a próxima execução continua de onde parou)
 //   --turno=2     logs do 2º turno (eleição de referência 6258)
 //
@@ -44,11 +46,12 @@ const CABECALHOS = { 'User-Agent': 'Mozilla/5.0 (VotoLab)' };
 export const pleitoDoTurno = (turno) => process.env.PLEITO || (turno === 2 ? '3221' : '3220');
 
 export function lerArgumentos(argv) {
-  const op = { ufs: ORDEM_UFS, amostra: 0, concorrencia: 4, soGerar: false, soBaixar: false, ritmo: 60, maxMinutos: 0, turno: 1 };
+  const op = { ufs: ORDEM_UFS, amostra: 0, concorrencia: 8, concorrenciaMax: 96, soGerar: false, soBaixar: false, ritmo: 0, maxMinutos: 0, turno: 1 };
   for (const a of argv) {
     if (a.startsWith('--ufs=')) op.ufs = a.slice(6).split(',').map((u) => u.trim().toLowerCase()).filter((u) => ORDEM_UFS.includes(u));
     else if (a.startsWith('--amostra=')) op.amostra = Math.max(0, Number(a.slice(10)) || 0);
-    else if (a.startsWith('--concorrencia=')) op.concorrencia = Math.max(1, Number(a.slice(15)) || 6);
+    else if (a.startsWith('--concorrencia=')) op.concorrencia = Math.max(1, Number(a.slice(15)) || 8);
+    else if (a.startsWith('--concorrencia-max=')) op.concorrenciaMax = Math.max(1, Number(a.slice(19)) || 96);
     else if (a === '--so-gerar') op.soGerar = true;
     else if (a === '--so-baixar') op.soBaixar = true;
     else if (a.startsWith('--ritmo=')) op.ritmo = Math.max(0, Number(a.slice(8)) || 0);
@@ -63,16 +66,66 @@ export function lerArgumentos(argv) {
 
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** GET com novas tentativas (429/5xx); null em 404/403. */
+const mediana = (v) => { const o = [...v].sort((a, b) => a - b); return o.length ? o[o.length >> 1] : null; };
+
+/**
+ * Controle adaptativo da concorrência, para ficar logo abaixo do limite do TSE sem conhecê-lo:
+ * a cada janela sem sinais de limite (429/5xx, timeouts) e sem lentidão, abre mais `passo`
+ * downloads; a qualquer sinal, corta pela metade (no máximo um corte a cada 5 s) e respeita o
+ * Retry-After; se a resposta fica muito mais lenta que a melhor já vista, recua 25%.
+ */
+export function criarControle({ inicial = 8, maximo = 96, minimo = 2, passo = 4, janelaMs = 20_000, agora = () => Date.now(), relatar = () => {} } = {}) {
+  const c = { alvo: Math.min(maximo, inicial), ok: 0, falhas: 0, lat: [], base: null, pausaAte: 0, inicio: agora(), ultimoCorte: -Infinity };
+  const fecharJanela = (t) => {
+    const minutos = (t - c.inicio) / 60_000;
+    relatar({ alvo: c.alvo, porMinuto: minutos > 0 ? Math.round(c.ok / minutos) : 0, falhas: c.falhas, latencia: mediana(c.lat) });
+    c.ok = 0; c.falhas = 0; c.lat = []; c.inicio = t;
+  };
+  return {
+    get alvo() { return c.alvo; },
+    get pausaAte() { return c.pausaAte; },
+    sucesso(ms) {
+      c.ok += 1; c.lat.push(ms);
+      const t = agora();
+      if (t - c.inicio < janelaMs) return;
+      if (!c.falhas && c.lat.length >= 5) {
+        const med = mediana(c.lat);
+        c.base = c.base === null ? med : Math.min(c.base, med);
+        if (med > c.base * 2.5) c.alvo = Math.max(minimo, Math.floor(c.alvo * 0.75));
+        else c.alvo = Math.min(maximo, c.alvo + passo);
+      }
+      fecharJanela(t);
+    },
+    limite(retrySegundos = 0) {
+      const t = agora();
+      c.falhas += 1;
+      if (retrySegundos > 0) c.pausaAte = Math.max(c.pausaAte, t + retrySegundos * 1000);
+      if (t - c.ultimoCorte < 5_000) return;
+      c.ultimoCorte = t;
+      c.alvo = Math.max(minimo, Math.floor(c.alvo / 2));
+    },
+  };
+}
+
+let controle = null; // ligado em coletar()
+
+/** GET com novas tentativas; 429/5xx/timeouts avisam o controle. null em 404/403. */
 async function baixar(caminho, binario) {
   for (let i = 0; i < 6; i += 1) {
+    if (controle && controle.pausaAte > Date.now()) await espera(controle.pausaAte - Date.now());
     try {
       const r = await fetch(`${BASE}/${caminho}`, { headers: CABECALHOS, signal: AbortSignal.timeout(60_000) });
       if (r.status === 404 || r.status === 403) return null;
-      if (r.status === 429 || r.status >= 500) { await espera((Number(r.headers.get('retry-after')) || 10) * 1000); continue; }
+      if (r.status === 429 || r.status >= 500) {
+        const retry = Number(r.headers.get('retry-after')) || 0;
+        controle?.limite(retry || 5);
+        await espera((retry || 5) * 1000 * (i + 1));
+        continue;
+      }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return binario ? Buffer.from(await r.arrayBuffer()) : await r.json();
     } catch (erro) {
+      controle?.limite(0);
       if (i === 5) throw erro;
       await espera(1500 * (i + 1));
     }
@@ -80,13 +133,27 @@ async function baixar(caminho, binario) {
   return null;
 }
 
-async function lerJson(arquivo, padrao) {
-  try { return JSON.parse(await readFile(arquivo, 'utf8')); } catch { return padrao; }
+/** Executa as tarefas com quantos trabalhos simultâneos o controle permitir a cada momento. */
+async function piscina(tarefas, fn, fim) {
+  let i = 0;
+  let ativos = 0;
+  await new Promise((pronto) => {
+    let timer = null;
+    const encher = () => {
+      while (ativos < controle.alvo && i < tarefas.length && Date.now() < fim) {
+        const t = tarefas[i++];
+        ativos += 1;
+        fn(t).catch(() => {}).finally(() => { ativos -= 1; encher(); });
+      }
+      if (!ativos && (i >= tarefas.length || Date.now() >= fim)) { clearInterval(timer); pronto(); }
+    };
+    timer = setInterval(encher, 1000); // o alvo pode subir sem que nada termine
+    encher();
+  });
 }
 
-async function emLotes(itens, n, fn) {
-  let i = 0;
-  await Promise.all(Array.from({ length: n }, async () => { while (i < itens.length) { const k = i++; await fn(itens[k]); } }));
+async function lerJson(arquivo, padrao) {
+  try { return JSON.parse(await readFile(arquivo, 'utf8')); } catch { return padrao; }
 }
 
 const semDetalhe = ({ hist, porHora, ...resto }) => resto;
@@ -135,9 +202,16 @@ async function cidadesFechadas(uf, turno, configUf) {
   return fechadas;
 }
 
-/** Baixa, no ritmo pedido, as seções que faltam nas cidades já fechadas das UFs pedidas. */
+/**
+ * Baixa as seções que faltam nas cidades já fechadas das UFs pedidas, numa fila única por UF,
+ * com a concorrência ajustada sozinha ao que o TSE aguenta (e, se pedido, um teto de ritmo).
+ */
 async function coletar(op) {
   const CACHE = pastaCache(op.turno);
+  controle = criarControle({
+    inicial: op.concorrencia, maximo: op.concorrenciaMax,
+    relatar: (j) => console.log(`  concorrência ${j.alvo} · ${j.porMinuto} seções/min · latência ${j.latencia ?? '—'} ms${j.falhas ? ` · ${j.falhas} sinal(is) de limite` : ''}`),
+  });
   const coletor = criarColetorLogs({
     buscarJson: (c) => baixar(c, false), buscarBinario: (c) => baixar(c, true), pleito: pleitoDoTurno(op.turno), pasta: join(CACHE, '.coletor'), automatico: false,
   });
@@ -151,32 +225,47 @@ async function coletar(op) {
     await mkdir(join(CACHE, uf), { recursive: true });
     await writeFile(join(CACHE, uf, '_config.json'), JSON.stringify(municipios.map((m) => ({ codigo: m.codigo, nome: m.nome, total: m.secoes.length }))));
     const fechadas = await cidadesFechadas(uf, op.turno, municipios);
+    // Fila única da UF: todas as seções pendentes das cidades fechadas.
+    const salvos = new Map();
+    const tarefas = [];
     let lidasUf = 0;
-    let novasUf = 0;
     for (const m of municipios) {
-      const arquivo = join(CACHE, uf, `${m.codigo}.json`);
-      const salvo = await lerJson(arquivo, { secoes: {} });
+      const salvo = await lerJson(join(CACHE, uf, `${m.codigo}.json`), { secoes: {} });
+      salvos.set(m.codigo, { m, salvo, sujo: false });
       lidasUf += Object.keys(salvo.secoes).length;
-      if (!fechadas.has(m.codigo) || Date.now() >= fim) continue; // apuração da cidade ainda aberta: os logs ficam para depois
+      if (!fechadas.has(m.codigo)) continue; // apuração da cidade ainda aberta: os logs ficam para depois
       const alvo = op.amostra ? amostrar(m.secoes, op.amostra) : m.secoes;
-      const pendentes = alvo.filter((s) => !salvo.secoes[`${s.zona}-${s.secao}`]);
-      let novas = 0;
-      await emLotes(pendentes, op.concorrencia, async (s) => {
-        if (Date.now() >= fim) return;
-        await ritmo();
-        try {
-          const r = await coletor.lerSecao(uf, m.codigo, s);
-          if (r) { salvo.secoes[`${s.zona}-${s.secao}`] = r; novas += 1; }
-        } catch (erro) {
-          console.log(`  ${uf}/${m.codigo} ${s.zona}-${s.secao}: ${erro.message}`);
-        }
-      });
-      if (novas) await writeFile(arquivo, JSON.stringify({ uf, municipio: m.codigo, nome: m.nome, total: m.secoes.length, secoes: salvo.secoes }));
-      lidasUf += novas;
-      novasUf += novas;
-      novasTotal += novas;
+      for (const sec of alvo) if (!salvo.secoes[`${sec.zona}-${sec.secao}`]) tarefas.push({ m, sec });
     }
-    console.log(`${uf}: ${lidasUf} seções lidas (${novasUf} novas) · ${fechadas.size} de ${municipios.length} cidades com 100% totalizado`);
+    const gravar = async () => {
+      for (const [codigo, x] of salvos) {
+        if (!x.sujo) continue;
+        x.sujo = false;
+        await writeFile(join(CACHE, uf, `${codigo}.json`), JSON.stringify({ uf, municipio: codigo, nome: x.m.nome, total: x.m.secoes.length, secoes: x.salvo.secoes }));
+      }
+    };
+    let novasUf = 0;
+    const gravacao = setInterval(() => { gravar().catch(() => {}); }, 30_000); // progresso no disco a cada 30 s
+    await piscina(tarefas, async ({ m, sec }) => {
+      await ritmo();
+      const t0 = Date.now();
+      try {
+        const r = await coletor.lerSecao(uf, m.codigo, sec);
+        controle.sucesso(Date.now() - t0);
+        if (r) {
+          const x = salvos.get(m.codigo);
+          x.salvo.secoes[`${sec.zona}-${sec.secao}`] = r;
+          x.sujo = true;
+          novasUf += 1;
+        }
+      } catch (erro) {
+        console.log(`  ${uf}/${m.codigo} ${sec.zona}-${sec.secao}: ${erro.message}`);
+      }
+    }, fim);
+    clearInterval(gravacao);
+    await gravar();
+    novasTotal += novasUf;
+    console.log(`${uf}: ${lidasUf + novasUf} seções lidas (${novasUf} novas) · ${fechadas.size} de ${municipios.length} cidades com 100% totalizado`);
   }
   if (Date.now() >= fim) console.log(`parando (limite de ${op.maxMinutos} min); a próxima execução continua de onde parou`);
   return novasTotal;

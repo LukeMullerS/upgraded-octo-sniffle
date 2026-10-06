@@ -1,6 +1,7 @@
 # Base estática dos logs das urnas (public/urnas), montada aos poucos no GitHub Actions, direto
 # do TSE e sem passar pelo site:
-# - a cada hora, lê por até 45 min, no máximo 300 seções por minuto (5 por segundo, leve para o TSE);
+# - a cada hora, lê por até 45 min, o mais rápido que o TSE aguentar: a concorrência se ajusta sozinha
+#   (sobe enquanto não há erro nem lentidão; cai à metade a qualquer 429/5xx e respeita o Retry-After);
 # - cada log é baixado uma vez só (os logs não mudam), e só de cidades com 100% das seções
 #   totalizadas: no 1º turno, todas; na noite do 2º turno, cada cidade entra assim que fecha;
 # - o progresso fica no cache do Actions e a base é publicada no repositório a cada 15 min
@@ -15,8 +16,8 @@ on:
   workflow_dispatch:
     inputs:
       ritmo:
-        description: 'Seções por minuto (no máximo)'
-        default: '300'
+        description: 'Teto de seções por minuto (0 = automático, o máximo que o TSE aguentar)'
+        default: '0'
         required: true
       minutos:
         description: 'Minutos lendo nesta execução'
@@ -50,7 +51,7 @@ jobs:
       - name: Ler logs (só cidades 100% totalizadas) e publicar a cada 15 min
         env:
           TSE_BASE: https://resultados.tse.jus.br/oficial
-          RITMO: ${{ github.event.inputs.ritmo || '300' }}
+          RITMO: ${{ github.event.inputs.ritmo || '0' }}
           MINUTOS: ${{ github.event.inputs.minutos || '45' }}
         run: |
           git config user.name "github-actions[bot]"
@@ -70,10 +71,10 @@ jobs:
             M=$(( RESTA < BLOCO ? RESTA : BLOCO ))
             if [ "$(date -u +%Y%m%d)" -ge 20261025 ]; then
               # Do 2º turno em diante: metade de cada bloco para cada turno.
-              node scripts/atualizar-urnas.mjs --turno=2 --ritmo="$RITMO" --max-minutos=$(( (M + 1) / 2 )) --concorrencia=8
-              node scripts/atualizar-urnas.mjs --turno=1 --ritmo="$RITMO" --max-minutos=$(( M / 2 )) --concorrencia=8
+              node scripts/atualizar-urnas.mjs --turno=2 --ritmo="$RITMO" --max-minutos=$(( (M + 1) / 2 )) --concorrencia=8 --concorrencia-max=96
+              node scripts/atualizar-urnas.mjs --turno=1 --ritmo="$RITMO" --max-minutos=$(( M / 2 )) --concorrencia=8 --concorrencia-max=96
             else
-              node scripts/atualizar-urnas.mjs --turno=1 --ritmo="$RITMO" --max-minutos="$M" --concorrencia=8
+              node scripts/atualizar-urnas.mjs --turno=1 --ritmo="$RITMO" --max-minutos="$M" --concorrencia=8 --concorrencia-max=96
             fi
             publicar
             RESTA=$(( RESTA - M ))

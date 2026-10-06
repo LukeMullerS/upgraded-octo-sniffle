@@ -72,3 +72,28 @@ test('ritmo espaça as seções', async () => {
   t = 0;
   await criarRitmo(0)();
 });
+
+import { criarControle } from '../scripts/atualizar-urnas.mjs';
+
+test('controle adaptativo: sobe sem erros, corta à metade num 429 e recua se ficar lento', () => {
+  let t = 0;
+  const janelas = [];
+  const c = criarControle({ inicial: 8, maximo: 20, passo: 4, janelaMs: 1000, agora: () => t, relatar: (j) => janelas.push(j) });
+  const janela = (ms) => { for (let i = 0; i < 10; i += 1) { t += 100; c.sucesso(ms); } };
+  janela(200); assert.equal(c.alvo, 12);
+  janela(200); assert.equal(c.alvo, 16);
+  janela(200); janela(200); assert.equal(c.alvo, 20); // teto
+  c.limite(3); assert.equal(c.alvo, 10);
+  assert.equal(c.pausaAte, t + 3000);
+  c.limite(0); c.limite(0); assert.equal(c.alvo, 10); // vários erros juntos: um corte só a cada 5 s
+  t += 6000; c.limite(0); assert.equal(c.alvo, 5);
+  t += 1000; c.sucesso(200); assert.equal(c.alvo, 5); // a janela que teve erro fecha sem subir
+  assert.ok(janelas.length >= 4 && janelas.every((j) => 'porMinuto' in j));
+  // Muito mais lento que o melhor já visto: recua 25%.
+  let u = 0;
+  const lento = criarControle({ inicial: 20, maximo: 40, passo: 4, janelaMs: 1000, agora: () => u });
+  for (const ms of [200, 900]) for (let i = 0; i < 10; i += 1) { u += 100; lento.sucesso(ms); }
+  assert.equal(lento.alvo, 18); // 20 → 24 (rápido) → 18 (lento)
+  let m = criarControle({ inicial: 3, minimo: 2, agora: () => 0 });
+  m.limite(); assert.equal(m.alvo, 2); // nunca abaixo do mínimo
+});
