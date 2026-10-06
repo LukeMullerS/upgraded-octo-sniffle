@@ -145,3 +145,20 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', montar);
   else montar();
 }());
+
+// Vercel Web Analytics e Speed Insights (sem cookies), só quando o app roda no Vercel. Os
+// scripts vêm do próprio domínio (/_vercel/…), então a política de segurança os aceita; a
+// fila é criada aqui (e não num <script> inline, que a política bloqueia).
+(function () {
+  if (!/\.vercel\.app$/.test(location.hostname) && !document.querySelector('meta[name="vercel-insights"]')) return;
+  if (window.__votolabInsights || /[?&]embed=1/.test(location.search)) return; // janelas da área de trabalho não contam de novo
+  window.__votolabInsights = true;
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+  ['/_vercel/insights/script.js', '/_vercel/speed-insights/script.js'].forEach(function (src) {
+    var s = document.createElement('script');
+    s.defer = true;
+    s.src = src;
+    document.head.appendChild(s);
+  });
+}());
