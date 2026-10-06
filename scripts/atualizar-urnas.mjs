@@ -17,6 +17,13 @@
 //   --amostra=N   lê até N seções por cidade, espalhadas (padrão: todas)
 //   --so-gerar    não baixa nada: só gera public/urnas a partir de dados/urnas-retrato
 //   --so-baixar   só baixa (para dados/urnas-retrato), sem gerar public/urnas
+//   --ritmo=N     no máximo N seções por minuto (padrão 60), para não sobrecarregar o TSE
+//   --max-minutos=N  para de baixar depois de N minutos (a próxima execução continua de onde parou)
+//   --turno=2     logs do 2º turno (eleição de referência 6258)
+//
+// Os logs não mudam depois de publicados, como o resultado: cada seção é baixada uma vez só, e
+// só nas cidades com 100% das seções totalizadas (segundo o retrato de public/resultados ou,
+// sem ele, o resumo do TSE). No dia da apuração, uma cidade entra assim que fecha.
 //   (no GitHub Actions, cada UF roda num job e o último junta tudo com --so-gerar)
 // Variáveis: TSE_BASE (padrão https://resultados.tse.jus.br/oficial).
 
@@ -28,22 +35,29 @@ import { lerMunicipios } from '../public/tse.js';
 
 const BASE = (process.env.TSE_BASE || 'https://resultados.tse.jus.br/oficial').replace(/\/$/, '');
 const RAIZ = new URL('..', import.meta.url).pathname;
-const CACHE = join(RAIZ, 'dados', 'urnas-retrato');
-const SAIDA = join(RAIZ, 'public', 'urnas');
+// Cada turno tem a sua base: public/urnas (1º) e public/urnas/2t (2º).
+const pastaCache = (turno) => join(RAIZ, 'dados', 'urnas-retrato', ...(turno === 2 ? ['2t'] : []));
+const pastaSaida = (turno) => join(RAIZ, 'public', 'urnas', ...(turno === 2 ? ['2t'] : []));
 const CABECALHOS = { 'User-Agent': 'Mozilla/5.0 (VotoLab)' };
-const PLEITO = '3220';
+// Pleito dos arquivos das urnas: 3220 no 1º turno; no 2º, 3221 (o número que falta na lista do TSE
+// em comum/config/ele-c.json, como 452/453 em 2024). PLEITO=… muda, se o TSE publicar outro.
+export const pleitoDoTurno = (turno) => process.env.PLEITO || (turno === 2 ? '3221' : '3220');
 
 export function lerArgumentos(argv) {
-  const op = { ufs: ORDEM_UFS, amostra: 0, concorrencia: 6, soGerar: false, soBaixar: false };
+  const op = { ufs: ORDEM_UFS, amostra: 0, concorrencia: 4, soGerar: false, soBaixar: false, ritmo: 60, maxMinutos: 0, turno: 1 };
   for (const a of argv) {
     if (a.startsWith('--ufs=')) op.ufs = a.slice(6).split(',').map((u) => u.trim().toLowerCase()).filter((u) => ORDEM_UFS.includes(u));
     else if (a.startsWith('--amostra=')) op.amostra = Math.max(0, Number(a.slice(10)) || 0);
     else if (a.startsWith('--concorrencia=')) op.concorrencia = Math.max(1, Number(a.slice(15)) || 6);
     else if (a === '--so-gerar') op.soGerar = true;
     else if (a === '--so-baixar') op.soBaixar = true;
+    else if (a.startsWith('--ritmo=')) op.ritmo = Math.max(0, Number(a.slice(8)) || 0);
+    else if (a.startsWith('--max-minutos=')) op.maxMinutos = Math.max(0, Number(a.slice(14)) || 0);
+    else if (a.startsWith('--turno=')) op.turno = Number(a.slice(8));
     else throw new Error(`argumento desconhecido: ${a}`);
   }
   if (!op.ufs.length) throw new Error('nenhuma UF válida em --ufs');
+  if (![1, 2].includes(op.turno)) throw new Error('--turno deve ser 1 ou 2');
   return op;
 }
 
@@ -77,25 +91,79 @@ async function emLotes(itens, n, fn) {
 
 const semDetalhe = ({ hist, porHora, ...resto }) => resto;
 
-/** Baixa as seções que faltam de cada cidade das UFs pedidas. */
+// Seções da cidade em linhas compactas (só o que a página usa; 1 casa decimal): cerca de 70
+// bytes por seção em vez de 560, para a base do Brasil inteiro caber no site. A página expande
+// de volta (expandirSecoes em public/comum.js).
+export const COLUNAS_SECAO = ['zona', 'secao', 'votos', 'cabine', 'mediana', 'p90', 'atendimento', 'biometrica', 'primeiroVoto', 'ultimoVoto', 'modelo', 'bateria'];
+const uma = (v) => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
+export const linhaSecao = (r) => [r.zona, r.secao, r.votos, uma(r.cabine?.media), uma(r.cabine?.mediana), uma(r.cabine?.p90), uma(r.atendimento?.media),
+  r.tipos?.biometrica ?? 0, r.primeiroVoto ?? null, r.ultimoVoto ?? null, r.modelo ?? null, r.bateria ?? 0];
+
+/** Ritmo: no máximo `porMinuto` seções iniciadas por minuto (0 = sem limite). */
+export function criarRitmo(porMinuto, agora = () => Date.now()) {
+  const intervalo = porMinuto > 0 ? 60_000 / porMinuto : 0;
+  let proximo = 0;
+  return async () => {
+    if (!intervalo) return;
+    const t = agora();
+    const vez = Math.max(t, proximo);
+    proximo = vez + intervalo;
+    if (vez > t) await espera(vez - t);
+  };
+}
+
+/**
+ * Cidades com 100% das seções totalizadas ("uf/código" → true). Primeiro o retrato estático de
+ * public/resultados (Presidente, que tem todas as cidades e o exterior); sem ele, o resumo do TSE.
+ */
+async function cidadesFechadas(uf, turno, configUf) {
+  const ref = turno === 2 ? '6258' : '6257';
+  const retrato = await lerJson(join(RAIZ, 'public', 'resultados', `${ref}-1.json`), null);
+  const fechadas = new Set();
+  if (retrato?.municipios?.length) {
+    for (const m of retrato.municipios) if (m.uf === uf && m.secoes?.total > 0 && m.secoes.totalizadas >= m.secoes.total) fechadas.add(m.codigo);
+    if (fechadas.size || retrato.retrato?.completo) return fechadas;
+  }
+  const ab = await baixar(`ele2026/${ref}/dados/${uf}/${uf}-e${ref.padStart(6, '0')}-ab.json`, false).catch(() => null);
+  const total = new Map(configUf.map((m) => [m.codigo, m.secoes.length]));
+  for (const a of ab?.abr ?? []) {
+    if (a.tpabr && a.tpabr !== 'mun') continue;
+    const codigo = String(a.cdabr).padStart(5, '0');
+    const st = Number(String(a.s?.st ?? '0').replace(/\D/g, '')) || 0;
+    if (total.get(codigo) && st >= total.get(codigo)) fechadas.add(codigo);
+  }
+  return fechadas;
+}
+
+/** Baixa, no ritmo pedido, as seções que faltam nas cidades já fechadas das UFs pedidas. */
 async function coletar(op) {
+  const CACHE = pastaCache(op.turno);
   const coletor = criarColetorLogs({
-    buscarJson: (c) => baixar(c, false), buscarBinario: (c) => baixar(c, true), pleito: PLEITO, pasta: join(CACHE, '.coletor'), automatico: false,
+    buscarJson: (c) => baixar(c, false), buscarBinario: (c) => baixar(c, true), pleito: pleitoDoTurno(op.turno), pasta: join(CACHE, '.coletor'), automatico: false,
   });
+  const ritmo = criarRitmo(op.ritmo);
+  let novasTotal = 0;
+  const fim = op.maxMinutos ? Date.now() + op.maxMinutos * 60_000 : Infinity;
   for (const uf of op.ufs) {
+    if (Date.now() >= fim) break;
     let municipios;
     try { municipios = await coletor.config(uf); } catch (erro) { console.log(`${uf}: ${erro.message}`); continue; }
     await mkdir(join(CACHE, uf), { recursive: true });
     await writeFile(join(CACHE, uf, '_config.json'), JSON.stringify(municipios.map((m) => ({ codigo: m.codigo, nome: m.nome, total: m.secoes.length }))));
+    const fechadas = await cidadesFechadas(uf, op.turno, municipios);
     let lidasUf = 0;
     let novasUf = 0;
     for (const m of municipios) {
       const arquivo = join(CACHE, uf, `${m.codigo}.json`);
-      const salvo = await lerJson(arquivo, { secoes: {}, faltam: [] });
+      const salvo = await lerJson(arquivo, { secoes: {} });
+      lidasUf += Object.keys(salvo.secoes).length;
+      if (!fechadas.has(m.codigo) || Date.now() >= fim) continue; // apuração da cidade ainda aberta: os logs ficam para depois
       const alvo = op.amostra ? amostrar(m.secoes, op.amostra) : m.secoes;
       const pendentes = alvo.filter((s) => !salvo.secoes[`${s.zona}-${s.secao}`]);
       let novas = 0;
       await emLotes(pendentes, op.concorrencia, async (s) => {
+        if (Date.now() >= fim) return;
+        await ritmo();
         try {
           const r = await coletor.lerSecao(uf, m.codigo, s);
           if (r) { salvo.secoes[`${s.zona}-${s.secao}`] = r; novas += 1; }
@@ -104,11 +172,14 @@ async function coletar(op) {
         }
       });
       if (novas) await writeFile(arquivo, JSON.stringify({ uf, municipio: m.codigo, nome: m.nome, total: m.secoes.length, secoes: salvo.secoes }));
-      lidasUf += Object.keys(salvo.secoes).length;
+      lidasUf += novas;
       novasUf += novas;
+      novasTotal += novas;
     }
-    console.log(`${uf}: ${lidasUf} seções lidas (${novasUf} novas) em ${municipios.length} cidades`);
+    console.log(`${uf}: ${lidasUf} seções lidas (${novasUf} novas) · ${fechadas.size} de ${municipios.length} cidades com 100% totalizado`);
   }
+  if (Date.now() >= fim) console.log(`parando (limite de ${op.maxMinutos} min); a próxima execução continua de onde parou`);
+  return novasTotal;
 }
 
 /** Código TSE → IBGE das cidades (lista de municípios da eleição federal). */
@@ -120,7 +191,9 @@ async function ibgePorTse() {
 }
 
 /** Gera public/urnas a partir de dados/urnas-retrato (todas as UFs já baixadas). */
-async function gerar() {
+async function gerar(turno = 1) {
+  const CACHE = pastaCache(turno);
+  const SAIDA = pastaSaida(turno);
   const ibge = await ibgePorTse();
   await rm(join(SAIDA, 'municipio'), { recursive: true, force: true });
   await mkdir(join(SAIDA, 'municipio'), { recursive: true });
@@ -149,7 +222,7 @@ async function gerar() {
         await mkdir(join(SAIDA, 'municipio', uf), { recursive: true });
         await writeFile(join(SAIDA, 'municipio', uf, `${m.codigo}.json`), JSON.stringify({
           uf, municipio: m.codigo, nome: m.nome, totalSecoes: m.total,
-          progresso: { lidas: lista.length, total: m.total, lendo: false }, resumo, secoes: lista.map(semDetalhe), retrato: { geradoEm },
+          progresso: { lidas: lista.length, total: m.total, lendo: false }, resumo, colunas: COLUNAS_SECAO, linhas: lista.map(linhaSecao), retrato: { geradoEm },
         }));
       }
     }
@@ -175,8 +248,11 @@ async function gerar() {
 
 async function principal() {
   const op = lerArgumentos(process.argv.slice(2));
-  if (!op.soGerar) await coletar(op);
-  if (!op.soBaixar) await gerar();
+  const novas = op.soGerar ? null : await coletar(op);
+  if (op.soBaixar) return;
+  // Nada novo e a base já existe: não regera (evita commits só com a data nova).
+  if (novas === 0 && await lerJson(join(pastaSaida(op.turno), 'nacional.json'), null)) { console.log('nenhuma seção nova: base mantida'); return; }
+  await gerar(op.turno);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) await principal();

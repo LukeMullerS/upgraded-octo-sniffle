@@ -81,8 +81,13 @@ export function resumirLog(entrada) {
     if (l.app !== 'VOTA') continue;
     if (msg === 'Urna pronta para receber votos' && abertura === null) abertura = t;
     else if (msg === 'Inicio do Encerramento') encerramento = t;
-    else if (msg === 'Título digitado pelo mesário') eleitor = { titulo: t, tipo: null };
-    else if (msg.startsWith('Tipo de habilitação do eleitor [biom')) { if (eleitor) eleitor.tipo = 'biometrica'; }
+    // Até 2024: "Título digitado pelo mesário"; em 2026 (título ou CPF): "Identificador do eleitor digitado pelo mesário".
+    else if (msg === 'Título digitado pelo mesário' || msg === 'Identificador do eleitor digitado pelo mesário') eleitor = { titulo: t, tipo: null };
+    else if (msg.startsWith('Tipo de habilitação do eleitor [')) {
+      eleitor ??= { titulo: null, tipo: null };
+      const tipo = msg.slice(msg.indexOf('[') + 1).toLowerCase();
+      eleitor.tipo = tipo.startsWith('biom') ? 'biometrica' : /sem biom|n[ãa]o possui/.test(tipo) ? 'semBiometria' : 'manual';
+    }
     else if (msg === 'O eleitor não possui biometria') { if (eleitor && !eleitor.tipo) eleitor.tipo = 'semBiometria'; }
     else if (msg.startsWith('Solicitação de dado pessoal do eleitor para habilitação manual')) { if (eleitor && eleitor.tipo !== 'semBiometria') eleitor.tipo = 'manual'; }
     else if (msg === 'Eleitor foi habilitado') {

@@ -1,18 +1,25 @@
-# Compila a base estática dos logs das urnas (public/urnas) no GitHub, sem passar pelo site:
-# um job por UF (em paralelo) baixa do TSE os logs das seções e guarda o resumo de cada cidade;
-# o último job junta tudo, gera public/urnas e grava no repositório (o Vercel publica).
-# O resumo por cidade fica no cache do Actions: rodar de novo só lê as seções que faltam.
-#
-# Rode em Actions → "Logs das urnas" → Run workflow. "amostra" = seções por cidade
-# (0 = todas, o que são centenas de milhares de logs; 10 já dá estatísticas firmes por UF).
+# Base estática dos logs das urnas (public/urnas), montada aos poucos no GitHub Actions, direto
+# do TSE e sem passar pelo site:
+# - a cada hora, lê por até 45 min, no máximo 120 seções por minuto (para não sobrecarregar o TSE);
+# - cada log é baixado uma vez só (os logs não mudam), e só de cidades com 100% das seções
+#   totalizadas: no 1º turno, todas; na noite do 2º turno, cada cidade entra assim que fecha;
+# - o progresso fica no cache do Actions e a base gerada vai para o repositório (o Vercel publica).
+# A partir de 25/10/2026 também compila o 2º turno (public/urnas/2t).
+# Agendamentos só rodam no branch padrão; em outro branch, use Actions → "Logs das urnas" → Run workflow.
 name: Logs das urnas
 
 on:
+  schedule:
+    - cron: '23 * * * *'
   workflow_dispatch:
     inputs:
-      amostra:
-        description: 'Seções por cidade (0 = todas)'
-        default: '10'
+      ritmo:
+        description: 'Seções por minuto (no máximo)'
+        default: '120'
+        required: true
+      minutos:
+        description: 'Minutos lendo nesta execução'
+        default: '45'
         required: true
 
 permissions:
@@ -23,14 +30,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  uf:
+  logs:
     runs-on: ubuntu-latest
-    timeout-minutes: 300
-    strategy:
-      fail-fast: false
-      max-parallel: 10
-      matrix:
-        uf: [rr, ap, ac, to, ro, se, al, am, rn, pb, pi, ms, mt, df, es, ma, pa, go, sc, ce, pe, pr, rs, ba, rj, mg, sp, zz]
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,40 +40,23 @@ jobs:
           node-version: 22
       - uses: actions/cache@v4
         with:
-          path: dados/urnas-retrato/${{ matrix.uf }}
-          key: urnas-${{ matrix.uf }}-${{ github.event.inputs.amostra }}-${{ github.run_id }}
-          restore-keys: |
-            urnas-${{ matrix.uf }}-${{ github.event.inputs.amostra }}-
-            urnas-${{ matrix.uf }}-
-      - name: Ler os logs da UF
+          path: dados/urnas-retrato
+          key: urnas-retrato-${{ github.run_id }}
+          restore-keys: urnas-retrato-
+      - name: Ler logs (só seções de cidades 100% totalizadas)
         env:
           TSE_BASE: https://resultados.tse.jus.br/oficial
-        run: node scripts/atualizar-urnas.mjs --ufs=${{ matrix.uf }} --amostra=${{ github.event.inputs.amostra }} --concorrencia=8 --so-baixar
-      - uses: actions/upload-artifact@v4
-        with:
-          name: urnas-${{ matrix.uf }}
-          path: dados/urnas-retrato/${{ matrix.uf }}
-          if-no-files-found: ignore
-          retention-days: 3
-
-  juntar:
-    needs: uf
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: urnas-*
-          path: baixados
-      - name: Gerar public/urnas
+          RITMO: ${{ github.event.inputs.ritmo || '120' }}
+          MINUTOS: ${{ github.event.inputs.minutos || '45' }}
         run: |
-          mkdir -p dados/urnas-retrato
-          for d in baixados/urnas-*; do [ -d "$d" ] && cp -r "$d" "dados/urnas-retrato/${d#baixados/urnas-}"; done
-          node scripts/atualizar-urnas.mjs --so-gerar
+          if [ "$(date -u +%Y%m%d)" -ge 20261025 ]; then
+            # Noite do 2º turno em diante: metade do tempo para cada turno.
+            METADE=$(( MINUTOS / 2 ))
+            node scripts/atualizar-urnas.mjs --turno=2 --ritmo="$RITMO" --max-minutos="$METADE" --concorrencia=4
+            node scripts/atualizar-urnas.mjs --turno=1 --ritmo="$RITMO" --max-minutos="$METADE" --concorrencia=4
+          else
+            node scripts/atualizar-urnas.mjs --turno=1 --ritmo="$RITMO" --max-minutos="$MINUTOS" --concorrencia=4
+          fi
       - name: Gravar no repositório
         run: |
           if git diff --quiet -- public/urnas && [ -z "$(git ls-files --others --exclude-standard public/urnas)" ]; then

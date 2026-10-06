@@ -150,11 +150,16 @@ A janela **Logs das urnas** mede o tempo de votação a partir do log de cada ur
   são baixados ao mesmo tempo.
 - **No site público (Vercel)** não há processo contínuo, e uma função não pode baixar logs depois de responder: os
   logs vêm de uma **base estática** em `public/urnas` (Brasil, cada UF, cada cidade e a lista para o Explorador, no
-  formato das rotas `/api/urnas/*`), a mesma para todos os usuários. Ela é gerada por
-  `node scripts/atualizar-urnas.mjs [--ufs=rr,ap] [--amostra=N]` (retoma de onde parou; `--amostra` lê até N seções
-  por cidade) ou pelo workflow **Logs das urnas** do GitHub Actions (Run workflow; um job por UF em paralelo, baixando
-  direto do TSE, e um último que junta e grava no repositório). Num servidor local, a compilação ao vivo continua
+  formato das rotas `/api/urnas/*`), a mesma para todos os usuários. Os logs não mudam depois de publicados, como o
+  resultado: cada seção é baixada **uma vez só**, e **só de cidades com 100% das seções totalizadas** (no dia da
+  apuração, cada cidade entra assim que fecha). A base é montada **aos poucos**, para não sobrecarregar o TSE:
+  `node scripts/atualizar-urnas.mjs --ritmo=120 --max-minutos=45 [--ufs=rr,ap] [--turno=2]` (retoma de onde parou) e,
+  no GitHub Actions, o workflow **Logs das urnas** faz isso a cada hora, direto do TSE, gravando o progresso no
+  repositório; a partir de 25/10 também o 2º turno (`public/urnas/2t`, pleito 3221). As seções de cada cidade ficam
+  em linhas compactas (cerca de 70 bytes cada) que a página expande. Num servidor local, a compilação ao vivo continua
   valendo e a base estática cobre o que ela ainda não leu; "Ler este município agora" só aparece no servidor local.
+- Em 2026 o TSE passou a publicar o log como **ZIP** (antes, 7z) e mudou algumas mensagens (o eleitor pode ser
+  identificado pelo título ou pelo CPF): os dois formatos são lidos.
 - O 7z é aberto por um leitor próprio em JavaScript (`src/sete-zip.js`, LZMA/LZMA2), sem precisar do 7-Zip.
 - No Explorador, as variáveis do grupo "Logs das urnas" (tempo médio na cabine, mediana, atendimento, % biometria…)
   aparecem para os locais com logs lidos.

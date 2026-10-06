@@ -19,6 +19,7 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { abrir7z } from './sete-zip.js';
+import { abrirZip, ehZip } from './zip.js';
 import { acumular, finalizar, juntar, novoAcumulador, resumirLog } from './log-urna.js';
 
 const pad = (v, n) => String(v).padStart(n, '0');
@@ -195,7 +196,9 @@ export function criarColetorLogs({
     if (!arq) return null;
     const bin = await buscarBinario(`${dir}/${arq.hash}/${arq.nome}`);
     if (!bin) return null;
-    const arquivos = abrir7z(new Uint8Array(bin));
+    // 2026: ZIP (deflate); até 2024: 7z.
+    const bytes = new Uint8Array(bin);
+    const arquivos = ehZip(bytes) ? abrirZip(bytes) : abrir7z(bytes);
     const logd = arquivos.find((a) => /logd.*\.dat$/i.test(a.nome)) ?? arquivos.find((a) => a.dados.length);
     if (!logd) throw new Error('log sem logd.dat');
     return { zona, secao, ...resumirLog(logd.dados) };

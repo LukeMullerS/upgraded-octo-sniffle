@@ -110,9 +110,22 @@ async function jsonOuNulo(url) {
   const r = await fetch(url);
   return r.ok ? r.json() : null;
 }
+/** Seções em linhas compactas (base estática) → o formato de /api/urnas/municipio. */
+export function expandirSecoes(d) {
+  if (!d?.colunas || !d.linhas) return d;
+  const i = Object.fromEntries(d.colunas.map((c, k) => [c, k]));
+  const secoes = d.linhas.map((l) => ({
+    zona: l[i.zona], secao: l[i.secao], votos: l[i.votos], modelo: l[i.modelo], bateria: l[i.bateria],
+    cabine: { media: l[i.cabine], mediana: l[i.mediana], p90: l[i.p90] }, atendimento: { media: l[i.atendimento] },
+    tipos: { biometrica: l[i.biometrica] }, primeiroVoto: l[i.primeiroVoto], ultimoVoto: l[i.ultimoVoto],
+  }));
+  const { colunas, linhas, ...resto } = d;
+  return { ...resto, secoes };
+}
+
 /** `arquivo` em public/urnas (ex.: "brasil.json"); `api` = rota usada quando o arquivo não existe. */
 export async function dadosUrnas(arquivo, api) {
-  if (!urnasEstaticas.has(arquivo)) urnasEstaticas.set(arquivo, jsonOuNulo(`urnas/${arquivo}`).catch(() => null));
+  if (!urnasEstaticas.has(arquivo)) urnasEstaticas.set(arquivo, jsonOuNulo(`urnas/${arquivo}`).then(expandirSecoes).catch(() => null));
   const estatico = await urnasEstaticas.get(arquivo);
   if (estatico) return estatico;
   urnasEstaticas.delete(arquivo);
