@@ -3,7 +3,8 @@
 # - a cada hora, lê por até 45 min, no máximo 120 seções por minuto (para não sobrecarregar o TSE);
 # - cada log é baixado uma vez só (os logs não mudam), e só de cidades com 100% das seções
 #   totalizadas: no 1º turno, todas; na noite do 2º turno, cada cidade entra assim que fecha;
-# - o progresso fica no cache do Actions e a base gerada vai para o repositório (o Vercel publica).
+# - o progresso fica no cache do Actions e a base é publicada no repositório a cada 15 min
+#   (o Vercel publica cada commit).
 # A partir de 25/10/2026 também compila o 2º turno (public/urnas/2t).
 # Agendamentos só rodam no branch padrão; em outro branch, use Actions → "Logs das urnas" → Run workflow.
 name: Logs das urnas
@@ -38,33 +39,48 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: dados/urnas-retrato
           key: urnas-retrato-${{ github.run_id }}
           restore-keys: urnas-retrato-
-      - name: Ler logs (só seções de cidades 100% totalizadas)
+      # Lê em blocos de 15 min e publica ao fim de cada bloco: o site mostra o progresso durante a
+      # execução, sem gastar deploys demais (cada commit é um deploy no Vercel; o plano grátis
+      # permite cerca de 100 por dia, por isso não publica a cada minuto).
+      - name: Ler logs (só cidades 100% totalizadas) e publicar a cada 15 min
         env:
           TSE_BASE: https://resultados.tse.jus.br/oficial
           RITMO: ${{ github.event.inputs.ritmo || '120' }}
           MINUTOS: ${{ github.event.inputs.minutos || '45' }}
         run: |
-          if [ "$(date -u +%Y%m%d)" -ge 20261025 ]; then
-            # Noite do 2º turno em diante: metade do tempo para cada turno.
-            METADE=$(( MINUTOS / 2 ))
-            node scripts/atualizar-urnas.mjs --turno=2 --ritmo="$RITMO" --max-minutos="$METADE" --concorrencia=4
-            node scripts/atualizar-urnas.mjs --turno=1 --ritmo="$RITMO" --max-minutos="$METADE" --concorrencia=4
-          else
-            node scripts/atualizar-urnas.mjs --turno=1 --ritmo="$RITMO" --max-minutos="$MINUTOS" --concorrencia=4
-          fi
-      - name: Gravar no repositório
-        run: |
-          if git diff --quiet -- public/urnas && [ -z "$(git ls-files --others --exclude-standard public/urnas)" ]; then
-            echo "nada mudou"; exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/urnas
-          git commit -m "Atualiza a base dos logs das urnas"
-          for i in 1 2 3; do git pull --rebase && git push && exit 0; sleep 5; done
-          exit 1
+          publicar() {
+            if git diff --quiet -- public/urnas && [ -z "$(git ls-files --others --exclude-standard public/urnas)" ]; then
+              echo "nada novo para publicar"; return 0
+            fi
+            git add public/urnas
+            git commit -q -m "Atualiza a base dos logs das urnas"
+            for i in 1 2 3; do git pull -q --rebase && git push -q && return 0; sleep 5; done
+            return 1
+          }
+          BLOCO=15
+          RESTA=$MINUTOS
+          while [ "$RESTA" -gt 0 ]; do
+            M=$(( RESTA < BLOCO ? RESTA : BLOCO ))
+            if [ "$(date -u +%Y%m%d)" -ge 20261025 ]; then
+              # Do 2º turno em diante: metade de cada bloco para cada turno.
+              node scripts/atualizar-urnas.mjs --turno=2 --ritmo="$RITMO" --max-minutos=$(( (M + 1) / 2 )) --concorrencia=4
+              node scripts/atualizar-urnas.mjs --turno=1 --ritmo="$RITMO" --max-minutos=$(( M / 2 )) --concorrencia=4
+            else
+              node scripts/atualizar-urnas.mjs --turno=1 --ritmo="$RITMO" --max-minutos="$M" --concorrencia=4
+            fi
+            publicar
+            RESTA=$(( RESTA - M ))
+          done
+      # O progresso (resumo de cada seção lida) fica no cache mesmo se a execução for interrompida.
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: dados/urnas-retrato
+          key: urnas-retrato-${{ github.run_id }}
