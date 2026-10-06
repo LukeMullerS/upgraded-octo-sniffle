@@ -17,7 +17,7 @@ import { PRESETS, criarCenso } from './censo.js';
 import { criarColetorLogs } from './logs.js';
 import { criarMapas } from './mapas.js';
 import { SERIES_IPEA, criarFontes } from './fontes.js';
-import { ELEICOES, UFS, PLEITO } from '../public/tse.js';
+import { ELEICOES, UFS, PLEITO, num } from '../public/tse.js';
 
 export const TSE_BASE = (process.env.TSE_BASE || 'https://resultados.tse.jus.br/oficial').replace(/\/$/, '');
 const CACHE_DADOS_MS = 30_000;
@@ -283,10 +283,42 @@ function enviar(res, status, cabecalhos, corpo, cacheComprimidos = null) {
   res.end(req?.method === 'HEAD' ? undefined : corpo);
 }
 
+// Cache no CDN do Vercel: é a "base compartilhada" da apuração. Cada arquivo do TSE é buscado
+// no máximo uma vez a cada 20 s durante a apuração, e todos os usuários recebem a mesma cópia;
+// com 100% das seções totalizadas, o resultado é final e fica horas no CDN.
+const POLITICAS_CACHE = {
+  'ao-vivo': 'public, max-age=0, s-maxage=20, stale-while-revalidate=20',
+  final: 'public, max-age=300, s-maxage=21600, stale-while-revalidate=86400',
+  estavel: 'public, max-age=0, s-maxage=60, stale-while-revalidate=300',
+  config: 'public, max-age=60, s-maxage=3600, stale-while-revalidate=86400',
+  foto: 'public, max-age=86400, s-maxage=604800',
+};
+
+/** Política de cache de um arquivo do TSE (caminho relativo, status, corpo). Exportada para os testes. */
+export function politicaTse(caminho, status, corpo) {
+  if (status >= 500) return null; // falha ao consultar o TSE: nunca fica no CDN
+  if (caminho.includes('/fotos/')) return status === 200 ? 'foto' : 'ao-vivo';
+  if (caminho.includes('/config/')) return status === 200 ? 'config' : 'ao-vivo';
+  if (status !== 200) return 'ao-vivo'; // ainda não publicado: confere de novo em 20 s
+  try {
+    const s = JSON.parse(String(corpo)).s ?? {};
+    return num(s.ts) > 0 && num(s.st) >= num(s.ts) ? 'final' : 'ao-vivo';
+  } catch {
+    return 'ao-vivo';
+  }
+}
+
+/** Resposta das APIs de resultado: "final" com 100% das seções totalizadas. */
+function politicaResultado(d) {
+  if (!completo(d)) return false; // ainda lendo: não guarda no CDN uma resposta parcial
+  const r = d.consolidado ?? d.brasil;
+  return r?.secoes?.total > 0 && r.secoes.totalizadas >= r.secoes.total ? 'final' : 'ao-vivo';
+}
+
 function json(res, status, dados, cacheCdn = false) {
-  // No Vercel, respostas completas ficam 1 min no CDN (e servem velhas por mais 5 enquanto
-  // renovam): quem abre a página depois não espera a função baixar tudo de novo.
-  const cache = SERVERLESS && cacheCdn && status === 200 ? 'public, max-age=0, s-maxage=60, stale-while-revalidate=300' : 'no-store';
+  // cacheCdn: true (= "estavel", 1 min) ou o nome de uma política; só vale no Vercel.
+  const politica = cacheCdn === true ? 'estavel' : cacheCdn;
+  const cache = SERVERLESS && politica && status === 200 ? POLITICAS_CACHE[politica] : 'no-store';
   enviar(res, status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': cache }, Buffer.from(JSON.stringify(dados)));
 }
 const completo = (d) => !d.pendentes && !d.lendo && (!d.total || d.lidos >= d.total);
@@ -300,18 +332,18 @@ async function api(res, pathname, params) {
       // fundo=1: painéis secundários (outros cargos) esperam na fila de baixa prioridade.
       const prioridade = params.get('fundo') === '1' ? 0 : 1;
       const d = await coletor.estados(eleicao.codigo, cargo.codigo, cargo.abrangencias, { prioridade, esperarMs: Math.max(4_000, ESPERA_MS / 3) });
-      return json(res, 200, d, completo(d));
+      return json(res, 200, d, politicaResultado(d));
     }
     if (pathname === '/api/municipios') {
       const uf = params.get('uf');
       if (uf === 'todas') {
         const d = await coletor.todas(eleicao.codigo, cargo.codigo, cargo.abrangencias.filter((a) => a !== 'br'),
           { esperarMs: ESPERA_MS, porUf: !cargo.abrangencias.includes('br') });
-        return json(res, 200, d, completo(d));
+        return json(res, 200, d, politicaResultado(d));
       }
       if (!cargo.abrangencias.includes(uf) || uf === 'br') return json(res, 400, { erro: 'UF inválida para este cargo' });
       const d = await coletor.municipios(eleicao.codigo, cargo.codigo, uf, { esperarMs: ESPERA_MS });
-      return json(res, 200, d, completo(d));
+      return json(res, 200, d, politicaResultado(d));
     }
     return json(res, 404, { erro: 'rota desconhecida' });
   } catch (erro) {
@@ -333,7 +365,9 @@ async function proxy(req, res, caminho) {
   }
   try {
     const r = caminho.includes('/fotos/') ? await buscarFoto(caminho) : await banco.bruto(caminho);
-    enviar(res, r.status, { 'content-type': r.tipo, 'cache-control': 'no-cache' }, r.corpo);
+    const politica = politicaTse(caminho, r.status, r.corpo);
+    const cache = SERVERLESS ? (politica ? POLITICAS_CACHE[politica] : 'no-store') : 'no-cache';
+    enviar(res, r.status, { 'content-type': r.tipo, 'cache-control': cache }, r.corpo);
   } catch (erro) {
     const mensagem = erro?.name === 'TimeoutError' ? 'TSE não respondeu a tempo' : `falha ao consultar o TSE: ${erro.message}`;
     res.writeHead(502, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify({ erro: mensagem }));

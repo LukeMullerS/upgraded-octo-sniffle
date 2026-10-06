@@ -10,7 +10,9 @@ import {
 const BASE = new URLSearchParams(location.search).has('direto')
   ? 'https://resultados.tse.jus.br/oficial'
   : 'tse';
-const INTERVALO_MS = 60_000;
+// Durante a apuração consulta a cada 20 s (o CDN entrega a mesma cópia a todos os usuários);
+// com 100% das seções totalizadas o resultado é final e a atualização automática para.
+const INTERVALO_MS = 20_000;
 const PAGINA = 30;
 
 const $ = (id) => document.getElementById(id);
@@ -205,7 +207,9 @@ async function carregar() {
     estado.dados = dados;
     el.erro.hidden = true;
     renderizar();
-    el.status.textContent = `consultado às ${new Date().toLocaleTimeString('pt-BR')}`;
+    el.status.textContent = resultadoFinal()
+      ? 'resultado final (100% das seções)'
+      : `consultado às ${new Date().toLocaleTimeString('pt-BR')}`;
     el.status.className = 'status ok';
   } catch (erro) {
     if (pedido !== estado.pedido) return;
@@ -364,7 +368,12 @@ function limpar() {
 
 function agendar() {
   clearInterval(estado.timer);
-  if (el.auto.checked) estado.timer = setInterval(() => { if (!document.hidden) carregar(); }, INTERVALO_MS);
+  if (el.auto.checked) estado.timer = setInterval(() => { if (!document.hidden && !resultadoFinal()) carregar(); }, INTERVALO_MS);
+}
+
+function resultadoFinal() {
+  const s = estado.dados?.secoes;
+  return Boolean(s?.total) && s.totalizadas >= s.total;
 }
 
 el.eleicao.addEventListener('change', async () => { atualizarCargos(); await atualizarMunicipios(); carregar(); });

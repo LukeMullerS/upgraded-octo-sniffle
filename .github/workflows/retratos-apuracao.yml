@@ -1,0 +1,67 @@
+# Monta a base estática da apuração (public/resultados) durante a noite do 2º turno:
+# a cada 10 min, acompanha o TSE por até 8 min (consultas a cada 20 s, só das cidades ainda
+# abertas) e grava o retrato no repositório; o Vercel publica o commit. Quando 100% das
+# seções estiverem totalizadas, o site passa a ler o retrato em vez de consultar o TSE.
+#
+# Os horários (UTC) cobrem 25/10/2026, das 17h às 0h50 de Brasília. Agendamentos só rodam no
+# branch padrão do repositório; em outro branch, rode manualmente em Actions → "Retratos da
+# apuração" → Run workflow (dá para escolher o turno e o branch).
+name: Retratos da apuração
+
+on:
+  schedule:
+    - cron: '*/10 20-23 25 10 *'
+    - cron: '*/10 0-3 26 10 *'
+  workflow_dispatch:
+    inputs:
+      turno:
+        description: 'Turno (1 ou 2)'
+        default: '2'
+        required: true
+      minutos:
+        description: 'Minutos acompanhando (0 = uma passada só)'
+        default: '8'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: retratos-apuracao
+  cancel-in-progress: false
+
+jobs:
+  retratos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Acompanhar o TSE e montar os retratos
+        env:
+          # O relay do próprio site (região gru1, Brasil) evita bloqueios do TSE a IPs de fora.
+          TSE_BASE: https://votolab.vercel.app/tse
+          CONCORRENCIA: '10'
+          TURNO: ${{ github.event.inputs.turno || '2' }}
+          MINUTOS: ${{ github.event.inputs.minutos || '8' }}
+        run: |
+          if [ "$MINUTOS" = "0" ]; then
+            node scripts/atualizar-resultados.mjs --turno "$TURNO"
+          else
+            node scripts/atualizar-resultados.mjs --turno "$TURNO" --acompanhar=20 --max-minutos="$MINUTOS"
+          fi
+      - name: Gravar no repositório
+        run: |
+          if git diff --quiet -- public/resultados && [ -z "$(git ls-files --others --exclude-standard public/resultados)" ]; then
+            echo "nada mudou"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/resultados
+          git commit -m "Atualiza retratos da apuração (${TURNO:-2}º turno)"
+          for i in 1 2 3; do git pull --rebase && git push && exit 0; sleep 5; done
+          exit 1
+        env:
+          TURNO: ${{ github.event.inputs.turno || '2' }}

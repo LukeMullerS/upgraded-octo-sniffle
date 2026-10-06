@@ -1,13 +1,13 @@
 # Apuração Eleições 2026
 
-App simples para acompanhar a apuração do **1º turno das Eleições 2026 (04/10/2026, pleito 3220)**
-com os arquivos públicos de resultado do TSE — <https://resultados.tse.jus.br>, ambiente **oficial**.
+App para acompanhar e analisar a apuração das **Eleições 2026** (pleito 3220) com os arquivos públicos de resultado
+do TSE — <https://resultados.tse.jus.br>, ambiente **oficial**. No menu, as eleições do TSE aparecem juntas por ano e
+turno:
 
-| Código | Eleição | Cargos |
+| Menu | Códigos do TSE | Cargos |
 | --- | --- | --- |
-| 6257 | Eleição Geral Federal | Presidente (Brasil, cada UF e Exterior) |
-| 6259 | Eleições Gerais Estaduais 2026 | Governador, Senador, Deputado Federal, Deputado Estadual, Deputado Distrital (DF) |
-| 6261 | Eleição Conselho Distrital 2026 | Conselheiro Distrital (Fernando de Noronha/PE) |
+| 2026 · 1º turno (04/10) | 6257, 6259, 6261 | Presidente; Governador, Senador, Deputado Federal, Estadual e Distrital (DF); Conselheiro Distrital de Fernando de Noronha (PE), na abrangência "PE · Fernando de Noronha" |
+| 2026 · 2º turno (25/10) | 6258, 6260 | Presidente e Governador (só nos estados com 2º turno) |
 
 ## Como rodar
 
@@ -250,7 +250,7 @@ cidade?", "A alfabetização muda o voto no líder?" e "Onde o voto para deputad
   "Brasil — todas as cidades" abre na hora a partir de um retrato, em vez de baixar milhares de arquivos do TSE a cada
   consulta (o que numa função serverless não termina e ainda faz o TSE responder 429). O app só usa o retrato quando
   ele está completo (todas as seções totalizadas). Para gerar/atualizar:
-  `node scripts/atualizar-resultados.mjs 6257:1 6259:3 6259:5 6259:6 6259:7 6259:8` (todos os cargos do 1º turno já têm retrato).
+  `node scripts/atualizar-resultados.mjs` (todos os cargos do 1º turno já têm retrato; veja abaixo o 2º turno).
   Uma UF sozinha também sai do retrato nacional. Os arquivos são compactos: os percentuais são recalculados no
   navegador a partir das contagens (cerca de 40% menores, sem perder informação).
 
@@ -283,6 +283,21 @@ TSE. É só importar o repositório no Vercel, sem build. Diferenças em relaç�
   lenta; as cidades de um estado vão se completando a cada atualização da página;
 - para acompanhar tudo em tempo real (inclusive todos os logs), prefira rodar `npm start` num computador ou num
   servidor sempre ligado (Render, Railway, Fly.io, uma VPS).
+
+### Base compartilhada da apuração (e o 2º turno)
+
+Ninguém consulta o TSE "sozinho":
+
+- **Resultado final (100% das seções totalizadas)**: o app lê os retratos de `public/resultados` (base estática no
+  próprio site), e os arquivos do TSE que passam pelo relay `/tse` ficam horas no CDN do Vercel.
+- **Durante a apuração**: cada arquivo do TSE é buscado no máximo uma vez a cada 20 s, e o CDN entrega a mesma cópia
+  a todos os usuários; a Apuração atualiza a cada 20 s e para sozinha quando o resultado fica final.
+- **Montando a base**: `node scripts/atualizar-resultados.mjs --turno 2 --acompanhar` consulta o TSE a cada 20 s,
+  congela as cidades que já fecharam e grava o retrato a cada passada, até 100%. `--turno 1` (padrão) faz o mesmo
+  para o 1º turno; antes da publicação, o script só avisa que o resultado ainda não saiu.
+- **Noite do 2º turno (25/10/2026)**: o workflow `.github/workflows/retratos-apuracao.yml` roda o script a cada
+  10 min das 17h à 0h50 (Brasília) e grava os retratos no repositório, e o Vercel publica. Agendamentos só rodam no
+  branch padrão; em outro branch, use "Run workflow" na aba Actions.
 
 ### Cache dos arquivos no Vercel
 

@@ -1,25 +1,59 @@
 #!/usr/bin/env node
-// Retrato dos resultados de todas as cidades de um cargo, para o nível "Brasil — todas as
-// cidades" abrir na hora (sem baixar milhares de arquivos do TSE a cada consulta, o que numa
-// função serverless nunca termina e ainda faz o TSE responder 429).
+// Retratos dos resultados de todas as cidades de um cargo (public/resultados/{eleição}-{cargo}.json):
+// a "base estática" do site. Com 100% das seções totalizadas, o app lê o retrato em vez de
+// consultar o TSE, e todos os usuários usam a mesma cópia. Mesmo formato de
+// /api/municipios?uf=todas, compacto (percentuais recalculados no navegador).
 //
-// Gera public/resultados/{eleição}-{cargo}.json no mesmo formato de /api/municipios?uf=todas.
-// Só faz sentido depois da totalização: o app usa o retrato apenas quando ele está completo
-// (todas as seções totalizadas); antes disso, continua consultando o TSE.
+// O retrato vai sendo montado: cidades já 100% totalizadas num retrato anterior ficam
+// congeladas e só as demais são consultadas de novo. No modo --acompanhar, repete a cada 20 s
+// (ou o intervalo pedido) até todas as cidades fecharem; é o que se usa na noite da apuração.
 //
-// Uso: node scripts/atualizar-resultados.mjs [6257:1 6259:3 …]
-// TSE_BASE muda a origem (padrão: https://resultados.tse.jus.br/oficial).
+// Uso:
+//   node scripts/atualizar-resultados.mjs                     todos os cargos do 1º turno
+//   node scripts/atualizar-resultados.mjs --turno 2           2º turno (Presidente e Governador)
+//   node scripts/atualizar-resultados.mjs --turno 2 --acompanhar[=20]   repete até fechar
+//   node scripts/atualizar-resultados.mjs 6257:1 6259:3       cargos escolhidos
+//   --tudo         ignora o retrato anterior e consulta todas as cidades de novo
+//   --max-minutos=N  no modo --acompanhar, para depois de N minutos (ex.: dentro do GitHub Actions)
+// Variáveis: TSE_BASE (padrão https://resultados.tse.jus.br/oficial), CONCORRENCIA (padrão 4).
 
-import { mkdir, writeFile } from 'node:fs/promises';
-import { ELEICOES, compactarRetrato, lerMunicipios, resumoVotos, somarResumos, urlMunicipios, urlResultado } from '../public/tse.js';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import {
+  ELEICOES, compactarRetrato, expandirRetrato, lerMunicipios, resumoVotos, somarResumos, urlMunicipios, urlResultado,
+} from '../public/tse.js';
 
 const BASE = (process.env.TSE_BASE || 'https://resultados.tse.jus.br/oficial').replace(/\/$/, '');
 const CONCORRENCIA = Number(process.env.CONCORRENCIA) || 4;
-const PADRAO = ['6257:1', '6259:3', '6259:5'];
 const SAIDA = new URL('../public/resultados/', import.meta.url);
 const CABECALHOS = { 'User-Agent': 'Mozilla/5.0 (VotoLab)', Accept: 'application/json' };
 
+/** Cargos com código conhecido de cada turno (o Conselho de Noronha fica de fora: é uma cidade só). */
+export function cargosDoTurno(turno) {
+  return Object.values(ELEICOES)
+    .filter((e) => (e.turno ?? 1) === turno)
+    .flatMap((e) => e.cargos.filter((c) => c.codigo !== null).map((c) => `${e.codigo}:${c.codigo}`));
+}
+
+export function lerArgumentos(argv) {
+  const op = { cargos: [], turno: 1, acompanhar: 0, tudo: false, maxMinutos: 0 };
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a === '--turno') op.turno = Number(argv[++i]);
+    else if (a.startsWith('--turno=')) op.turno = Number(a.slice(8));
+    else if (a === '--acompanhar') op.acompanhar = 20;
+    else if (a.startsWith('--acompanhar=')) op.acompanhar = Math.max(5, Number(a.slice(13)) || 20);
+    else if (a === '--tudo') op.tudo = true;
+    else if (a.startsWith('--max-minutos=')) op.maxMinutos = Number(a.slice(14)) || 0;
+    else if (/^\d+:\d+$/.test(a)) op.cargos.push(a);
+    else throw new Error(`argumento desconhecido: ${a}`);
+  }
+  if (![1, 2].includes(op.turno)) throw new Error('--turno deve ser 1 ou 2');
+  if (!op.cargos.length) op.cargos = cargosDoTurno(op.turno);
+  return op;
+}
+
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+const fechada = (r) => r?.secoes?.total > 0 && r.secoes.totalizadas >= r.secoes.total;
 
 /** JSON do TSE com novas tentativas; respeita 429/503 (o TSE pede para esperar). null = 404. */
 async function json(url) {
@@ -47,21 +81,50 @@ async function emLotes(itens, fn) {
   await Promise.all(Array.from({ length: CONCORRENCIA }, trabalhar));
 }
 
-async function retrato(valor) {
+async function anterior(arquivo) {
+  try { return expandirRetrato(JSON.parse(await readFile(arquivo, 'utf8'))); } catch { return null; }
+}
+
+/** Uma passada: consulta as cidades ainda abertas e grava o retrato. Devolve se ficou completo. */
+async function passada(valor, { tudo }) {
   const [ele, cod] = valor.split(':');
-  const cargo = ELEICOES[ele]?.cargos.find((c) => String(c.codigo) === cod);
+  const eleicao = ELEICOES[ele];
+  const cargo = eleicao?.cargos.find((c) => String(c.codigo) === cod);
   if (!cargo) throw new Error(`cargo desconhecido: ${valor}`);
+  const arquivo = new URL(`${ele}-${cargo.codigo}.json`, SAIDA);
   const porUfCargo = !cargo.abrangencias.includes('br');
-  const municipiosPorUf = lerMunicipios(await json(urlMunicipios(BASE, ele)));
-  const alvos = [];
-  for (const uf of cargo.abrangencias.filter((a) => a !== 'br')) for (const m of municipiosPorUf[uf] ?? []) alvos.push({ uf, m });
+  // A lista de cidades do 2º turno pode demorar a sair: usa a do 1º turno, que é a mesma.
+  const config = await json(urlMunicipios(BASE, ele)) ?? (eleicao.primeiroTurno ? await json(urlMunicipios(BASE, eleicao.primeiroTurno)) : null);
+  if (!config) throw new Error(`lista de municípios de ${ele} ainda não publicada`);
+  const municipiosPorUf = lerMunicipios(config);
+
+  let ufs = cargo.abrangencias.filter((a) => a !== 'br');
+  // Antes de pedir milhares de cidades, confere se o resultado já foi publicado: no Brasil
+  // (cargos nacionais) ou em cada UF (estaduais; no 2º turno, só os estados com 2º turno têm arquivo).
+  if (!porUfCargo) {
+    if (!(await json(urlResultado(BASE, ele, 'br', cargo.codigo)))) { console.log(`  ${valor}: resultado ainda não publicado pelo TSE`); return false; }
+  } else {
+    const tem = await Promise.all(ufs.map(async (uf) => [uf, Boolean(await json(urlResultado(BASE, ele, uf, cargo.codigo)))]));
+    ufs = tem.filter(([, ok]) => ok).map(([uf]) => uf);
+    if (!ufs.length) { console.log(`  ${valor}: resultado ainda não publicado pelo TSE`); return false; }
+  }
+  const alvos = ufs.flatMap((uf) => (municipiosPorUf[uf] ?? []).map((m) => ({ uf, m })));
+
+  const antes = tudo ? null : await anterior(arquivo);
+  const congeladas = new Map();
+  for (const r of antes?.municipios ?? []) if (fechada(r)) congeladas.set(`${r.uf}-${r.codigo}`, r);
+  const nomes = { ...(antes?.nomes ?? {}) };
   const lidos = [];
-  const nomes = {};
+  const abertas = alvos.filter(({ uf, m }) => {
+    const r = congeladas.get(`${uf}-${m.codigo}`);
+    if (r) lidos.push(r);
+    return !r;
+  });
   let feitos = 0;
-  await emLotes(alvos, async ({ uf, m }) => {
+  await emLotes(abertas, async ({ uf, m }) => {
     const bruto = await json(urlResultado(BASE, ele, uf, cargo.codigo, m.codigo));
     feitos += 1;
-    if (feitos % 500 === 0) console.log(`  ${valor}: ${feitos}/${alvos.length}`);
+    if (feitos % 500 === 0) console.log(`  ${valor}: ${feitos}/${abertas.length}`);
     if (!bruto) return;
     const { nomes: n, ...r } = resumoVotos(bruto);
     // Cargos estaduais no Brasil todo: candidato identificado por UF (o nº 13 de SP ≠ o de BA).
@@ -74,7 +137,7 @@ async function retrato(valor) {
     lidos.push({ codigo: m.codigo, nome: m.nome, uf, ibge: m.ibge ?? null, ...r });
   });
   lidos.sort((a, b) => a.uf.localeCompare(b.uf) || a.nome.localeCompare(b.nome, 'pt-BR'));
-  const completo = lidos.length === alvos.length && lidos.every((l) => l.secoes.total > 0 && l.secoes.totalizadas >= l.secoes.total);
+  const completo = lidos.length === alvos.length && lidos.every(fechada);
   const saida = {
     eleicao: ele, cargo: cargo.codigo, uf: 'todas', total: alvos.length, lidos: lidos.length, lendo: false,
     retrato: { geradoEm: new Date().toISOString(), completo, fonte: `https://resultados.tse.jus.br/oficial/ele2026/${ele}/dados` },
@@ -85,8 +148,35 @@ async function retrato(valor) {
   };
   delete saida.consolidado?.nomes;
   await mkdir(SAIDA, { recursive: true });
-  await writeFile(new URL(`${ele}-${cargo.codigo}.json`, SAIDA), JSON.stringify(compactarRetrato(saida)));
-  console.log(`gravado public/resultados/${ele}-${cargo.codigo}.json · ${lidos.length}/${alvos.length} cidades · completo: ${completo}`);
+  await writeFile(arquivo, JSON.stringify(compactarRetrato(saida)));
+  const fechadas = lidos.filter(fechada).length;
+  console.log(`gravado public/resultados/${ele}-${cargo.codigo}.json · ${lidos.length}/${alvos.length} cidades`
+    + ` · ${fechadas} fechadas (${abertas.length} consultadas agora) · completo: ${completo}`);
+  return completo;
 }
 
-for (const valor of process.argv.slice(2).length ? process.argv.slice(2) : PADRAO) await retrato(valor);
+async function principal() {
+  const op = lerArgumentos(process.argv.slice(2));
+  const fim = op.maxMinutos ? Date.now() + op.maxMinutos * 60_000 : Infinity;
+  let pendentes = [...op.cargos];
+  for (;;) {
+    const inicio = Date.now();
+    const restantes = [];
+    for (const valor of pendentes) {
+      try {
+        if (!(await passada(valor, op))) restantes.push(valor);
+      } catch (erro) {
+        console.log(`  ${valor}: ${erro.message}`);
+        restantes.push(valor);
+      }
+    }
+    pendentes = restantes;
+    if (!op.acompanhar || !pendentes.length) break;
+    if (Date.now() >= fim) { console.log(`parando (limite de ${op.maxMinutos} min); faltam ${pendentes.join(', ')}`); break; }
+    await espera(Math.max(0, op.acompanhar * 1000 - (Date.now() - inicio)));
+  }
+  if (pendentes.length) console.log(`ainda sem 100% das seções: ${pendentes.join(', ')}`);
+  else console.log('todos os retratos completos');
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) await principal();
