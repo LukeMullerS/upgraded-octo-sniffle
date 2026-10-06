@@ -707,3 +707,22 @@ body:not(.especialista) [data-especialista] { display: none !important; }
 .parecida-nome { font-weight: 600; font-size: .9rem; }
 [data-tema="98"] .parecida { border-radius: 0; }
 .nota-modo { margin: -.2rem 1rem .6rem; }
+
+/* Divisão das cadeiras (hemiciclo) */
+.alternar { display: inline-flex; gap: .3rem; }
+.alternar [aria-pressed="true"] { background: var(--destaque); color: #fff; border-color: var(--destaque); }
+.cadeiras-corpo { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(180px, 1fr); gap: 1rem; align-items: center; }
+@media (max-width: 700px) { .cadeiras-corpo { grid-template-columns: 1fr; } }
+.hemiciclo { width: 100%; height: auto; display: block; color: var(--texto); }
+.hemiciclo .hemi-total { font-size: 30px; font-weight: 700; fill: currentColor; }
+.hemiciclo .hemi-rotulo { font-size: 13px; fill: currentColor; opacity: .75; }
+.hemiciclo circle[data-grupo] { cursor: default; }
+.hemiciclo.destacando circle[data-grupo] { opacity: .25; }
+.hemiciclo.destacando circle.ativo { opacity: 1; }
+.cadeiras-legenda { list-style: none; margin: 0; padding: 0; display: grid; gap: .15rem; font-size: .85rem; max-height: 320px; overflow: auto; }
+.cadeiras-legenda li { display: grid; grid-template-columns: auto 1fr auto; gap: .4rem; align-items: center; padding: .1rem .2rem; border-radius: 4px; }
+.cadeiras-legenda li:hover, .cadeiras-legenda li:focus-within { background: var(--borda); }
+.cadeiras-legenda .n { font-weight: 700; font-variant-numeric: tabular-nums; }
+.cadeiras-legenda .sem-vaga { opacity: .6; }
+[data-tema="98"] .alternar [aria-pressed="true"] { background: #c0c0c0; color: #000; box-shadow: inset 1px 1px #0a0a0a, inset -1px -1px #fff; }
+[data-tema="98"] .cadeiras-legenda li { border-radius: 0; }

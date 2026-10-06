@@ -66,9 +66,24 @@
         <span class="mudo">(<span id="secoes">0 de 0</span>)</span></p>
     </section>
 
+    <section class="cartao" id="cadeiras-cartao" hidden>
+      <div class="linha">
+        <h2 id="cadeiras-titulo">Divisão das cadeiras</h2>
+        <div class="alternar" role="group" aria-label="Agrupar cadeiras">
+          <button type="button" class="secundario sem-margem" data-agrupar="partido" aria-pressed="true">Por partido</button>
+          <button type="button" class="secundario sem-margem" data-agrupar="federacao" aria-pressed="false">Por federação</button>
+        </div>
+      </div>
+      <div class="cadeiras-corpo">
+        <div id="hemiciclo" class="hemiciclo-caixa"></div>
+        <ul id="cadeiras-legenda" class="cadeiras-legenda"></ul>
+      </div>
+      <p id="cadeiras-nota" class="mudo pequeno"></p>
+    </section>
+
     <section class="cartao" id="resultado">
       <div class="linha">
-        <h2>Candidatos</h2>
+        <h2 id="candidatos-titulo">Candidatos</h2>
         <input id="busca" type="search" placeholder="Buscar candidato, número ou partido" hidden>
       </div>
       <ol id="candidatos" class="candidatos"></ol>
@@ -76,7 +91,7 @@
     </section>
 
     <section class="cartao" id="partidos-cartao" hidden>
-      <h2>Votos nominais por partido</h2>
+      <h2 id="partidos-titulo">Votos nominais por partido</h2>
       <table class="tabela">
         <thead><tr><th>Partido</th><th class="num">Votos</th><th class="num">%</th><th class="num">Eleitos</th></tr></thead>
         <tbody id="partidos"></tbody>

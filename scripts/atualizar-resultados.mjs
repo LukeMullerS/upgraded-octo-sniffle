@@ -21,6 +21,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import {
   ELEICOES, compactarRetrato, expandirRetrato, lerMunicipios, resumoVotos, somarResumos, urlMunicipios, urlResultado,
 } from '../public/tse.js';
+import { cadeirasDoArquivo } from '../public/cadeiras.js';
 
 const BASE = (process.env.TSE_BASE || 'https://resultados.tse.jus.br/oficial').replace(/\/$/, '');
 const CONCORRENCIA = Number(process.env.CONCORRENCIA) || 4;
@@ -120,6 +121,11 @@ async function passada(valor, { tudo }) {
     if (r) lidos.push(r);
     return !r;
   });
+  // Retrato anterior já completo e nada aberto: não regrava (evita commits só com a data nova).
+  if (antes?.retrato?.completo && !abertas.length && lidos.length === alvos.length) {
+    console.log(`  ${valor}: retrato já completo, sem mudanças`);
+    return true;
+  }
   let feitos = 0;
   await emLotes(abertas, async ({ uf, m }) => {
     const bruto = await json(urlResultado(BASE, ele, uf, cargo.codigo, m.codigo));
@@ -155,6 +161,35 @@ async function passada(valor, { tudo }) {
   return completo;
 }
 
+/**
+ * Retrato das cadeiras de um cargo proporcional (public/resultados/cadeiras-{eleição}-{cargo}.json):
+ * a divisão de vagas e os eleitos de cada UF, para a Câmara dos Deputados (e a soma das
+ * assembleias) abrir na hora. Lido dos arquivos de cada UF; completo com 100% das seções.
+ */
+async function retratoCadeiras(valor) {
+  const [ele, cod] = valor.split(':');
+  const cargo = ELEICOES[ele]?.cargos.find((c) => String(c.codigo) === cod);
+  if (!cargo || cargo.majoritario) return true;
+  const arquivo = new URL(`cadeiras-${ele}-${cargo.codigo}.json`, SAIDA);
+  try {
+    if (JSON.parse(await readFile(arquivo, 'utf8')).retrato?.completo) { console.log(`  cadeiras ${valor}: retrato já completo`); return true; }
+  } catch { /* ainda não existe */ }
+  const ufs = {};
+  for (const uf of cargo.abrangencias.filter((a) => a !== 'br')) {
+    const bruto = await json(urlResultado(BASE, ele, uf, cargo.codigo));
+    if (bruto) ufs[uf] = cadeirasDoArquivo(bruto, uf);
+  }
+  const lista = Object.values(ufs);
+  const completo = lista.length === cargo.abrangencias.filter((a) => a !== 'br').length
+    && lista.every((c) => c.secoes.total > 0 && c.secoes.totalizadas >= c.secoes.total);
+  await mkdir(SAIDA, { recursive: true });
+  await writeFile(arquivo,
+    JSON.stringify({ eleicao: ele, cargo: cargo.codigo, retrato: { geradoEm: new Date().toISOString(), completo }, ufs }));
+  const vagas = lista.reduce((t, c) => t + c.vagas, 0);
+  console.log(`gravado public/resultados/cadeiras-${ele}-${cargo.codigo}.json · ${lista.length} UFs · ${vagas} vagas · completo: ${completo}`);
+  return completo;
+}
+
 async function principal() {
   const op = lerArgumentos(process.argv.slice(2));
   const fim = op.maxMinutos ? Date.now() + op.maxMinutos * 60_000 : Infinity;
@@ -164,7 +199,10 @@ async function principal() {
     const restantes = [];
     for (const valor of pendentes) {
       try {
-        if (!(await passada(valor, op))) restantes.push(valor);
+        const pronto = await passada(valor, op);
+        // Deputados: grava também a divisão das cadeiras (provisória até 100%).
+        const cadeirasProntas = await retratoCadeiras(valor);
+        if (!pronto || !cadeirasProntas) restantes.push(valor);
       } catch (erro) {
         console.log(`  ${valor}: ${erro.message}`);
         restantes.push(valor);

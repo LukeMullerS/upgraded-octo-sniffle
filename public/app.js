@@ -4,6 +4,9 @@ import {
   ABRANGENCIAS, CARGOS_CANDIDATOS_CONSELHO, ELEICOES, lerMunicipios, normalizar,
   urlFoto, urlMunicipios, urlResultado, votosPorPartido,
 } from './tse.js';
+import { cadeirasDoArquivo, somarCadeiras, svgHemiciclo } from './cadeiras.js';
+import { coresPorPartido } from './comum.js';
+import { CATEGORICA } from './mapa.js';
 
 // Pelo servidor local (`node server.js`) as consultas passam pelo proxy `/tse`.
 // Com `?direto=1` o navegador consulta o TSE diretamente (depende de CORS do TSE).
@@ -21,7 +24,9 @@ const el = {
   status: $('status'), atualizar: $('atualizar'), auto: $('auto'), erro: $('erro'),
   titulo: $('titulo'), horario: $('horario'), barra: $('barra-secoes'), pctSecoes: $('pct-secoes'),
   secoes: $('secoes'), candidatos: $('candidatos'), mais: $('mais'), busca: $('busca'),
-  partidosCartao: $('partidos-cartao'), notaNoronha: $('nota-noronha'), partidos: $('partidos'), gerais: $('gerais'),
+  partidosCartao: $('partidos-cartao'), notaNoronha: $('nota-noronha'), partidosTitulo: $('partidos-titulo'),
+  cadeirasCartao: $('cadeiras-cartao'), cadeirasTitulo: $('cadeiras-titulo'), hemiciclo: $('hemiciclo'), cadeirasLegenda: $('cadeiras-legenda'),
+  cadeirasNota: $('cadeiras-nota'), candidatosTitulo: $('candidatos-titulo'), partidos: $('partidos'), gerais: $('gerais'),
 };
 
 const fmtInt = new Intl.NumberFormat('pt-BR');
@@ -69,7 +74,12 @@ const turnoAtual = () => TURNOS.find((t) => t.id === el.eleicao.value) ?? TURNOS
 // Fernando de Noronha (PE) aparece como uma opção de abrangência: escolhida, a tela passa ao
 // Conselho Distrital (cargo próprio do arquipélago, sem partidos) e volta ao normal ao sair.
 const NORONHA = 'pe-noronha';
-const nomeAbr = (a) => (a === NORONHA ? 'PE · Fernando de Noronha' : ABRANGENCIAS[a]);
+// Cargos proporcionais (deputados): mostram a divisão das cadeiras; Federal e Estadual ganham
+// a abrangência "Brasil" (Câmara dos Deputados / soma das assembleias).
+const proporcional = (c) => !c.majoritario && !c.descobrir;
+const NOMES_BRASIL = { 6: 'Brasil — Câmara dos Deputados', 7: 'Brasil — todas as assembleias' };
+const nomeAbr = (a) => (a === NORONHA ? 'PE · Fernando de Noronha'
+  : a === 'br' && NOMES_BRASIL[cargoAtual().codigo] && proporcional(cargoAtual()) ? NOMES_BRASIL[cargoAtual().codigo] : ABRANGENCIAS[a]);
 const conselhoDoTurno = () => turnoAtual().eleicoes.flatMap((e) => ELEICOES[e].cargos.map((c, i) => ({ e, i, c }))).find((x) => x.c.descobrir) ?? null;
 const modoNoronha = () => el.abrangencia.value === NORONHA && !!conselhoDoTurno();
 const ufAtual = () => (el.abrangencia.value === NORONHA ? 'pe' : el.abrangencia.value);
@@ -100,6 +110,7 @@ function atualizarAbrangencias(inicial = {}) {
   const atual = inicial.abr ?? el.abrangencia.value;
   const cargo = ELEICOES[cargoMenu().split(':')[0]].cargos[Number(cargoMenu().split(':')[1])];
   const opcoes = cargo.abrangencias.map((a) => [a, ABRANGENCIAS[a]]);
+  if (proporcional(cargo) && NOMES_BRASIL[cargo.codigo] && !cargo.abrangencias.includes('br')) opcoes.unshift(['br', NOMES_BRASIL[cargo.codigo]]);
   if (conselhoDoTurno()) {
     const i = opcoes.findIndex(([a]) => a === 'pe');
     opcoes.splice(i < 0 ? opcoes.length : i + 1, 0, [NORONHA, 'PE · Fernando de Noronha (Conselho Distrital)']);
@@ -181,30 +192,47 @@ async function carregar() {
   el.atualizar.disabled = true;
 
   try {
-    let codigo = cargo.codigo;
-    if (cargo.descobrir) {
-      codigo = await descobrirCargo(ele, uf, municipio);
-      // O conselho é votado só em Fernando de Noronha: tenta o arquivo do município.
-      if (!codigo && !municipio) {
-        const noronha = (estado.municipios[ele]?.[uf] ?? []).find((m) => /noronha/i.test(m.nome));
-        if (noronha) {
-          municipio = noronha.codigo;
-          codigo = await descobrirCargo(ele, uf, municipio);
-          if (codigo) el.municipio.value = municipio;
+    let dados;
+    let cadeiras = null;
+    let chave;
+    if (proporcional(cargo) && uf === 'br') {
+      // Câmara dos Deputados (ou todas as assembleias): soma das bancadas eleitas em cada UF.
+      cadeiras = await cadeirasNacionais(ele, cargo);
+      dados = dadosNacionais(cadeiras, ele, cargo);
+      chave = `${ele}:${cargo.codigo}:br:`;
+    } else {
+      let codigo = cargo.codigo;
+      if (cargo.descobrir) {
+        codigo = await descobrirCargo(ele, uf, municipio);
+        // O conselho é votado só em Fernando de Noronha: tenta o arquivo do município.
+        if (!codigo && !municipio) {
+          const noronha = (estado.municipios[ele]?.[uf] ?? []).find((m) => /noronha/i.test(m.nome));
+          if (noronha) {
+            municipio = noronha.codigo;
+            codigo = await descobrirCargo(ele, uf, municipio);
+            if (codigo) el.municipio.value = municipio;
+          }
         }
+        if (!codigo) throw Object.assign(new Error('Arquivos do Conselho Distrital ainda não publicados pelo TSE.'), { indisponivel: true });
       }
-      if (!codigo) throw Object.assign(new Error('Arquivos do Conselho Distrital ainda não publicados pelo TSE.'), { indisponivel: true });
+      const bruto = await getJson(urlResultado(BASE, ele, uf, codigo, municipio));
+      dados = normalizar(bruto);
+      // Foto do presidente fica em "br"; demais cargos, na UF.
+      dados.fotoAbr = cargo.codigo === 1 ? 'br' : uf;
+      // As cadeiras são do estado todo: numa cidade, vêm do arquivo da UF.
+      if (proporcional(cargo)) {
+        cadeiras = municipio
+          ? await getJson(urlResultado(BASE, ele, uf, codigo)).then((b) => cadeirasDoArquivo(b, uf), () => null)
+          : cadeirasDoArquivo(bruto, uf);
+      }
+      chave = `${ele}:${codigo}:${uf}:${municipio}`;
     }
-
-    const bruto = await getJson(urlResultado(BASE, ele, uf, codigo, municipio));
     if (pedido !== estado.pedido) return;
-    const dados = normalizar(bruto);
-    // Foto do presidente fica em "br"; demais cargos, na UF.
-    dados.fotoAbr = cargo.codigo === 1 ? 'br' : uf;
-    if (estado.dados?.chave !== `${ele}:${codigo}:${uf}:${municipio}`) estado.limite = PAGINA;
-    dados.chave = `${ele}:${codigo}:${uf}:${municipio}`;
+    if (estado.dados?.chave !== chave) estado.limite = PAGINA;
+    dados.chave = chave;
     dados.majoritario = cargo.majoritario;
     estado.dados = dados;
+    estado.cadeiras = cadeiras;
     el.erro.hidden = true;
     renderizar();
     el.status.textContent = resultadoFinal()
@@ -214,6 +242,7 @@ async function carregar() {
   } catch (erro) {
     if (pedido !== estado.pedido) return;
     estado.dados = null;
+    estado.cadeiras = null;
     limpar();
     el.erro.hidden = false;
     el.erro.textContent = erro.indisponivel
@@ -256,6 +285,129 @@ async function avisoSegundoTurno(pedido, ele, cargo, uf, municipio) {
     if (extra) el.erro.innerHTML = `${base}<br><br>${extra}`;
   } catch { /* fica só o aviso da data */ }
 }
+
+// ---------- cadeiras ----------
+
+const pctDe = (parte, total) => (total > 0 ? (parte / total) * 100 : 0);
+const retratosCadeiras = new Map();
+
+/** Cadeiras do Brasil: do retrato estático (resultado final) ou somando os arquivos de cada UF. */
+async function cadeirasNacionais(ele, cargo) {
+  const nome = `cadeiras-${ele}-${cargo.codigo}`;
+  if (!retratosCadeiras.has(nome)) {
+    retratosCadeiras.set(nome, fetch(`resultados/${nome}.json`).then((r) => (r.ok ? r.json() : null))
+      .then((d) => (d?.retrato?.completo ? somarCadeiras(Object.values(d.ufs)) : null)).catch(() => null));
+  }
+  const pronto = await retratosCadeiras.get(nome);
+  if (pronto) return pronto;
+  retratosCadeiras.delete(nome); // ainda em apuração: consulta de novo na próxima vez
+  const ufs = cargo.abrangencias.filter((a) => a !== 'br');
+  // Cada UF tenta até 3 vezes (um arquivo grande pode falhar no caminho); "indisponível" não insiste.
+  const ler = async (uf) => {
+    for (let i = 0; i < 3; i += 1) {
+      try { return cadeirasDoArquivo(await getJson(urlResultado(BASE, ele, uf, cargo.codigo)), uf); } catch (e) {
+        if (e.indisponivel) return null;
+        await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+      }
+    }
+    return null;
+  };
+  const lista = (await Promise.all(ufs.map(ler))).filter(Boolean);
+  if (!lista.length) throw Object.assign(new Error('Arquivos dos estados ainda não publicados pelo TSE.'), { indisponivel: true });
+  return { ...somarCadeiras(lista), faltam: ufs.length - lista.length };
+}
+
+/** Converte as cadeiras do Brasil no formato de normalizar(), para a tela de sempre. */
+function dadosNacionais(c, ele, cargo) {
+  const r = c.resumo;
+  return {
+    eleicao: ele,
+    atualizadoEm: c.atualizadoEm,
+    cargo: { codigo: cargo.codigo, nome: cargo.nome, vagas: c.vagas },
+    secoes: { ...c.secoes, percentual: pctDe(c.secoes.totalizadas, c.secoes.total) },
+    eleitorado: {
+      apto: r.apto, aptoTotalizadas: r.aptoTotalizadas, comparecimento: r.comparecimento, abstencao: r.abstencao,
+      percComparecimento: pctDe(r.comparecimento, r.aptoTotalizadas), percAbstencao: pctDe(r.abstencao, r.aptoTotalizadas),
+    },
+    votos: {
+      total: r.total, validos: r.validos, brancos: r.brancos, nulos: r.nulos,
+      percValidos: pctDe(r.validos, r.total), percBrancos: pctDe(r.brancos, r.total), percNulos: pctDe(r.nulos, r.total),
+    },
+    candidatos: c.eleitos.map((e) => ({
+      sqcand: '', numero: e.numero, nome: e.nome, nomeUrna: e.nome, partido: e.partido, partidoNome: '', federacao: '',
+      vice: null, votos: e.votos, percentual: pctDe(e.votos, r.validos), eleito: true, segundoTurno: false,
+      situacao: `${e.situacao} · ${e.uf.toUpperCase()}`, destinacao: '',
+    })),
+    nacional: true,
+    partidosNac: c.partidos,
+    fotoAbr: 'br',
+  };
+}
+
+function lerAgrupar() { try { return localStorage.getItem('votolab:cadeiras-agrupar') === 'federacao' ? 'federacao' : 'partido'; } catch { return 'partido'; } }
+estado.agrupar = lerAgrupar();
+
+function nomeCasa(cargo, uf) {
+  const nomeUf = ABRANGENCIAS[uf] ?? uf.toUpperCase();
+  if (cargo.codigo === 6) return uf === 'br' ? 'Câmara dos Deputados' : `Bancada de ${nomeUf} na Câmara dos Deputados`;
+  if (cargo.codigo === 7) return uf === 'br' ? 'Assembleias Legislativas (soma dos 26 estados)' : `Assembleia Legislativa — ${nomeUf}`;
+  if (cargo.codigo === 8) return 'Câmara Legislativa do Distrito Federal';
+  return cargo.nome;
+}
+
+function renderizarCadeiras() {
+  const c = estado.cadeiras;
+  el.cadeirasCartao.hidden = !c;
+  if (!c) return;
+  const cargo = cargoAtual();
+  const porFed = estado.agrupar === 'federacao';
+  for (const b of el.cadeirasCartao.querySelectorAll('[data-agrupar]')) b.setAttribute('aria-pressed', String(b.dataset.agrupar === estado.agrupar));
+  const grupos = porFed ? c.agremiacoes : c.partidos;
+  const votosPartido = new Map(c.partidos.map((p) => [p.sigla, p.votos]));
+  // Cor de uma federação: a do seu partido mais votado.
+  const partidoDe = (sigla) => (porFed
+    ? [...(c.agremiacoes.find((a) => a.sigla === sigla)?.partidos ?? [sigla])].sort((a, b) => (votosPartido.get(b) ?? 0) - (votosPartido.get(a) ?? 0))[0]
+    : sigla);
+  const cores = coresPorPartido(grupos.map((g) => g.sigla), partidoDe, CATEGORICA);
+  const comVaga = grupos.filter((g) => g.vagas > 0);
+  const casa = nomeCasa(cargo, c.uf);
+  el.cadeirasTitulo.textContent = `Divisão das cadeiras — ${casa}`;
+  el.hemiciclo.innerHTML = svgHemiciclo(comVaga.map((g) => ({ rotulo: g.sigla, cor: cores.get(g.sigla), n: g.vagas })), { total: c.vagas, titulo: `${casa}: ${c.vagas} cadeiras` });
+  const semVaga = grupos.filter((g) => !g.vagas && g.votos > 0);
+  el.cadeirasLegenda.innerHTML = comVaga.map((g) => `<li data-grupo="${esc(g.sigla)}" tabindex="0">
+      <i class="ponto-cor" style="background:${cores.get(g.sigla)}"></i>
+      <span>${esc(g.sigla)}${porFed && g.federacao ? ` <span class="mudo pequeno">federação</span>` : !porFed && g.federacao ? ` <span class="mudo pequeno">${esc(g.federacao)}</span>` : ''}</span>
+      <span class="n">${g.vagas}</span></li>`).join('')
+    + (semVaga.length ? `<li class="sem-vaga"><span></span><span class="pequeno">Sem cadeira: ${semVaga.map((g) => esc(g.sigla)).join(', ')}</span><span></span></li>` : '');
+  const final = c.secoes.total > 0 && c.secoes.totalizadas >= c.secoes.total;
+  const bancadaFederal = cargo.codigo === 6 && c.uf !== 'br';
+  const nota = [];
+  if (!bancadaFederal) nota.push(`Maioria absoluta: <strong>${Math.floor(c.vagas / 2) + 1}</strong> cadeiras.`);
+  if (c.quociente) nota.push(`Quociente eleitoral: ${fmtInt.format(c.quociente)} votos (votos válidos ÷ ${c.vagas} vagas).`);
+  if (c.porQp || c.porMedia) nota.push(`${fmtInt.format(c.porQp)} eleitos pelo quociente partidário e ${fmtInt.format(c.porMedia)} pelas sobras (maiores médias).`);
+  nota.push('Deputados não são eleitos só por serem os mais votados: as vagas vão primeiro a cada partido ou federação, pela soma dos votos dos seus candidatos e da legenda, e só depois aos seus candidatos mais votados.');
+  if (c.uf === 'br') nota.push('Soma das bancadas eleitas em cada estado; o número de vagas de cada estado é fixo.');
+  if (c.faltam) nota.push(`<strong>Faltam ${c.faltam} estado(s)</strong>, ainda sem arquivo publicado.`);
+  if (!final) nota.push('<strong>Distribuição provisória</strong>: muda até 100% das seções totalizadas.');
+  el.cadeirasNota.innerHTML = nota.join(' ');
+}
+
+el.cadeirasCartao.addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-agrupar]');
+  if (!b) return;
+  estado.agrupar = b.dataset.agrupar;
+  try { localStorage.setItem('votolab:cadeiras-agrupar', estado.agrupar); } catch { /* sem armazenamento */ }
+  renderizarCadeiras();
+});
+// Passar o mouse (ou o foco) num item da legenda destaca as suas cadeiras.
+const destacar = (grupo) => {
+  const svg = el.hemiciclo.querySelector('svg');
+  if (!svg) return;
+  svg.classList.toggle('destacando', Boolean(grupo));
+  for (const c of svg.querySelectorAll('circle[data-grupo]')) c.classList.toggle('ativo', c.dataset.grupo === grupo);
+};
+for (const tipo of ['pointerover', 'focusin']) el.cadeirasLegenda.addEventListener(tipo, (ev) => destacar(ev.target.closest('[data-grupo]')?.dataset.grupo ?? null));
+for (const tipo of ['pointerleave', 'focusout']) el.cadeirasLegenda.addEventListener(tipo, () => destacar(null));
 
 // ---------- renderização ----------
 
@@ -325,10 +477,21 @@ function renderizar() {
   el.secoes.textContent = `${fmtInt.format(d.secoes.totalizadas)} de ${fmtInt.format(d.secoes.total)}`;
 
   el.busca.hidden = d.majoritario;
+  el.candidatosTitulo.textContent = d.nacional ? 'Deputados eleitos (do mais votado ao menos votado)' : 'Candidatos';
   renderizarCandidatos();
+  renderizarCadeiras();
 
   el.partidosCartao.hidden = d.majoritario;
-  if (!d.majoritario) {
+  el.partidosTitulo.textContent = d.nacional ? 'Votos por partido (nominais + legenda) e cadeiras' : 'Votos nominais por partido';
+  if (d.nacional) {
+    const totalVotos = d.partidosNac.reduce((t, p) => t + p.votos, 0);
+    el.partidos.innerHTML = d.partidosNac.map((p) => `<tr>
+      <td><strong>${esc(p.sigla)}</strong> <span class="mudo">${esc(p.nome)}</span></td>
+      <td class="num">${fmtInt.format(p.votos)}</td>
+      <td class="num">${fmtPct.format(totalVotos ? (p.votos / totalVotos) * 100 : 0)}%</td>
+      <td class="num">${p.vagas || '—'}</td>
+    </tr>`).join('');
+  } else if (!d.majoritario) {
     const totalNominal = d.candidatos.reduce((t, c) => t + c.votos, 0);
     el.partidos.innerHTML = votosPorPartido(d.candidatos).map((p) => `<tr>
       <td><strong>${esc(p.partido)}</strong> <span class="mudo">${esc(p.nome)}</span></td>
@@ -361,6 +524,7 @@ function limpar() {
   el.mais.hidden = true;
   el.busca.hidden = true;
   el.partidosCartao.hidden = true;
+  el.cadeirasCartao.hidden = true;
   el.gerais.innerHTML = '';
 }
 

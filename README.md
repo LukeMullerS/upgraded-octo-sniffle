@@ -241,6 +241,23 @@ No Explorador, essas variáveis aparecem no grupo "Candidatos" de cada cargo (ve
 margem, nº efetivo e a votação de cada candidato e partido), com perguntas prontas como "Quem venceu em cada
 cidade?", "A alfabetização muda o voto no líder?" e "Onde o voto para deputado é mais dividido?".
 
+### Divisão das cadeiras (deputados)
+
+Deputados não são eleitos só por serem os mais votados: o sistema é proporcional. Na Apuração, os cargos de deputado
+mostram o card **Divisão das cadeiras**, um hemiciclo com um ponto por vaga, como nos gráficos da imprensa:
+
+- por estado: Assembleia Legislativa (Deputado Estadual), bancada na Câmara (Deputado Federal) e Câmara Legislativa
+  do DF (Deputado Distrital), lidos do arquivo da UF publicado pelo TSE (vagas do cargo, quociente eleitoral, vagas de
+  cada partido ou federação e eleitos por quociente partidário ou por média);
+- no Brasil: a abrangência "Brasil — Câmara dos Deputados" soma as 27 bancadas (513 vagas) e "Brasil — todas as
+  assembleias", as 26 assembleias (1.035 vagas), com a lista dos eleitos mais votados e a tabela de votos e cadeiras
+  por partido;
+- alternância "por partido / por federação", maioria absoluta, explicação do sistema e aviso de distribuição
+  provisória enquanto a apuração não chega a 100%.
+
+Com a apuração encerrada, `public/resultados/cadeiras-{eleição}-{cargo}.json` (gerado pelo mesmo script dos retratos)
+faz o Brasil abrir na hora.
+
 ### 2º turno e retratos de resultados
 
 - O 2º turno (25/10/2026) já está configurado: eleições **6258** (Presidente) e **6260** (Governador), códigos
@@ -377,6 +394,7 @@ public/index.html  página
 public/app.js      filtros, consulta e renderização
 public/tse.js      configuração das eleições, URLs e normalização do JSON do TSE
 public/brancos.*   aba de brancos e nulos por estado e cidade
+public/cadeiras.js  divisão das cadeiras dos deputados e gráfico de hemiciclo
 public/candidatos.*  mapa da votação: candidatos, partidos, vencedor, comparecimento
 public/municipio.*   ficha do município (eleição, eleitorado, Censo, saúde e renda de uma cidade)
 src/coletor.js     coletor de brancos e nulos por município (acompanhamento a cada 2 min)
