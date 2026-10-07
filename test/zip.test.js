@@ -56,10 +56,14 @@ test('mensagens de 2026: identificador digitado e tipo de habilitação', () => 
 
 test('seções em linhas compactas voltam ao formato da página', () => {
   const r = { zona: '0001', secao: '0002', votos: 220, modelo: 'UE2020', bateria: 1, cabine: { media: 59.559, mediana: 47, p90: 86 },
-    atendimento: { media: 82.686 }, tipos: { biometrica: 208 }, primeiroVoto: 25288, ultimoVoto: 57172 };
+    atendimento: { media: 82.686 }, tipos: { biometrica: 208, manual: 12, semBiometria: 0 }, primeiroVoto: 25288, ultimoVoto: 57172,
+    abertura: 25200, encerramento: 61200, teclasIndevidas: 3, porHora: { 7: 20, 8: 31, 9: 0, 10: 5 }, hist: [0, 4, 9, 2] };
   const d = expandirSecoes({ uf: 'rr', colunas: COLUNAS_SECAO, linhas: [linhaSecao(r)] });
   assert.equal(d.colunas, undefined);
   assert.deepEqual(d.secoes[0], { ...r, cabine: { media: 59.6, mediana: 47, p90: 86 }, atendimento: { media: 82.7 } });
+  // Base antiga (sem as colunas do formato 2) continua abrindo.
+  const antigas = COLUNAS_SECAO.slice(0, 12);
+  assert.equal(expandirSecoes({ colunas: antigas, linhas: [linhaSecao(r).slice(0, 12)] }).secoes[0].porHora, undefined);
   assert.equal(expandirSecoes({ secoes: [1] }).secoes.length, 1);
 });
 

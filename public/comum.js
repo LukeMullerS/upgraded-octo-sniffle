@@ -114,11 +114,26 @@ async function jsonOuNulo(url) {
 export function expandirSecoes(d) {
   if (!d?.colunas || !d.linhas) return d;
   const i = Object.fromEntries(d.colunas.map((c, k) => [c, k]));
-  const secoes = d.linhas.map((l) => ({
-    zona: l[i.zona], secao: l[i.secao], votos: l[i.votos], modelo: l[i.modelo], bateria: l[i.bateria],
-    cabine: { media: l[i.cabine], mediana: l[i.mediana], p90: l[i.p90] }, atendimento: { media: l[i.atendimento] },
-    tipos: { biometrica: l[i.biometrica] }, primeiroVoto: l[i.primeiroVoto], ultimoVoto: l[i.ultimoVoto],
-  }));
+  const tem = (c) => i[c] !== undefined;
+  const secoes = d.linhas.map((l) => {
+    const s = {
+      zona: l[i.zona], secao: l[i.secao], votos: l[i.votos], modelo: l[i.modelo], bateria: l[i.bateria],
+      cabine: { media: l[i.cabine], mediana: l[i.mediana], p90: l[i.p90] }, atendimento: { media: l[i.atendimento] },
+      tipos: { biometrica: l[i.biometrica] }, primeiroVoto: l[i.primeiroVoto], ultimoVoto: l[i.ultimoVoto],
+    };
+    // Formato 2 da base: horários, habilitação, teclas, votos por hora e histograma por seção.
+    if (tem('abertura')) {
+      s.abertura = l[i.abertura];
+      s.encerramento = l[i.encerramento];
+      s.tipos.manual = l[i.manual] ?? 0;
+      s.tipos.semBiometria = l[i.semBiometria] ?? 0;
+      s.teclasIndevidas = l[i.teclas] ?? 0;
+      const h = l[i.porHora];
+      s.porHora = h ? Object.fromEntries(h.slice(1).map((n, k) => [h[0] + k, n])) : {};
+      s.hist = l[i.hist] ?? [];
+    }
+    return s;
+  });
   const { colunas, linhas, ...resto } = d;
   return { ...resto, secoes };
 }

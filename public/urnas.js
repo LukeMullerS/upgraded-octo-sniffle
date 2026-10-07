@@ -15,7 +15,7 @@ import { celulasVoronoi } from './voronoi.js';
 
 const $ = (id) => document.getElementById(id);
 const el = Object.fromEntries([
-  'uf', 'mun', 'indicador', 'metrica-bn', 'cargo', 'status', 'exportar', 'atualizar', 'erro', 'titulo', 'sub-titulo',
+  'uf', 'mun', 'zona-filtro', 'local-filtro', 'secao-filtro', 'indicador', 'metrica-bn', 'cargo', 'status', 'exportar', 'atualizar', 'erro', 'titulo', 'sub-titulo',
   'ler-municipio', 'pct-lidas', 'lidas', 'kpis', 'sub-hist', 'hist', 'hora',
   'cruzamento-cartao', 'titulo-cruzamento', 'correlacao', 'cruzamento', 'nota-cruzamento', 'tipos',
   'titulo-tabela', 'busca', 'tabela', 'mais', 'dica',
@@ -25,7 +25,7 @@ const el = Object.fromEntries([
 
 const PAGINA = 60;
 const dica = criarDica(el.dica);
-const estado = { logs: null, bn: null, nacional: null, linhas: [], limite: PAGINA, pedido: 0, timer: null, pontos: [], ordem: null };
+const estado = { logs: null, bn: null, nacional: null, linhas: [], limite: PAGINA, pedido: 0, timer: null, pontos: [], ordem: null, selecao: { zona: '', local: '', secao: '' } };
 
 /** 64 → "1:04" (minutos:segundos). */
 const mmss = (s) => {
@@ -87,6 +87,8 @@ function lerHash() {
   if (p.get('cargo') && [...el.cargo.options].some((o) => o.value === p.get('cargo'))) el.cargo.value = p.get('cargo');
   if (p.get('metrica') && METRICAS[p.get('metrica')]) el.metricaBn.value = p.get('metrica');
   if (p.get('ind') && INDICADORES[p.get('ind')]) el.indicador.value = p.get('ind');
+  // Filtro da cidade (zona, local de votação, seção), se veio no link.
+  estado.selecao = { zona: p.get('zona') ?? '', local: p.get('local') ?? '', secao: p.get('secao') ?? '' };
   return p.get('mun') ?? '';
 }
 
@@ -94,6 +96,7 @@ function gravarHash() {
   const p = new URLSearchParams();
   if (el.uf.value) p.set('uf', el.uf.value);
   if (el.mun.value) p.set('mun', el.mun.value);
+  for (const k of ['zona', 'local', 'secao']) if (el.mun.value && estado.selecao[k]) p.set(k, estado.selecao[k]);
   if (el.cargo.value !== CARGOS[0].valor) p.set('cargo', el.cargo.value);
   if (metricaBn() !== 'pctBrancosNulos') p.set('metrica', metricaBn());
   if (el.indicador.value !== 'cabine') p.set('ind', el.indicador.value);
@@ -234,11 +237,133 @@ function kpi(rotulo, valor, detalhe = '') {
   return `<div class="kpi"><dt>${rotulo}</dt><dd><span class="kpi-pct">${valor}</span>${detalhe ? `<small>${detalhe}</small>` : ''}</dd></div>`;
 }
 
-function renderizar() {
+// ---------- filtro da cidade: zona, local de votação, seção ----------
+// "Todas" (o padrão) mostra a cidade inteira como sempre; com filtro, os indicadores, os gráficos
+// e a tabela usam só as seções escolhidas (dados por seção da base, formato 2).
+
+const FAIXA_S = 15;
+const quantilHist = (hist, q) => {
+  const total = hist.reduce((a, b) => a + b, 0);
+  if (!total) return null;
+  const alvo = q * total;
+  let acum = 0;
+  for (let i = 0; i < hist.length; i += 1) {
+    if (acum + hist[i] >= alvo) return (i + (hist[i] ? (alvo - acum) / hist[i] : 0)) * FAIXA_S;
+    acum += hist[i];
+  }
+  return (hist.length - 1) * FAIXA_S;
+};
+
+/** Junta seções compactas da base no formato do resumo (médias ponderadas pelos eleitores). */
+function resumoDeSelecao(lista) {
+  let votos = 0; let cab = 0; let nCab = 0; let at = 0; let nAt = 0; let teclas = 0; let bateria = 0;
+  const tipos = { biometrica: 0, manual: 0, semBiometria: 0 };
+  const porHora = {};
+  const hist = new Array(41).fill(0);
+  const ab = []; const en = [];
+  for (const s of lista) {
+    const v = s.votos ?? 0;
+    if (!v) continue;
+    votos += v;
+    if (Number.isFinite(s.cabine?.media)) { cab += s.cabine.media * v; nCab += v; }
+    if (Number.isFinite(s.atendimento?.media)) { at += s.atendimento.media * v; nAt += v; }
+    for (const k of Object.keys(tipos)) tipos[k] += s.tipos?.[k] ?? 0;
+    teclas += s.teclasIndevidas ?? 0;
+    if (s.bateria > 0) bateria += 1;
+    if (Number.isFinite(s.abertura)) ab.push(s.abertura);
+    if (Number.isFinite(s.encerramento)) en.push(s.encerramento);
+    for (const [h, n] of Object.entries(s.porHora ?? {})) porHora[h] = (porHora[h] ?? 0) + n;
+    (s.hist ?? []).forEach((c, i) => { hist[Math.min(40, i)] += c; });
+  }
+  const media = (a) => (a.length ? a.reduce((t, x) => t + x, 0) / a.length : null);
+  const temHist = hist.some(Boolean);
+  // Habilitação = atendimento − cabine (as duas médias pesadas pelos mesmos votos).
+  const habilitacao = nCab && nAt ? Math.max(0, at / nAt - cab / nCab) : null;
+  return {
+    secoes: lista.length, votos,
+    cabine: { media: nCab ? cab / nCab : null, mediana: temHist ? quantilHist(hist, 0.5) : null, p90: temHist ? quantilHist(hist, 0.9) : null },
+    atendimento: { media: nAt ? at / nAt : null }, habilitacao: { media: habilitacao }, tipos,
+    pctBiometrica: votos ? (tipos.biometrica / votos) * 100 : null,
+    pctManual: votos ? (tipos.manual / votos) * 100 : null,
+    pctSemBiometria: votos ? (tipos.semBiometria / votos) * 100 : null,
+    teclasPorEleitor: votos ? teclas / votos : null, secoesComBateria: bateria,
+    aberturaMedia: media(ab), encerramentoMedio: media(en), porHora, hist,
+  };
+}
+
+/** Seções escolhidas no filtro (null = cidade inteira). */
+function secoesSelecionadas(d) {
+  const { zona, local, secao } = estado.selecao;
+  if (!zona && !local && !secao) return null;
+  let lista = d.secoes ?? [];
+  if (zona) lista = lista.filter((s) => s.zona === zona);
+  if (local) {
+    const l = estado.locaisCidade?.locais.find((x) => `${x[0]}-${x[1]}` === local);
+    const ids = new Set((l?.[8] ?? []).map((sec) => `${l[0]}-${sec}`));
+    lista = lista.filter((s) => ids.has(`${s.zona}-${s.secao}`));
+  }
+  if (secao) lista = lista.filter((s) => `${s.zona}-${s.secao}` === secao);
+  return lista;
+}
+
+function rotuloSelecao() {
+  const { zona, local, secao } = estado.selecao;
+  if (secao) { const [z, s] = secao.split('-'); return `Zona ${Number(z)} · Seção ${Number(s)}`; }
+  if (local) return estado.locaisCidade?.locais.find((x) => `${x[0]}-${x[1]}` === local)?.[2] ?? 'local de votação';
+  return `Zona ${Number(zona)}`;
+}
+
+/** Preenche (e mostra) os filtros da cidade; fora da cidade, esconde. */
+function prepararFiltros(d) {
+  const naCidade = d.nivel === 'municipio';
+  for (const s of [el.zonaFiltro, el.localFiltro, el.secaoFiltro]) s.closest('label').hidden = !naCidade;
+  if (!naCidade) { estado.selecao = { zona: '', local: '', secao: '' }; estado.filtroLocal = null; return; }
+  const chave = `${el.uf.value}/${el.mun.value}`;
+  if (estado.chaveLocais !== chave) {
+    estado.chaveLocais = chave;
+    estado.locaisCidade = null;
+    carregarLocais(el.uf.value, el.mun.value).then((base) => {
+      if (estado.chaveLocais !== chave) return;
+      estado.locaisCidade = base;
+      if (estado.logs?.nivel === 'municipio') renderizar({ semMapa: true });
+    });
+  }
+  const { zona, local, secao } = estado.selecao;
+  const opcao = (v, t, atual) => `<option value="${esc(v)}"${v === atual ? ' selected' : ''}>${esc(t)}</option>`;
+  const zonas = [...new Set((d.secoes ?? []).map((s) => s.zona))].sort();
+  el.zonaFiltro.innerHTML = opcao('', 'Todas', zona) + zonas.map((z) => opcao(z, `Zona ${Number(z)}`, zona)).join('');
+  const locais = (estado.locaisCidade?.locais ?? []).filter((l) => !zona || l[0] === zona);
+  el.localFiltro.innerHTML = opcao('', estado.locaisCidade ? 'Todos' : 'Todos (carregando…)', local)
+    + locais.map((l) => opcao(`${l[0]}-${l[1]}`, `${l[2]}${zona ? '' : ` (zona ${Number(l[0])})`}`, local)).join('');
+  let secoes = (d.secoes ?? []).filter((s) => !zona || s.zona === zona);
+  if (local) {
+    const l = estado.locaisCidade?.locais.find((x) => `${x[0]}-${x[1]}` === local);
+    const ids = new Set((l?.[8] ?? []).map((sec) => `${l[0]}-${sec}`));
+    secoes = secoes.filter((s) => ids.has(`${s.zona}-${s.secao}`));
+  }
+  secoes.sort((a, b) => `${a.zona}${a.secao}`.localeCompare(`${b.zona}${b.secao}`));
+  el.secaoFiltro.innerHTML = opcao('', 'Todas', secao)
+    + secoes.map((s) => opcao(`${s.zona}-${s.secao}`, `${zona ? '' : `Zona ${Number(s.zona)} · `}Seção ${Number(s.secao)}`, secao)).join('');
+  // A tabela mostra só as seções escolhidas.
+  const lista = secoesSelecionadas(d);
+  estado.filtroLocal = lista ? { nome: rotuloSelecao(), secoes: new Set(lista.map((s) => `${s.zona}-${s.secao}`)) } : null;
+}
+
+function mudarSelecao(nova) {
+  estado.selecao = { zona: '', local: '', secao: '', ...nova };
+  estado.limite = PAGINA;
+  gravarHash();
+  renderizar({ semMapa: true });
+}
+
+function renderizar({ semMapa = false } = {}) {
   const d = estado.logs;
-  const r = d.resumo ?? null;
+  prepararFiltros(d);
+  // Cidade com filtro de zona, local ou seção: o resumo é recalculado só com essas seções.
+  const lista = d.nivel === 'municipio' ? secoesSelecionadas(d) : null;
+  const r = lista ? resumoDeSelecao(lista) : d.resumo ?? null;
   const nomeLocal = d.nivel === 'brasil' ? 'Brasil' : d.nivel === 'estado' ? nomeUf(el.uf.value) : `${d.nome ?? d.municipio} · ${el.uf.value.toUpperCase()}`;
-  el.titulo.textContent = `Logs das urnas · ${nomeLocal}`;
+  el.titulo.textContent = `Logs das urnas · ${nomeLocal}${lista ? ` · ${rotuloSelecao()}` : ''}`;
   el.lerMunicipio.hidden = d.nivel !== 'municipio' || !LOCAL;
 
   // Progresso do local escolhido.
@@ -268,9 +393,21 @@ function renderizar() {
   renderizarHoras(r);
   renderizarTipos(r);
   montarLinhas();
-  renderizarMapa();
+  // Trocar o filtro não redesenha o mapa (o zoom fica onde a pessoa deixou); só destaca o escolhido.
+  if (semMapa) destacarSelecao(); else renderizarMapa();
   renderizarCruzamento();
   renderizarTabela();
+}
+
+/** Contorno no local (ou na zona) escolhido no filtro, se ele estiver no mapa da cidade. */
+function destacarSelecao() {
+  for (const p of el.mapa.querySelectorAll('path.selecionado')) p.classList.remove('selecionado');
+  const { zona, local } = estado.selecao;
+  for (const [cod, a] of estado.areasCidade ?? []) {
+    const doLocal = local && a.grupo?.locais.some((l) => `${l.zona}-${l.numero}` === local);
+    const daZona = !local && zona && cod === `z:${zona}`;
+    if (doLocal || daZona) el.mapa.querySelector(`path[data-cod="${CSS.escape(cod)}"]`)?.classList.add('selecionado');
+  }
 }
 
 function renderizarHistograma(r) {
@@ -295,7 +432,12 @@ function renderizarHistograma(r) {
 function renderizarHoras(r) {
   const itens = Object.entries(r?.porHora ?? {}).sort((a, b) => a[0] - b[0]).map(([h, n]) => ({ nome: `${String(h).padStart(2, '0')}h`, valor: n }));
   estado.itensHora = itens;
-  el.hora.innerHTML = itens.length ? svgBarras({ itens, rotuloX: 'votos computados', cor: 'var(--cat-3)', fmtValor: fmtInt.format }) : '<p class="mudo">Sem dados.</p>';
+  if (!itens.length) { el.hora.innerHTML = '<p class="mudo">Sem dados.</p>'; return; }
+  // Hora com mais e com menos votos (só entre as horas em que a urna recebeu votos).
+  const mais = itens.reduce((a, b) => (b.valor > a.valor ? b : a));
+  const menos = itens.reduce((a, b) => (b.valor < a.valor ? b : a));
+  el.hora.innerHTML = svgBarras({ itens, rotuloX: 'votos computados', cor: 'var(--cat-3)', fmtValor: fmtInt.format })
+    + `<p class="mudo pequeno">Mais votos: <strong>${mais.nome}</strong> (${fmtInt.format(mais.valor)}) · menos votos: <strong>${menos.nome}</strong> (${fmtInt.format(menos.valor)})</p>`;
 }
 
 function renderizarTipos(r) {
@@ -356,14 +498,13 @@ const mapa = criarMapa(el.mapa, {
       if (!l) return;
       el.mun.value = l.id;
     } else {
-      // Cidade: um local de votação (ou uma zona) filtra a tabela com as suas seções.
+      // Cidade: um local de votação (ou uma zona) vira o filtro; clicar de novo volta à cidade toda.
       const area = estado.areasCidade?.get(cod);
       if (!area) return;
-      estado.filtroLocal = estado.filtroLocal?.cod === cod ? null : { cod, nome: area.rotulo, secoes: area.secoes };
-      for (const p of el.mapa.querySelectorAll('path.selecionado')) p.classList.remove('selecionado');
-      if (estado.filtroLocal) el.mapa.querySelector(`path[data-cod="${CSS.escape(cod)}"]`)?.classList.add('selecionado');
-      estado.limite = PAGINA;
-      renderizarTabela();
+      const l0 = area.grupo?.locais[0];
+      const nova = l0 ? { zona: l0.zona, local: `${l0.zona}-${l0.numero}` } : { zona: cod.slice(2) };
+      const igual = estado.selecao.local === (nova.local ?? '') && estado.selecao.zona === nova.zona && !estado.selecao.secao;
+      mudarSelecao(igual ? {} : nova);
       return;
     }
     estado.ordem = null;
@@ -546,6 +687,7 @@ async function desenharCidade(d, geo, uf, pedido) {
       return `<span>${fmtInt.format(a.nLocais)} locais · ${fmtInt.format(a.lidas)} de ${fmtInt.format(a.secoes.size)} seções com log</span>`;
     },
   });
+  destacarSelecao();
   return true;
 }
 
@@ -645,13 +787,19 @@ dica.ligar(el.hora, '[data-dica]', (alvo) => {
 
 // ---------- eventos ----------
 
-el.uf.addEventListener('change', () => { el.mun.innerHTML = '<option value="">Todos</option>'; estado.ordem = null; estado.limite = PAGINA; estado.filtroLocal = null; carregar(); });
-el.mun.addEventListener('change', () => { estado.ordem = null; estado.limite = PAGINA; estado.filtroLocal = null; carregar(); });
+el.uf.addEventListener('change', () => { el.mun.innerHTML = '<option value="">Todos</option>'; estado.ordem = null; estado.limite = PAGINA; estado.selecao = { zona: '', local: '', secao: '' }; carregar(); });
+el.mun.addEventListener('change', () => { estado.ordem = null; estado.limite = PAGINA; estado.selecao = { zona: '', local: '', secao: '' }; carregar(); });
 el.tituloTabela.addEventListener('click', (ev) => {
-  if (!ev.target.closest('[data-limpar-local]')) return;
-  estado.filtroLocal = null;
-  for (const p of el.mapa.querySelectorAll('path.selecionado')) p.classList.remove('selecionado');
-  renderizarTabela();
+  if (ev.target.closest('[data-limpar-local]')) mudarSelecao({});
+});
+el.zonaFiltro.addEventListener('change', () => mudarSelecao({ zona: el.zonaFiltro.value }));
+el.localFiltro.addEventListener('change', () => {
+  const local = el.localFiltro.value;
+  mudarSelecao({ zona: local ? local.split('-')[0] : estado.selecao.zona, local });
+});
+el.secaoFiltro.addEventListener('change', () => {
+  const secao = el.secaoFiltro.value;
+  mudarSelecao({ zona: secao ? secao.split('-')[0] : estado.selecao.zona, local: secao ? estado.selecao.local : estado.selecao.local, secao });
 });
 el.cargo.addEventListener('change', () => carregar());
 el.metricaBn.addEventListener('change', () => { gravarHash(); montarLinhas(); renderizarMapa(); renderizarCruzamento(); renderizarTabela(); });
