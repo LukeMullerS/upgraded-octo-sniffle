@@ -163,11 +163,11 @@ const semDetalhe = ({ hist, porHora, ...resto }) => resto;
 // bytes por seção em vez de 560, para a base do Brasil inteiro caber no site. A página expande
 // de volta (expandirSecoes em public/comum.js).
 export const COLUNAS_SECAO = ['zona', 'secao', 'votos', 'cabine', 'mediana', 'p90', 'atendimento', 'biometrica', 'primeiroVoto', 'ultimoVoto', 'modelo', 'bateria',
-  'abertura', 'encerramento', 'manual', 'semBiometria', 'teclas', 'porHora', 'hist'];
+  'porHora'];
 // Versão do formato da base: mudou → a base é regerada a partir do progresso (sem baixar de novo).
-// 2: votos por hora, histograma da cabine, abertura/encerramento, habilitação e teclas por seção
-// (para filtrar a cidade por zona, local e seção na página).
-export const FORMATO_BASE = 2;
+// 3: votos por hora de cada seção (para filtrar a cidade por zona, local e seção na página; o
+// resto do filtro sai das colunas que já existiam).
+export const FORMATO_BASE = 3;
 const uma = (v) => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
 /** Votos por hora { 8: 30, 9: 41 } → [8, 30, 41] (hora inicial e contagens seguidas). */
 export function horasCompactas(porHora) {
@@ -177,23 +177,9 @@ export function horasCompactas(porHora) {
   const h1 = Math.max(...horas);
   return [h0, ...Array.from({ length: h1 - h0 + 1 }, (_, k) => porHora[h0 + k] ?? 0)];
 }
-/**
- * Histograma da cabine por seção: faixas de 15 s até 6 min (a última junta tudo acima disso) e sem
- * os zeros do fim; a cidade inteira continua com o histograma completo (até 10 min) no resumo.
- */
-const HIST_SECAO = 24;
-const histCompacto = (h) => {
-  if (!Array.isArray(h)) return null;
-  const c = h.slice(0, HIST_SECAO);
-  c[HIST_SECAO - 1] = (c[HIST_SECAO - 1] ?? 0) + h.slice(HIST_SECAO).reduce((t, x) => t + x, 0);
-  let n = c.length;
-  while (n > 0 && !c[n - 1]) n -= 1;
-  return c.slice(0, n);
-};
 export const linhaSecao = (r) => [r.zona, r.secao, r.votos, uma(r.cabine?.media), uma(r.cabine?.mediana), uma(r.cabine?.p90), uma(r.atendimento?.media),
   r.tipos?.biometrica ?? 0, r.primeiroVoto ?? null, r.ultimoVoto ?? null, r.modelo ?? null, r.bateria ?? 0,
-  r.abertura ?? null, r.encerramento ?? null, r.tipos?.manual ?? 0, r.tipos?.semBiometria ?? 0, r.teclasIndevidas ?? 0,
-  horasCompactas(r.porHora), histCompacto(r.hist)];
+  horasCompactas(r.porHora)];
 /** Ritmo: no máximo `porMinuto` seções iniciadas por minuto (0 = sem limite). */
 export function criarRitmo(porMinuto, agora = () => Date.now()) {
   const intervalo = porMinuto > 0 ? 60_000 / porMinuto : 0;

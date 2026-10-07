@@ -121,16 +121,10 @@ export function expandirSecoes(d) {
       cabine: { media: l[i.cabine], mediana: l[i.mediana], p90: l[i.p90] }, atendimento: { media: l[i.atendimento] },
       tipos: { biometrica: l[i.biometrica] }, primeiroVoto: l[i.primeiroVoto], ultimoVoto: l[i.ultimoVoto],
     };
-    // Formato 2 da base: horários, habilitação, teclas, votos por hora e histograma por seção.
-    if (tem('abertura')) {
-      s.abertura = l[i.abertura];
-      s.encerramento = l[i.encerramento];
-      s.tipos.manual = l[i.manual] ?? 0;
-      s.tipos.semBiometria = l[i.semBiometria] ?? 0;
-      s.teclasIndevidas = l[i.teclas] ?? 0;
+    // Votos por hora da seção ([hora inicial, contagens...]), nas bases que têm essa coluna.
+    if (tem('porHora')) {
       const h = l[i.porHora];
       s.porHora = h ? Object.fromEntries(h.slice(1).map((n, k) => [h[0] + k, n])) : {};
-      s.hist = l[i.hist] ?? [];
     }
     return s;
   });

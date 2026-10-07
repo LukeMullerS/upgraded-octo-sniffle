@@ -241,53 +241,42 @@ function kpi(rotulo, valor, detalhe = '') {
 // "Todas" (o padrão) mostra a cidade inteira como sempre; com filtro, os indicadores, os gráficos
 // e a tabela usam só as seções escolhidas (dados por seção da base, formato 2).
 
-const FAIXA_S = 15;
-const quantilHist = (hist, q) => {
-  const total = hist.reduce((a, b) => a + b, 0);
-  if (!total) return null;
-  const alvo = q * total;
-  let acum = 0;
-  for (let i = 0; i < hist.length; i += 1) {
-    if (acum + hist[i] >= alvo) return (i + (hist[i] ? (alvo - acum) / hist[i] : 0)) * FAIXA_S;
-    acum += hist[i];
-  }
-  return (hist.length - 1) * FAIXA_S;
-};
 
-/** Junta seções compactas da base no formato do resumo (médias ponderadas pelos eleitores). */
+/**
+ * Junta seções compactas da base no formato do resumo (médias ponderadas pelos eleitores). A base
+ * por seção é enxuta: o que não está nela é estimado (habilitação = atendimento − cabine; manual =
+ * quem não usou biometria) ou fica de fora (histograma da cabine e teclas: só da cidade inteira).
+ */
 function resumoDeSelecao(lista) {
-  let votos = 0; let cab = 0; let nCab = 0; let at = 0; let nAt = 0; let teclas = 0; let bateria = 0;
-  const tipos = { biometrica: 0, manual: 0, semBiometria: 0 };
+  let votos = 0; let cab = 0; let nCab = 0; let at = 0; let nAt = 0; let bio = 0; let bateria = 0;
   const porHora = {};
-  const hist = new Array(41).fill(0);
-  const ab = []; const en = [];
+  const medianas = []; const p90s = []; const primeiros = []; const ultimos = [];
   for (const s of lista) {
     const v = s.votos ?? 0;
     if (!v) continue;
     votos += v;
     if (Number.isFinite(s.cabine?.media)) { cab += s.cabine.media * v; nCab += v; }
     if (Number.isFinite(s.atendimento?.media)) { at += s.atendimento.media * v; nAt += v; }
-    for (const k of Object.keys(tipos)) tipos[k] += s.tipos?.[k] ?? 0;
-    teclas += s.teclasIndevidas ?? 0;
+    if (Number.isFinite(s.cabine?.mediana)) medianas.push(s.cabine.mediana);
+    if (Number.isFinite(s.cabine?.p90)) p90s.push(s.cabine.p90);
+    if (Number.isFinite(s.primeiroVoto)) primeiros.push(s.primeiroVoto);
+    if (Number.isFinite(s.ultimoVoto)) ultimos.push(s.ultimoVoto);
+    bio += s.tipos?.biometrica ?? 0;
     if (s.bateria > 0) bateria += 1;
-    if (Number.isFinite(s.abertura)) ab.push(s.abertura);
-    if (Number.isFinite(s.encerramento)) en.push(s.encerramento);
     for (const [h, n] of Object.entries(s.porHora ?? {})) porHora[h] = (porHora[h] ?? 0) + n;
-    (s.hist ?? []).forEach((c, i) => { hist[Math.min(40, i)] += c; });
   }
   const media = (a) => (a.length ? a.reduce((t, x) => t + x, 0) / a.length : null);
-  const temHist = hist.some(Boolean);
-  // Habilitação = atendimento − cabine (as duas médias pesadas pelos mesmos votos).
   const habilitacao = nCab && nAt ? Math.max(0, at / nAt - cab / nCab) : null;
   return {
-    secoes: lista.length, votos,
-    cabine: { media: nCab ? cab / nCab : null, mediana: temHist ? quantilHist(hist, 0.5) : null, p90: temHist ? quantilHist(hist, 0.9) : null },
-    atendimento: { media: nAt ? at / nAt : null }, habilitacao: { media: habilitacao }, tipos,
-    pctBiometrica: votos ? (tipos.biometrica / votos) * 100 : null,
-    pctManual: votos ? (tipos.manual / votos) * 100 : null,
-    pctSemBiometria: votos ? (tipos.semBiometria / votos) * 100 : null,
-    teclasPorEleitor: votos ? teclas / votos : null, secoesComBateria: bateria,
-    aberturaMedia: media(ab), encerramentoMedio: media(en), porHora, hist,
+    secoes: lista.length, votos, filtrado: true,
+    // Mediana e 90% de várias seções: média das medianas/p90 de cada uma (aproximação).
+    cabine: { media: nCab ? cab / nCab : null, mediana: media(medianas), p90: media(p90s) },
+    atendimento: { media: nAt ? at / nAt : null }, habilitacao: { media: habilitacao },
+    pctBiometrica: votos ? (bio / votos) * 100 : null,
+    pctManual: votos ? ((votos - bio) / votos) * 100 : null,
+    pctSemBiometria: null, teclasPorEleitor: null, secoesComBateria: bateria,
+    primeiroVoto: primeiros.length ? Math.min(...primeiros) : null, ultimoVoto: ultimos.length ? Math.max(...ultimos) : null,
+    porHora,
   };
 }
 
@@ -384,12 +373,15 @@ function renderizar({ semMapa = false } = {}) {
       kpi('Eleitores nos logs', fmtInt.format(r.votos), `${fmtInt.format(r.secoes)} seções`),
       kpi('Tempo médio na cabine', mmss(r.cabine.media), `mediana ${mmss(r.cabine.mediana)} · 90% até ${mmss(r.cabine.p90)}`),
       kpi('Atendimento médio', mmss(r.atendimento.media), `biometria/habilitação ${mmss(r.habilitacao.media)}`),
-      kpi('Habilitação biométrica', pct(r.pctBiometrica ?? 0), `manual ${pct(r.pctManual ?? 0)} · sem biometria ${pct(r.pctSemBiometria ?? 0)}`),
-      kpi('Horário médio', `${hhmm(r.aberturaMedia)}–${hhmm(r.encerramentoMedio)}`, `teclas indevidas: ${fmtNum.format(r.teclasPorEleitor ?? 0)} por eleitor`),
+      kpi('Habilitação biométrica', pct(r.pctBiometrica ?? 0), r.filtrado ? `manual ${pct(r.pctManual ?? 0)} (inclui sem biometria)` : `manual ${pct(r.pctManual ?? 0)} · sem biometria ${pct(r.pctSemBiometria ?? 0)}`),
+      r.filtrado
+        ? kpi('Primeiro e último voto', `${hhmm(r.primeiroVoto)}–${hhmm(r.ultimoVoto)}`, 'relógio da urna')
+        : kpi('Horário médio', `${hhmm(r.aberturaMedia)}–${hhmm(r.encerramentoMedio)}`, `teclas indevidas: ${fmtNum.format(r.teclasPorEleitor ?? 0)} por eleitor`),
     ].join('')
     : '<p class="mudo">Nenhum log compilado ainda neste local. O servidor lê sozinho as seções à medida que o TSE publica os arquivos das urnas.</p>';
 
-  renderizarHistograma(r);
+  // O histograma da cabine só existe para a cidade inteira (não vai por seção na base).
+  renderizarHistograma(lista ? d.resumo : r, Boolean(lista));
   renderizarHoras(r);
   renderizarTipos(r);
   montarLinhas();
@@ -410,7 +402,7 @@ function destacarSelecao() {
   }
 }
 
-function renderizarHistograma(r) {
+function renderizarHistograma(r, daCidade = false) {
   const hist = r?.hist ?? [];
   if (!hist.some(Boolean)) { el.hist.innerHTML = '<p class="mudo">Sem dados.</p>'; el.subHist.textContent = ''; return; }
   // Corta as faixas vazias do fim (mantém uma), para o eixo acompanhar os dados.
@@ -419,7 +411,7 @@ function renderizarHistograma(r) {
   const faixas = hist.slice(0, Math.min(hist.length, ultima + 2))
     .map((contagem, i) => ({ inicio: (i * 15) / 60, fim: ((i + 1) * 15) / 60, contagem }));
   estado.faixasHist = faixas;
-  el.subHist.textContent = 'faixas de 15 s';
+  el.subHist.textContent = daCidade ? 'faixas de 15 s · cidade inteira' : 'faixas de 15 s';
   el.hist.innerHTML = svgHistograma({
     faixas, rotuloX: 'minutos na cabine', cor: 'var(--cat-1)',
     linhas: [
@@ -444,8 +436,10 @@ function renderizarTipos(r) {
   if (!r?.votos) { el.tipos.innerHTML = '<p class="mudo">Sem dados.</p>'; return; }
   const itens = [
     { nome: 'Biometria', valor: r.pctBiometrica ?? 0 },
-    { nome: 'Manual', valor: r.pctManual ?? 0 },
-    { nome: 'Sem biometria', valor: r.pctSemBiometria ?? 0 },
+    ...(r.filtrado ? [{ nome: 'Manual', valor: r.pctManual ?? 0 }] : [
+      { nome: 'Manual', valor: r.pctManual ?? 0 },
+      { nome: 'Sem biometria', valor: r.pctSemBiometria ?? 0 },
+    ]),
   ];
   el.tipos.innerHTML = svgBarras({ itens, rotuloX: '% dos eleitores', cor: 'var(--cat-7)', fmtValor: (v) => pct(v) });
 }
