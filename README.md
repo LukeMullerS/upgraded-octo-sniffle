@@ -82,6 +82,11 @@ Todas as janelas (Apuração, Brancos e nulos, Explorador, Logs) leem do mesmo b
 Por padrão o app abre como uma área de trabalho do Windows 98 (`/desktop.html`): cada tela é uma janela que se
 arrasta pela barra de título, redimensiona pelas bordas, minimiza, maximiza (também com duplo clique) e fecha.
 
+- **Tutorial** na primeira visita: balões que apontam a janela, os botões _ □ X, o menu da janela, os ícones, o
+  Iniciar e a barra de tarefas, com Pular tutorial, Voltar e Próximo. Para rever: Iniciar → Tutorial.
+- **No celular** as janelas abrem quase do tamanho da tela, mas não maximizadas (a área de trabalho aparece em
+  volta) e em cascata; a barra de título e os botões ficam maiores para o toque.
+
 - **Ícones** (duplo clique; no celular, um toque): Apuração, Brancos e nulos, Painéis, Mapa da votação, Análises, Logs das urnas, Leia-me, TSE, IBGE.
 - **Pasta Painéis** (ícone ou menu Iniciar → Programas → Eleições 2026 → Painéis), com dois grupos, e cada painel abre
   numa **janela própria**, com os filtros sincronizados entre as janelas do mesmo grupo:

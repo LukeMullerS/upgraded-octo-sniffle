@@ -6,6 +6,7 @@
 import './citar.js'; // janela "Como citar" (botões com data-citar)
 import { iniciarCampo } from './campo.js';
 import { icone } from './icones98.js';
+import { iniciarTutorial, tutorialVisto } from './tutorial.js';
 
 const CHAVE_JANELAS = 'apuracao2026:janelas';
 const CHAVE_FUNDO = 'apuracao2026:fundo';
@@ -124,14 +125,19 @@ function abrir(app, opcoes = {}) {
 
   const lim = limites();
   const n = janelas.length;
-  const w = Math.min(opcoes.w ?? a.w, lim.w - 20);
-  const h = Math.min(opcoes.h ?? a.h, lim.h - 20);
+  // Celular: a janela abre quase do tamanho da tela, mas não maximizada, deixando aparecer a área
+  // de trabalho em volta (quem nunca viu o "Windows" percebe que é uma janela, que dá para fechar);
+  // as seguintes descem um pouco, para os títulos das de trás continuarem visíveis.
+  const celular = estreita() && !a.fixa && opcoes.x === undefined;
+  const k = janelas.filter((x) => !x.min && !APPS[x.app].fixa).length % 4;
+  const w = celular ? lim.w - 12 - 3 * 8 : Math.min(opcoes.w ?? a.w, lim.w - 20);
+  const h = celular ? lim.h - 12 - 3 * 22 - 40 : Math.min(opcoes.h ?? a.h, lim.h - 20);
   const j = {
     id: proximoId++, app,
     // Posição guardada de uma tela maior não pode deixar a janela fora da área visível.
-    x: Math.max(0, Math.min(lim.w - 80, opcoes.x ?? Math.max(4, Math.min(lim.w - w - 4, 70 + (n % 8) * 26 + (a.fixa ? (lim.w - w) / 2 - 70 : 0))))),
-    y: Math.max(0, Math.min(lim.h - 40, opcoes.y ?? Math.max(4, Math.min(lim.h - h - 4, 20 + (n % 8) * 26 + (a.fixa ? (lim.h - h) / 2 - 40 : 0))))),
-    w, h, max: opcoes.max ?? (estreita() && !a.fixa), min: false, hash: opcoes.hash ?? '',
+    x: celular ? 6 + k * 8 : Math.max(0, Math.min(lim.w - 80, opcoes.x ?? Math.max(4, Math.min(lim.w - w - 4, 70 + (n % 8) * 26 + (a.fixa ? (lim.w - w) / 2 - 70 : 0))))),
+    y: celular ? 6 + k * 22 : Math.max(0, Math.min(lim.h - 40, opcoes.y ?? Math.max(4, Math.min(lim.h - h - 4, 20 + (n % 8) * 26 + (a.fixa ? (lim.h - h) / 2 - 40 : 0))))),
+    w, h, max: opcoes.max ?? false, min: false, hash: opcoes.hash ?? '',
   };
   j.el = document.createElement('section');
   j.el.className = `janela${a.fixa ? ' fixa' : ''}`;
@@ -429,6 +435,7 @@ function montarMenuIniciar() {
     ${itemMenu('config', '<u>C</u>onfigurações', 'class="grande"', subConfig)}
     ${itemMenu('janelas', '<u>J</u>anelas', 'class="grande"', subOrganizar)}
     ${itemMenu('documento', 'Como <u>c</u>itar', 'class="grande" data-citar')}
+    ${itemMenu('ajuda', '<u>T</u>utorial', 'class="grande" data-tutorial')}
     ${itemMenu('ajuda', 'Aj<u>u</u>da', 'class="grande" data-abrir="sobre"')}
     <li class="sep"></li>
     ${itemMenu('desligar', 'De<u>s</u>ligar...', 'class="grande" data-abrir="desligar"')}</ul>`;
@@ -455,6 +462,7 @@ function aoEscolher(ev) {
   if (b.dataset.abrir) abrir(b.dataset.abrir);
   if (b.dataset.tema) mudarTema(b.dataset.tema);
   if (b.dataset.org) organizar(b.dataset.org);
+  if ('tutorial' in b.dataset) setTimeout(tutorial, 0);
   abrirMenuIniciar(false);
   $('menu-contexto').hidden = true;
 }
@@ -729,6 +737,8 @@ addEventListener('resize', () => {
   for (const j of janelas) {
     if (!j.max) {
       // A janela que ficou fora da tela (ao girar o celular, diminuir o navegador…) volta.
+      j.w = Math.min(j.w, lim.w);
+      j.h = Math.min(j.h, lim.h);
       j.x = Math.max(0, Math.min(lim.w - 80, j.x));
       j.y = Math.max(0, Math.min(lim.h - 40, j.y));
     }
@@ -758,7 +768,7 @@ if (pedido.get('abrir') && APPS[pedido.get('abrir')]) {
   history.replaceState(null, '', location.pathname);
 } else if (!janelas.length) {
   // Primeira vez: Apuração à esquerda e a janela de análise (Explorador) à direita, lado a lado.
-  // No celular as duas abrem maximizadas, com a análise na frente (a outra fica na barra de tarefas).
+  // No celular as duas abrem em cascata, com a análise na frente.
   const lim = limites();
   if (estreita()) {
     abrir('apuracao');
@@ -771,3 +781,43 @@ if (pedido.get('abrir') && APPS[pedido.get('abrir')]) {
     abrir('explorar', { x: x0 + wA + 6, y: 6, w: lim.w - x0 - wA - 12, h: lim.h - 12 });
   }
 }
+
+// ---------- tutorial ----------
+
+/** Retângulo que cobre todos os ícones da área de trabalho (a grade ocupa a tela inteira). */
+function areaDosIcones() {
+  const rs = [...$('icones').querySelectorAll('.icone-area')].map((b) => b.getBoundingClientRect()).filter((r) => r.width);
+  if (!rs.length) return null;
+  const left = Math.min(...rs.map((r) => r.left));
+  const top = Math.min(...rs.map((r) => r.top));
+  const right = Math.max(...rs.map((r) => r.right));
+  const bottom = Math.max(...rs.map((r) => r.bottom));
+  return { left, top, right, bottom, width: right - left, height: bottom - top };
+}
+
+function tutorial() {
+  const toque = matchMedia('(pointer: coarse)').matches;
+  const clique = toque ? 'Toque' : 'Clique';
+  const janela = () => ativa()?.el ?? null;
+  iniciarTutorial([
+    { titulo: 'Bem-vindo ao Voto Lab',
+      texto: 'Apuração ao vivo, mapas, divisão das cadeiras, a ficha de cada cidade, os votos da sua seção e os logs das urnas — tudo com os dados oficiais do TSE.<br><br>O app imita um computador antigo: cada parte abre numa <b>janela</b>. Em 1 minuto mostramos como usar.' },
+    { titulo: 'Janelas', alvo: janela,
+      texto: `Cada programa abre numa janela como esta. Arraste pela <b>barra de título</b> para mover${toque ? '' : ' e puxe as bordas para mudar o tamanho'}. Dá para ter várias abertas ao mesmo tempo e comparar.` },
+    { titulo: 'Minimizar, maximizar e fechar', alvo: () => janela()?.querySelector('.titulo-botoes'),
+      texto: '<b>_</b> esconde a janela (ela fica na barra de tarefas, lá embaixo).<br><b>□</b> ocupa a tela inteira (de novo para voltar).<br><b>X</b> fecha a janela.' },
+    { titulo: 'Menu da janela', alvo: () => janela()?.querySelector('.menubar'),
+      texto: '<b>Atualizar</b> recarrega os dados. <b>Nova janela</b> abre outra cópia (por exemplo, dois estados lado a lado). <b>Abrir em aba</b> mostra a página sozinha, sem as janelas — bom para mandar o link.' },
+    { titulo: 'Ícones', alvo: areaDosIcones, classe: 'tutorial-sem-janelas',
+      texto: `${clique}${toque ? '' : ' duas vezes'} num ícone para abrir: <b>Apuração</b>, <b>Mapa da votação</b>, <b>Ficha do município</b>, <b>Minha seção</b> (os votos da urna onde você votou), <b>Análises</b> e <b>Logs das urnas</b>.${toque ? ' Quando as janelas cobrirem os ícones, minimize ou feche-as.' : ''}` },
+    { titulo: 'Menu Iniciar', alvo: () => $('iniciar'),
+      texto: 'Tudo também está no <b>Iniciar</b>: os programas, os painéis separados, <b>Configurações → Visual moderno</b> (o app sem o visual de Windows) e <b>Janelas</b> para organizar ou fechar todas.' },
+    { titulo: 'Barra de tarefas', alvo: () => $('botoes-tarefas'),
+      texto: `Cada janela aberta tem um botão aqui. ${clique} para trazê-la para a frente — ou para trazer de volta uma janela minimizada.` },
+    { titulo: 'Pronto!',
+      texto: 'Uma boa forma de começar: abra <b>Minha seção</b> e veja como votou a sua urna, ou a <b>Apuração</b> para os resultados.<br><br>Para ver este tutorial de novo: <b>Iniciar → Tutorial</b>.' },
+  ]);
+}
+
+if (!tutorialVisto()) setTimeout(tutorial, 600);
+

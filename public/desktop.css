@@ -207,3 +207,29 @@ legend { padding: 0 3px; }
   .menu-iniciar { max-height: calc(100vh - 34px); overflow-y: auto; }
 }
 .titulo, .redim { touch-action: none; }
+
+/* Toque: barra de título e botões _ □ X maiores (no tamanho original eram difíceis de acertar). */
+@media (pointer: coarse) {
+  .titulo { height: 28px; font-size: 13px; gap: 5px; }
+  .tb { width: 28px; height: 24px; }
+  .tb-fechar { margin-left: 4px; }
+  .tb i { transform: scale(1.4); }
+  .menubar span { padding: 5px 9px; }
+}
+
+/* ---------- tutorial da primeira visita ---------- */
+.tutorial-bloqueio { position: fixed; inset: 0; z-index: 200000; }
+.tutorial-foco {
+  position: fixed; z-index: 200001; pointer-events: none; outline: 2px dashed #fff; outline-offset: 0;
+  box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.55); transition: left .2s, top .2s, width .2s, height .2s;
+}
+.tutorial-bloqueio:has(+ .tutorial-foco[hidden]) { background: rgb(0 0 0 / 0.55); }
+.tutorial-balao { position: fixed; z-index: 200002; height: auto; max-height: calc(100vh - 16px); }
+.tutorial-corpo { background: #ffffe1; box-shadow: var(--afundado); padding: 8px 10px; overflow: auto; }
+.tutorial-texto { margin: 0; font-size: 13px; line-height: 1.45; user-select: text; -webkit-user-select: text; }
+.tutorial-texto b { white-space: nowrap; }
+.tutorial-botoes { display: flex; align-items: center; gap: 6px; padding: 6px 2px 2px; flex-wrap: wrap; }
+.tutorial-passo { margin-right: auto; color: #444; }
+.tutorial-botoes .item-botao { min-width: 70px; justify-content: center; height: 26px; }
+.tutorial-botoes [data-t="proximo"] { outline: 1px solid #000; font-weight: bold; }
+.tutorial-sem-janelas #janelas { visibility: hidden; }
