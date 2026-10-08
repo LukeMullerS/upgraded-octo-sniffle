@@ -131,7 +131,7 @@ taxa de alfabetização (Censo 2022); qualquer outra tabela do SIDRA entra pelo 
 instrução), escolhendo a variável e as categorias. Também dá para **importar um CSV** (primeira coluna: código IBGE,
 código TSE, sigla da UF ou nome do local). A ligação com as cidades usa o código IBGE que o TSE publica.
 
-## Minha seção (votos de uma seção)
+## Minha seção (votos de uma seção, de uma zona ou da cidade)
 
 A janela **Minha seção** (`/minhasecao.html`) mostra os votos de uma seção eleitoral: a pessoa escolhe o estado, a
 cidade, a zona e a seção (cada seção aparece com o seu local de votação; a zona e a seção estão no título de eleitor e
@@ -146,6 +146,14 @@ urnas tem um link "votos" em cada uma.
   esses dois tipos de arquivo; o boletim fica em cache longo no CDN (não muda depois de publicado).
 - Seções agregadas (que votaram na urna de outra seção) mostram o boletim da seção principal, com um aviso. No 2º
   turno, o boletim aparece assim que o TSE o publica.
+- **Ver votos de**: além de uma seção, a **zona inteira** ou a **cidade inteira** (`#nivel=zona` / `#nivel=cidade`).
+  - Cidade: resultado oficial da cidade (válidos, brancos, nulos, comparecimento).
+  - Zona: votos de cada candidato na zona (a parte dela na cidade), com o % na zona e na cidade, eleitores e locais
+    de votação da zona. Vem de `public/zonas/t{turno}/{uf}/{mun}.json`, gerado por
+    `node scripts/atualizar-zonas.mjs [arquivo.zip] [--turno 1]` a partir do conjunto "Votação nominal por município e
+    zona" dos dados abertos do TSE (só votos nominais: o voto na legenda, os brancos e os nulos não estão nele). Só as
+    cidades com mais de uma zona têm arquivo (cerca de 190, 12 MB); nas outras a zona é a própria cidade, e a página
+    mostra o resultado oficial da cidade com um aviso. Os totais das zonas batem com o resultado oficial da cidade.
 
 ## Logs das urnas (tempo de votação)
 
@@ -456,6 +464,7 @@ public/explorar.*  janela Análises (perguntas prontas, mapa, testes, regressão
 public/mapa.js     mapas coropléticos em SVG (zoom, arrastar, legenda por quantis; cidade em zonas/locais)
 public/voronoi.js  áreas aproximadas dos locais de votação (diagrama de Voronoi)
 public/locais/     locais de votação por cidade (posição e seções), de scripts/atualizar-locais.mjs
+public/zonas/      votos de cada candidato por zona (cidades com mais de uma zona), de scripts/atualizar-zonas.mjs
 public/citar.js    "Como citar" (ABNT, APA, MLA, Chicago, BibTeX)
 public/exportar.js PNG/SVG de gráficos e mapas, relatório HTML
 public/calculos.js, graficos.js, comum.js     estatística (incl. testes), gráficos SVG e utilitários

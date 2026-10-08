@@ -66,8 +66,10 @@ export function lerCsv(texto) {
         coordenada(c[i.NR_LATITUDE]), coordenada(c[i.NR_LONGITUDE]), 0, []];
       cid.locais.set(chave, local);
     }
+    // O TSE repete a seção em mais de uma linha (uma por turno): eleitores contados uma vez só.
+    if (local[8].includes(secao)) continue;
     local[7] += Number(c[i.QT_ELEITOR_SECAO]) || 0;
-    if (!local[8].includes(secao)) local[8].push(secao);
+    local[8].push(secao);
   }
   return cidades;
 }

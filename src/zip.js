@@ -16,7 +16,10 @@ export function abrirZip(entrada) {
   return entradasZip(entrada).map((e) => ({ nome: e.nome, dados: e.ler() }));
 }
 
-/** [{ nome, ler() }]: cada arquivo só é descomprimido quando lido (ZIPs grandes, um por vez). */
+/**
+ * [{ nome, metodo, bruto, ler() }]: cada arquivo só é descomprimido quando lido (ZIPs grandes, um por
+ * vez); `bruto` (comprimido) serve para descomprimir em fluxo os arquivos grandes demais para a memória.
+ */
 export function entradasZip(entrada) {
   const b = entrada instanceof Uint8Array ? entrada : new Uint8Array(entrada);
   const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
@@ -44,7 +47,7 @@ export function entradasZip(entrada) {
     const bruto = b.subarray(inicio, inicio + comprimido);
     if (nome.endsWith('/')) continue;
     if (metodo !== 0 && metodo !== 8) throw new Error(`ZIP com método de compressão ${metodo} não suportado`);
-    arquivos.push({ nome, ler: () => (metodo === 0 ? bruto : new Uint8Array(inflateRawSync(bruto))) });
+    arquivos.push({ nome, metodo, bruto, ler: () => (metodo === 0 ? bruto : new Uint8Array(inflateRawSync(bruto))) });
   }
   return arquivos;
 }

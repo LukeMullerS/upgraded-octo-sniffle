@@ -16,6 +16,7 @@ test('locais de votação: seções agrupadas por local, agregadas e posição',
     linha(2, -1, 1015, 'ESCOLA A', '2,83194', '-60,66518', 250),
     linha(9, 2, 1015, 'ESCOLA A', '2,83194', '-60,66518', 40),
     linha(3, -1, 1023, 'ESCOLA B', '-1', '-1', 100),
+    linha(1, -1, 1015, 'ESCOLA A', '2,83194', '-60,66518', 300), // a mesma seção repetida (outro turno)
   ].join('\r\n');
   const c = lerCsv(csv)['03018'];
   assert.equal(c.nome, 'BOA VISTA');

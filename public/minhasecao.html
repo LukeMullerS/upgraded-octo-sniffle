@@ -29,7 +29,7 @@
   <header class="topo">
     <div>
       <h1>Minha seção</h1>
-      <p class="sub">Os votos de uma seção eleitoral, direto do boletim de urna publicado pelo TSE, comparados com a cidade</p>
+      <p class="sub">Os votos de cada candidato na sua seção eleitoral (direto do boletim de urna), na sua zona ou na cidade inteira</p>
     </div>
     <div class="atualizacao">
       <span id="status" class="status">carregando…</span>
@@ -52,10 +52,11 @@
       <p class="passo-titulo">Qual seção? <span class="mudo pequeno">(a zona e a seção estão no título de eleitor e no app e-Título)</span></p>
       <div class="campos campos-secao">
         <label>Turno <select id="turno"><option value="1">1º turno (4/10)</option><option value="2">2º turno (25/10)</option></select></label>
+        <label>Ver votos de <select id="nivel"><option value="secao">Uma seção</option><option value="zona">Zona inteira</option><option value="cidade">Cidade inteira</option></select></label>
         <label>Estado <select id="uf"></select></label>
         <label>Cidade <input id="cidade" type="search" list="lista-cidades" placeholder="Digite a cidade" autocomplete="off"><datalist id="lista-cidades"></datalist></label>
-        <label>Zona <select id="zona" disabled></select></label>
-        <label>Seção <select id="secao" disabled></select></label>
+        <label id="campo-zona">Zona <select id="zona" disabled></select></label>
+        <label id="campo-secao">Seção <select id="secao" disabled></select></label>
       </div>
       <p id="dica-secao" class="mudo pequeno"></p>
     </section>
@@ -69,7 +70,7 @@
         <p id="nota-secao" class="mudo pequeno"></p>
       </section>
       <div id="cargos" class="grade-painel"></div>
-      <p class="mudo pequeno">Fonte: boletim de urna da seção (arquivo -bu.dat publicado pelo TSE em resultados.tse.jus.br, assinado digitalmente) e resultado oficial da cidade. Percentuais sobre os votos válidos (nominais e de legenda).</p>
+      <p id="fonte" class="mudo pequeno"></p>
     </div>
   </main>
 
