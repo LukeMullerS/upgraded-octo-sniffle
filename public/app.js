@@ -262,7 +262,13 @@ async function avisoSegundoTurno(pedido, ele, cargo, uf, municipio) {
   const e = ELEICOES[ele];
   el.status.textContent = `aguardando o 2º turno (${e.data})`;
   el.status.className = 'status';
-  const base = `O <strong>2º turno</strong> é no domingo, <strong>${esc(e.data)}</strong>. A apuração começa depois das 17h (horário de Brasília), quando as urnas fecham em todo o país, e esta janela mostra os resultados assim que o TSE publicar o primeiro boletim (com "automático" marcado, ela atualiza sozinha).`;
+  // Urnas fecham às 17h de Brasília (UTC−3) no dia do 2º turno.
+  const [dia, mes, ano] = String(e.data).split('/').map(Number);
+  const comecou = Number.isFinite(ano) && Date.now() >= Date.UTC(ano, mes - 1, dia, 20);
+  const base = comecou
+    ? 'A apuração do <strong>2º turno</strong> já começou: esta janela mostra os resultados assim que o TSE publicar o primeiro boletim deste local (com "automático" marcado, ela atualiza sozinha).'
+    : `O <strong>2º turno</strong> é no domingo, <strong>${esc(e.data)}</strong>. A apuração começa depois das 17h (horário de Brasília), quando as urnas fecham em todo o país, e esta janela mostra os resultados assim que o TSE publicar o primeiro boletim (com "automático" marcado, ela atualiza sozinha).`;
+  if (comecou) el.status.textContent = 'aguardando o primeiro boletim';
   el.erro.innerHTML = base;
   try {
     const primeiro = cargo.codigo === 1 ? 1 : cargo.codigo;
@@ -279,9 +285,13 @@ async function avisoSegundoTurno(pedido, ele, cargo, uf, municipio) {
       extra = `Disputam: ${nomes(disputa)}.${noLocal.length ? ` No 1º turno, ${onde}: ${noLocal.map((c) => `${esc(c.nomeUrna)} ${pctTxt(c.percentual)}`).join(' · ')}.` : ''}`;
     } else {
       const eleito = local.candidatos.find((c) => c.eleito);
-      extra = eleito
-        ? `${esc(ABRANGENCIAS[uf] ?? uf.toUpperCase())} não tem 2º turno para ${esc(cargo.nome.replace(/ — 2º turno$/, '').toLowerCase())}: ${nomes([eleito])} foi eleito(a) no 1º turno, com ${pctTxt(eleito.percentual)} dos votos válidos.`
-        : '';
+      // Sem 2º turno neste local: o aviso da data não se aplica, fica só quem foi eleito.
+      if (eleito) {
+        el.status.textContent = 'sem 2º turno aqui';
+        el.erro.innerHTML = `${esc(ABRANGENCIAS[uf] ?? uf.toUpperCase())} não tem 2º turno para ${esc(cargo.nome.replace(/ — 2º turno$/, '').toLowerCase())}: ${nomes([eleito])} foi eleito(a) no 1º turno, com ${pctTxt(eleito.percentual)} dos votos válidos.`;
+        return;
+      }
+      extra = '';
     }
     if (extra) el.erro.innerHTML = `${base}<br><br>${extra}`;
   } catch { /* fica só o aviso da data */ }
