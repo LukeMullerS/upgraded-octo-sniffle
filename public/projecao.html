@@ -95,13 +95,14 @@
       <details>
         <summary><strong>Como é feita a projeção</strong></summary>
         <ol class="explica">
-          <li><strong>O que já foi apurado conta como está.</strong> A projeção só estima a parte que falta, local por local (estados, para Presidente; cidades, para Governador).</li>
-          <li><strong>Regressão com o 1º turno.</strong> Nos locais que já têm votos, compara a votação de cada candidato no 2º turno com a do 1º: quanto ele ganhou em geral e para que lado foram os eleitores dos candidatos que ficaram de fora. Isso prevê os locais que ainda não começaram a apurar.</li>
-          <li><strong>Mistura das duas fontes.</strong> Num local com parte apurada, o resto é uma média entre o que já saiu ali e a previsão da regressão. Quanto mais apurado, mais vale o que já saiu: as primeiras urnas não são uma amostra aleatória (a ordem de apuração depende de onde ficam).</li>
-          <li><strong>Quantos votos faltam.</strong> Eleitores de cada local × comparecimento × % de votos válidos, do que já foi apurado no 2º turno (e do 1º turno, enquanto há pouco).</li>
-          <li><strong>Incerteza.</strong> Milhares de simulações sorteiam o erro da regressão, o de cada local e um desvio comum a toda a parte não apurada. Elas dão o intervalo (90% das simulações caem dentro dele) e a chance de cada candidato terminar na frente.</li>
+          <li><strong>Mesmo desenho dos modelos de noite de eleição</strong> de veículos e institutos (New York Times, Washington Post, Decision Desk HQ e as projeções brasileiras por município): a unidade é a <strong>cidade</strong>, o que se modela é a <strong>mudança em relação ao 1º turno</strong>, e cidades parecidas ajudam a prever as que ainda não apuraram.</li>
+          <li><strong>O que já foi apurado conta como está.</strong> Só a parte que falta é estimada.</li>
+          <li><strong>Regressão com o 1º turno.</strong> Nas cidades com votos, compara a votação no 2º turno com a do 1º: quanto o candidato ganhou em geral, para que lado foram os eleitores de quem ficou de fora, se ele cresce mais onde já era forte, e um ajuste próprio de cada estado (encolhido para zero onde há poucas cidades apuradas).</li>
+          <li><strong>Mistura das fontes.</strong> Numa cidade com parte apurada, o resto é uma média entre o que já saiu ali e a previsão; quanto mais apurado, mais vale o que saiu (as primeiras urnas não são amostra aleatória). Os totais de cada estado, mais novos que as cidades, também corrigem a previsão do que falta no estado.</li>
+          <li><strong>Quantos votos faltam.</strong> Eleitores de cada cidade × comparecimento × % de votos válidos, do 2º turno já apurado (e do 1º turno, enquanto há pouco).</li>
+          <li><strong>Incerteza.</strong> Milhares de simulações sorteiam o erro da regressão, o efeito de cada estado, o erro das cidades e um desvio comum a toda a parte não apurada. Dão o intervalo (90% das simulações dentro dele) e a chance de cada um terminar na frente.</li>
         </ol>
-        <p class="mudo pequeno">Limitações: no começo da apuração, com poucas urnas, a projeção é instável e o intervalo é largo. Votos em trânsito e no exterior seguem o mesmo método. Testada em cenários simulados: o intervalo de 90% conteve o resultado verdadeiro em pelo menos 39 de 40 casos.</p>
+        <p class="mudo pequeno">As cidades vêm do retrato que o Voto Lab grava a cada ~10 min durante a apuração; os totais dos estados, ao vivo. Sem o retrato, a projeção usa os estados. Governador: as cidades do estado, ao vivo. Testada em cenários simulados com apuração fora de ordem (cidades favoráveis a um candidato primeiro): erro médio de 1 p.p., metade do modelo por estado, com o intervalo de 90% contendo o resultado em 28 a 30 de 30 casos.</p>
       </details>
     </section>
   </main>

@@ -1,39 +1,71 @@
 // Projeção do resultado final de um 2º turno a partir das urnas já apuradas e do 1º turno.
 //
-// Unidades (estados, para Presidente; cidades, para Governador) com o eleitorado inteiro, a parte
-// já apurada e os votos dos dois candidatos. Em cada unidade:
-//   1. Regressão (ponderada, com prioris fracas) do voto no 2º turno sobre o 1º, nas unidades que já
-//      têm votos: y = A1 + 0,5·O1 + δ + β·(O1 − Ō1), em que y é a fatia do candidato A entre os dois,
-//      A1 é a fatia dele no 1º turno, O1 a dos outros candidatos do 1º turno (cuja metade, a priori,
-//      vai para cada lado), δ a mudança geral e β quanto dos "outros" pende para A além da metade.
-//   2. A parte ainda não apurada de cada unidade mistura o que já foi apurado nela com a previsão da
-//      regressão, pesando cada um pela incerteza (a parte apurada primeiro não é amostra aleatória:
-//      quanto menos apurado, menos ela vale).
-//   3. Votos válidos esperados = eleitorado × comparecimento × % de válidos (do que já foi apurado
-//      nesta eleição, misturado com o 1º turno quando há pouco apurado).
-//   4. Simulação (Monte Carlo): sorteia os coeficientes da regressão e um desvio comum a toda a parte
-//      não apurada (as primeiras urnas apuradas no país inteiro tendem a ser parecidas entre si, então
-//      o resto pode diferir delas na mesma direção: até 2,5 p.p. no começo, sumindo com a apuração),
-//      mais o erro de cada unidade; o resultado nacional de cada sorteio dá o intervalo e a chance.
+// Segue o desenho dos modelos de noite de eleição usados por veículos e institutos (NYT, Washington
+// Post, Decision Desk HQ e as projeções brasileiras por município): a unidade é a CIDADE (onde houver
+// os dados de cada cidade; senão, o estado), o que se modela é a MUDANÇA em relação a uma eleição de
+// referência (o 1º turno) e os locais parecidos ajudam a prever os que ainda não apuraram.
+//
+//   1. Regressão bayesiana (prioris fracas), nas cidades com votos, da fatia do candidato A entre os dois:
+//        y = A1 + 0,5·O1 + δ + βO·(O1 − Ō) + βA·(A1 − Ā) + u[estado]
+//      A1: fatia de A no 1º turno; O1: a dos outros candidatos do 1º turno (a priori, metade para cada
+//      lado); δ: mudança geral; βO: para que lado pendem os eleitores dos outros; βA: se A cresce mais
+//      onde já era forte ou fraco; u[estado]: efeito de cada estado, encolhido para zero quando o estado
+//      tem poucas cidades apuradas (efeito aleatório, desvio a priori de 3 p.p.).
+//   2. A parte ainda não apurada de cada cidade mistura o que já saiu nela com a previsão, pesando cada
+//      um pela incerteza (as primeiras urnas não são amostra aleatória; quanto menos apurado, menos valem).
+//   3. Votos válidos esperados = eleitorado × comparecimento × % de válidos (do 2º turno já apurado na
+//      cidade, misturado com o 1º turno; a mudança geral de comparecimento entra encolhida no começo).
+//   4. Simulação (Monte Carlo) por estado: sorteia os coeficientes e os efeitos de estado (erro comum às
+//      cidades do estado), um desvio comum a toda a parte não apurada (até 2,5 p.p. no começo, sumindo
+//      com a apuração) e o erro somado das cidades; dá o intervalo e a chance de vitória.
+//   5. "Ao vivo": se os totais de cada estado chegam mais novos que as cidades, o apurado de cada estado
+//      vem deles, e os votos apurados no estado desde o retrato das cidades corrigem a fatia prevista
+//      para o que falta (atualização bayesiana: quanto mais votos novos, mais pesam).
 
 import { aleatorio } from './calculos.js';
 
 const lim = (x, a, b) => Math.min(b, Math.max(a, x));
 
-/** Normal padrão (Box-Muller) a partir de um gerador uniforme. */
+/** Normal padrão (Box-Muller). */
 function normal(rng) {
   let u = 0;
   while (u === 0) u = rng();
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng());
 }
 
-/** Inversa de matriz 2×2. */
-const inv2 = ([[a, b], [c, d]]) => {
-  const det = a * d - b * c;
-  return [[d / det, -b / det], [-c / det, a / det]];
-};
+/** Inversa de matriz simétrica positiva (Gauss-Jordan; matrizes pequenas). */
+function inversa(M) {
+  const n = M.length;
+  const A = M.map((linha, i) => [...linha, ...Array.from({ length: n }, (_, j) => (i === j ? 1 : 0))]);
+  for (let c = 0; c < n; c += 1) {
+    let p = c;
+    for (let r = c + 1; r < n; r += 1) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+    [A[c], A[p]] = [A[p], A[c]];
+    const d = A[c][c];
+    for (let j = 0; j < 2 * n; j += 1) A[c][j] /= d;
+    for (let r = 0; r < n; r += 1) {
+      if (r === c || !A[r][c]) continue;
+      const f = A[r][c];
+      for (let j = 0; j < 2 * n; j += 1) A[r][j] -= f * A[c][j];
+    }
+  }
+  return A.map((linha) => linha.slice(n));
+}
 
-/** Quantil de uma lista já ordenada. */
+/** Fator de Cholesky (L·Lᵀ = M). */
+function cholesky(M) {
+  const n = M.length;
+  const L = Array.from({ length: n }, () => new Array(n).fill(0));
+  for (let i = 0; i < n; i += 1) {
+    for (let j = 0; j <= i; j += 1) {
+      let s = M[i][j];
+      for (let k = 0; k < j; k += 1) s -= L[i][k] * L[j][k];
+      L[i][j] = i === j ? Math.sqrt(Math.max(s, 1e-14)) : s / L[j][j];
+    }
+  }
+  return L;
+}
+
 const quantilOrdenado = (xs, q) => {
   const p = (xs.length - 1) * q;
   const i = Math.floor(p);
@@ -42,13 +74,15 @@ const quantilOrdenado = (xs, q) => {
 
 /**
  * @param {object} o
- * @param {Array<{id, nome, aptos, aptosApurados, comparecimento, validos, votosA, votosB,
- *   t1: {aptos, comparecimento, validos, votosA, votosB}}>} o.unidades
+ * @param {Array<{id, nome, grupo?, aptos, aptosApurados, comparecimento, validos, votosA, votosB,
+ *   t1: {aptos, comparecimento, validos, votosA, votosB}}>} o.unidades  cidades (grupo = estado) ou estados
+ * @param {Object<string, {aptos, aptosApurados, validos, votosA, votosB}>} [o.aoVivo]  totais mais novos
+ *   de cada grupo (estado); o que falta em cada um segue a fatia prevista pelas unidades
  * @param {number} [o.simulacoes]
  * @param {number} [o.semente]
  */
-export function projetar({ unidades, simulacoes = 3000, semente = 7 }) {
-  // --- preparação de cada unidade ---
+export function projetar({ unidades, aoVivo = null, simulacoes = 4000, semente = 7 }) {
+  // --- preparação ---
   const us = unidades.filter((u) => u.aptos > 0 && u.t1?.validos > 0).map((u) => {
     const A1 = u.t1.votosA / u.t1.validos;
     const B1 = u.t1.votosB / u.t1.validos;
@@ -56,47 +90,56 @@ export function projetar({ unidades, simulacoes = 3000, semente = 7 }) {
     const f = lim((u.aptosApurados ?? 0) / u.aptos, 0, 1);
     const dois = (u.votosA ?? 0) + (u.votosB ?? 0);
     const y = dois > 0 ? u.votosA / dois : null;
-    // A parte apurada difere do resto da unidade (ordem de apuração não é aleatória): variância que
-    // some quando a unidade está toda apurada, mais o erro amostral.
+    // A parte apurada difere do resto da cidade (ordem de apuração), mais o erro amostral.
     const vObs = y === null ? Infinity : 0.03 ** 2 * (1 - f) + (y * (1 - y)) / Math.max(dois, 1) + 1e-6;
-    return { ...u, A1, B1, O1, f, dois, y, vObs, base: A1 + 0.5 * O1 };
+    return { ...u, grupo: u.grupo ?? '', A1, B1, O1, f, dois, y, vObs, base: A1 + 0.5 * O1 };
   });
   if (!us.length) return null;
-  const mO = us.reduce((t, u) => t + u.O1 * u.aptos, 0) / us.reduce((t, u) => t + u.aptos, 0);
-  const comDados = us.filter((u) => u.y !== null && u.dois >= 50);
+  const somaAptos = us.reduce((t, u) => t + u.aptos, 0);
+  const mO = us.reduce((t, u) => t + u.O1 * u.aptos, 0) / somaAptos;
+  const mA = us.reduce((t, u) => t + u.A1 * u.aptos, 0) / somaAptos;
+  const grupos = [...new Set(us.map((u) => u.grupo))].sort();
+  const gi = new Map(grupos.map((g, i) => [g, i]));
+  const K = 3 + grupos.length;
+  for (const u of us) {
+    u.x = new Array(K).fill(0);
+    u.x[0] = 1; u.x[1] = u.O1 - mO; u.x[2] = u.A1 - mA; u.x[3 + gi.get(u.grupo)] = 1;
+  }
+  const comDados = us.filter((u) => u.y !== null && u.dois >= 30);
 
-  // --- regressão bayesiana (prioris: δ ~ N(0, 0,05²), β ~ N(0, 0,3²)) ---
-  const PRIORI = [[1 / 0.05 ** 2, 0], [0, 1 / 0.3 ** 2]];
+  // --- regressão bayesiana com efeitos de estado ---
+  const tau = grupos.length > 1 ? 0.03 : 1e-4; // um grupo só: o efeito de grupo é o próprio δ
+  const priori = [1 / 0.05 ** 2, 1 / 0.3 ** 2, 1 / 0.2 ** 2, ...grupos.map(() => 1 / tau ** 2)];
   let sigma2 = 0.03 ** 2;
-  let beta = [0, 0];
-  let cov = inv2(PRIORI);
+  let coef = new Array(K).fill(0);
+  let cov = priori.map((p, i) => priori.map((_, j) => (i === j ? 1 / p : 0)));
   for (let iter = 0; iter < 4; iter += 1) {
-    const P = [[PRIORI[0][0], 0], [0, PRIORI[1][1]]];
-    const q = [0, 0];
+    const P = priori.map((p, i) => priori.map((_, j) => (i === j ? p : 0)));
+    const q = new Array(K).fill(0);
     for (const u of comDados) {
       const w = 1 / (sigma2 + u.vObs);
-      const x = [1, u.O1 - mO];
       const d = u.y - u.base;
-      for (let i = 0; i < 2; i += 1) {
-        q[i] += w * x[i] * d;
-        for (let j = 0; j < 2; j += 1) P[i][j] += w * x[i] * x[j];
+      const nz = [0, 1, 2, 3 + gi.get(u.grupo)];
+      for (const i of nz) {
+        q[i] += w * u.x[i] * d;
+        for (const j of nz) P[i][j] += w * u.x[i] * u.x[j];
       }
     }
-    cov = inv2(P);
-    beta = [cov[0][0] * q[0] + cov[0][1] * q[1], cov[1][0] * q[0] + cov[1][1] * q[1]];
-    if (comDados.length < 4) break; // poucos pontos: σ fica no valor a priori
-    // σ² (diferença entre unidades que o modelo não explica), descontando o ruído da parte apurada.
+    cov = inversa(P);
+    coef = cov.map((linha) => linha.reduce((t, c, j) => t + c * q[j], 0));
+    if (comDados.length < 6) break; // poucos pontos: σ fica no valor a priori
+    // σ²: diferença entre cidades que o modelo não explica, descontado o ruído da parte apurada.
     let sw = 0;
     let sr = 0;
     for (const u of comDados) {
-      const r = u.y - u.base - beta[0] - beta[1] * (u.O1 - mO);
+      const r = u.y - u.base - u.x.reduce((t, xi, i) => t + xi * coef[i], 0);
       const w = 1 / (sigma2 + u.vObs);
       sr += w * (r * r - u.vObs);
       sw += w;
     }
-    sigma2 = lim(sr / sw, 0.01 ** 2, 0.08 ** 2);
+    sigma2 = lim(sr / sw, 0.01 ** 2, 0.1 ** 2);
   }
-  const prever = (u, b) => lim(u.base + b[0] + b[1] * (u.O1 - mO), 0.01, 0.99);
+  const prever = (u, c) => lim(u.base + u.x.reduce((t, xi, i) => t + xi * c[i], 0), 0.01, 0.99);
 
   // --- comparecimento e % de válidos esperados ---
   const apur = us.filter((u) => u.aptosApurados > 0 && u.comparecimento > 0);
@@ -104,9 +147,8 @@ export function projetar({ unidades, simulacoes = 3000, semente = 7 }) {
     const n = apur.reduce((t, u) => t + f2(u), 0);
     return n > 0 ? apur.reduce((t, u) => t + f1(u), 0) / n : 1;
   };
-  // Mudança geral de comparecimento e de válidos do 1º para o 2º turno, nas unidades já apuradas.
+  const fracaoApur = apur.reduce((t, u) => t + u.aptosApurados, 0) / somaAptos;
   // Encolhido para 1 enquanto há pouco apurado (as primeiras urnas não representam o comparecimento).
-  const fracaoApur = apur.reduce((t, u) => t + u.aptosApurados, 0) / us.reduce((t, u) => t + u.aptos, 0);
   const encolher = (x) => 1 + (lim(x, 0.8, 1.2) - 1) * (fracaoApur / (fracaoApur + 0.05));
   const fatorComp = apur.length ? encolher(razao((u) => u.comparecimento, (u) => u.aptosApurados * (u.t1.comparecimento / u.t1.aptos))) : 1;
   const fatorVal = apur.length ? encolher(razao((u) => u.validos, (u) => u.comparecimento * (u.t1.validos / u.t1.comparecimento))) : 1;
@@ -120,86 +162,135 @@ export function projetar({ unidades, simulacoes = 3000, semente = 7 }) {
     u.restante = Math.max(0, u.validosEsperados - (u.validos ?? 0));
   }
 
-  // Parte não apurada: previsão da regressão (média m, variância pv) combinada com a apurada.
-  const combinar = (u, m, pv) => {
-    if (u.y === null) return { m, v: pv };
-    const v = 1 / (1 / pv + 1 / u.vObs);
-    return { m: v * (m / pv + u.y / u.vObs), v };
-  };
-  const varPrevisao = (u) => {
-    const x = [1, u.O1 - mO];
-    return sigma2 + x[0] * (cov[0][0] * x[0] + cov[0][1] * x[1]) + x[1] * (cov[1][0] * x[0] + cov[1][1] * x[1]);
-  };
-
-  // Desvio comum da parte não apurada em relação à apurada (ordem de apuração), em p.p. de fatia.
-  const fracao = us.reduce((t, u) => t + (u.aptosApurados ?? 0), 0) / us.reduce((t, u) => t + u.aptos, 0);
+  // --- previsão de cada cidade (linear nos coeficientes) ---
+  // Fatia do que falta: m = (1 − w)·y + w·(base + x·coef), com w = vObs / (σ² + vObs) o peso da previsão.
+  const fracao = us.reduce((t, u) => t + (u.aptosApurados ?? 0), 0) / somaAptos;
   const sComum = comDados.length ? 0.025 * (1 - fracao) ** 2 : 0;
-
-  // --- estimativa central por unidade ---
-  let totA = 0;
-  let totV = 0;
+  const varCoef = (u) => u.x.reduce((t, xi, i) => t + xi * cov[i].reduce((s, c, j) => s + c * u.x[j], 0), 0);
+  // Por grupo: votos de A no que falta = C + D·coef (média), V = variância somada das cidades.
+  const G = grupos.map((g) => ({ grupo: g, C: 0, D: new Array(K).fill(0), V: 0, R: 0, valid: 0, ve: 0, aptos: 0, apur: 0, votosA: 0, votosB: 0, t1A: 0, t1V: 0 }));
   for (const u of us) {
-    u.previsto = prever(u, beta);
-    const { m, v } = combinar(u, u.previsto, varPrevisao(u));
-    u.restanteA = m;
-    u.restanteVar = v;
-    const votosA = (u.votosA ?? 0) + u.restante * m;
-    u.projecao = votosA / u.validosEsperados;
-    // Intervalo de 90% da unidade (só a parte não apurada é incerta).
-    const dp = (u.restante / u.validosEsperados) * Math.sqrt(v + sComum ** 2);
+    const w = u.y === null ? 1 : u.vObs / (sigma2 + u.vObs);
+    u.previsto = prever(u, coef);
+    u.restanteA = (1 - w) * (u.y ?? 0) + w * u.previsto;
+    const vRest = w * w * sigma2 + (u.y === null ? 0 : (1 - w) ** 2 * u.vObs);
+    const g = G[gi.get(u.grupo)];
+    g.C += u.restante * ((1 - w) * (u.y ?? 0) + w * u.base);
+    for (let i = 0; i < K; i += 1) if (u.x[i]) g.D[i] += u.restante * w * u.x[i];
+    g.V += u.restante ** 2 * vRest;
+    g.R += u.restante;
+    g.valid += u.validos ?? 0;
+    g.ve += u.validosEsperados;
+    g.aptos += u.aptos;
+    g.apur += u.aptosApurados ?? 0;
+    g.votosA += u.votosA ?? 0;
+    g.votosB += u.votosB ?? 0;
+    g.t1A += u.t1.votosA;
+    g.t1V += u.t1.validos;
+    u.projecao = ((u.votosA ?? 0) + u.restante * u.restanteA) / u.validosEsperados;
+    const dp = (u.restante / u.validosEsperados) * Math.sqrt(w * w * varCoef(u) + vRest + sComum ** 2);
     u.intervalo = [lim(u.projecao - 1.645 * dp, 0, 1), lim(u.projecao + 1.645 * dp, 0, 1)];
-    totA += votosA;
-    totV += u.validosEsperados;
+  }
+  // Ao vivo: o apurado de cada grupo vem dos totais mais novos; os votos novos (apurados desde o
+  // retrato das cidades, vindos do que faltava) corrigem a fatia prevista para o resto do grupo.
+  for (const g of G) {
+    const v = aoVivo?.[g.grupo];
+    g.fatiaModelo = g.R > 0 ? lim((g.C + g.D.reduce((t, d, i) => t + d * coef[i], 0)) / g.R, 0, 1) : 0.5;
+    g.fatiaRestante = g.fatiaModelo;
+    g.k = 0;
+    if (v && v.validos >= g.valid) {
+      [g.votosAAgora, g.votosBAgora, g.validosAgora, g.apurAgora, g.aptosAgora] = [v.votosA, v.votosB, v.validos, v.aptosApurados, v.aptos ?? g.aptos];
+      const dA = v.votosA - g.votosA;
+      const dDois = dA + (v.votosB - g.votosB);
+      if (g.R > 0 && dDois >= 500) {
+        const yNovo = lim(dA / dDois, 0, 1);
+        // Variância da fatia prevista (coeficientes + cidades) e da fatia nova como estimativa do resto.
+        const dCovD = g.D.reduce((t, di, i) => t + di * cov[i].reduce((s2, c, j) => s2 + c * g.D[j], 0), 0);
+        const vPrev = (dCovD + g.V) / g.R ** 2;
+        // As primeiras urnas de um estado representam mal o resto: desvio de até 3,5 p.p., menor com a apuração.
+        const fEstado = v.aptos ? v.aptosApurados / v.aptos : 0;
+        const vNovo = 0.035 ** 2 * Math.max(0, 1 - fEstado) + (yNovo * (1 - yNovo)) / dDois;
+        g.k = vPrev / (vPrev + vNovo);
+        g.fatiaRestante = lim(g.fatiaModelo + g.k * (yNovo - g.fatiaModelo), 0, 1);
+      }
+    } else {
+      [g.votosAAgora, g.votosBAgora, g.validosAgora, g.apurAgora, g.aptosAgora] = [g.votosA, g.votosB, g.valid, g.apur, g.aptos];
+    }
+    g.validosEsperados = Math.max(g.ve, g.validosAgora);
+    g.faltaAgora = Math.max(0, g.validosEsperados - g.validosAgora);
   }
 
-  // --- simulação ---
+  // --- estimativa central ---
+  const totV = G.reduce((t, g) => t + g.validosEsperados, 0);
+  const votosAde = (g, fatia) => g.votosAAgora + g.faltaAgora * fatia;
+  const totA = G.reduce((t, g) => t + votosAde(g, g.fatiaRestante), 0);
+
+  // --- simulação por grupo ---
   const rng = aleatorio(semente);
-  // Cholesky da covariância dos coeficientes.
-  const l11 = Math.sqrt(cov[0][0]);
-  const l21 = cov[1][0] / l11;
-  const l22 = Math.sqrt(Math.max(0, cov[1][1] - l21 * l21));
+  const L = cholesky(cov);
   const resultados = new Float64Array(simulacoes);
+  const porGrupo = G.map(() => new Float64Array(simulacoes));
   let vitorias = 0;
   for (let s = 0; s < simulacoes; s += 1) {
-    const z1 = normal(rng);
-    const z2 = normal(rng);
-    const b = [beta[0] + l11 * z1, beta[1] + l21 * z1 + l22 * z2];
-    const c = sComum * normal(rng);
+    const z = Array.from({ length: K }, () => normal(rng));
+    const c = coef.map((m, i) => m + L[i].reduce((t, l, j) => t + l * z[j], 0));
+    const comum = sComum * normal(rng);
     let a = 0;
-    for (const u of us) {
-      if (!u.restante) { a += u.votosA ?? 0; continue; }
-      const { m, v } = combinar(u, prever(u, b), sigma2);
-      a += (u.votosA ?? 0) + u.restante * lim(m + c + Math.sqrt(v) * normal(rng), 0, 1);
-    }
+    G.forEach((g, k) => {
+      let fatia = 0.5;
+      if (g.R > 0) {
+        // Desvio sorteado em torno da previsão do modelo, encolhido pela informação dos votos novos.
+        const bruto = (g.C + g.D.reduce((t, d, i) => t + d * c[i], 0) + Math.sqrt(g.V) * normal(rng)) / g.R;
+        fatia = lim(g.fatiaRestante + Math.sqrt(1 - g.k) * (bruto - g.fatiaModelo) + comum, 0, 1);
+      }
+      const votos = votosAde(g, fatia);
+      porGrupo[k][s] = votos / g.validosEsperados;
+      a += votos;
+    });
     resultados[s] = a / totV;
     if (resultados[s] > 0.5) vitorias += 1;
   }
   const ordenados = [...resultados].sort((x, y) => x - y);
-  const apuradoA = us.reduce((t, u) => t + (u.votosA ?? 0), 0);
-  const apuradoDois = us.reduce((t, u) => t + u.dois, 0);
+  G.forEach((g, k) => {
+    const o = [...porGrupo[k]].sort((x, y) => x - y);
+    g.projecao = votosAde(g, g.fatiaRestante) / g.validosEsperados;
+    g.intervalo = [quantilOrdenado(o, 0.05), quantilOrdenado(o, 0.95)];
+    g.f = g.aptosAgora ? g.apurAgora / g.aptosAgora : 0;
+    g.y = g.votosAAgora + g.votosBAgora > 0 ? g.votosAAgora / (g.votosAAgora + g.votosBAgora) : null;
+    g.restante = g.faltaAgora;
+    g.A1 = g.t1V ? g.t1A / g.t1V : null;
+    g.previsto = g.fatiaRestante;
+  });
+  const apuradoA = G.reduce((t, g) => t + g.votosAAgora, 0);
+  const apuradoDois = G.reduce((t, g) => t + g.votosAAgora + g.votosBAgora, 0);
   return {
     unidades: us,
+    grupos: G,
     projecao: totA / totV,
     intervalo: [quantilOrdenado(ordenados, 0.05), quantilOrdenado(ordenados, 0.95)],
     chanceA: vitorias / simulacoes,
     simulacoes: ordenados,
     apuradoA: apuradoDois ? apuradoA / apuradoDois : null,
-    fracaoApurada: fracao,
+    fracaoApurada: G.reduce((t, g) => t + g.apurAgora, 0) / G.reduce((t, g) => t + g.aptosAgora, 0),
     validosEsperados: totV,
-    modelo: { delta: beta[0], beta: beta[1], sigma: Math.sqrt(sigma2), n: comDados.length, mediaOutros: mO, desvioComum: sComum },
+    modelo: {
+      delta: coef[0], beta: coef[1], betaA: coef[2], sigma: Math.sqrt(sigma2), n: comDados.length, mediaOutros: mO, desvioComum: sComum,
+      efeitos: Object.fromEntries(grupos.map((g, i) => [g, coef[3 + i]])),
+    },
   };
 }
 
 /**
- * Unidades do modelo a partir das listas de locais do 2º e do 1º turno (formato de /api/estados e
- * /api/municipios): `chave` identifica o local nas duas listas, `a` e `b` são os números dos dois.
+ * Unidades do modelo a partir das listas de locais do 2º e do 1º turno (formato de /api/estados,
+ * /api/municipios e dos retratos): `chave` identifica o local nas duas listas, `grupo` (opcional) o
+ * estado de cada um, `a` e `b` são os números dos dois.
  */
-export function montarUnidades({ l2, l1, chave, nome, a, b }) {
+export function montarUnidades({ l2, l1, chave, nome, grupo = () => '', a, b }) {
   const t1 = new Map(l1.map((r) => [chave(r), r]));
   return l2.map((r) => {
     const p = t1.get(chave(r));
     return {
-      id: chave(r), nome: nome(r), aptos: r.eleitorado, aptosApurados: r.aptosTotalizadas ?? 0,
+      id: chave(r), nome: nome(r), grupo: grupo(r), aptos: r.eleitorado, aptosApurados: r.aptosTotalizadas ?? 0,
       comparecimento: r.comparecimento ?? 0, validos: r.validos ?? 0, votosA: r.cand?.[a] ?? 0, votosB: r.cand?.[b] ?? 0,
       t1: p ? { aptos: p.eleitorado, comparecimento: p.comparecimento, validos: p.validos, votosA: p.cand?.[a] ?? 0, votosB: p.cand?.[b] ?? 0 } : null,
     };

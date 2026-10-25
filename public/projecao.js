@@ -5,7 +5,7 @@ import { cargoPorValor, carregarEstados, carregarMunicipios, coresPorPartido, cr
 import { svgDispersao, svgHistograma, svgLinhas } from './graficos.js';
 import { CATEGORICA } from './mapa.js';
 import { doisDaDisputa, montarUnidades, projetar } from './projecao-modelo.js';
-import { lerMunicipios, urlMunicipios } from './tse.js';
+import { expandirRetrato, lerMunicipios, urlMunicipios } from './tse.js';
 
 const $ = (id) => document.getElementById(id);
 const el = Object.fromEntries(['disputa', 'status', 'atualizar', 'erro', 'titulo', 'sub-titulo', 'resumo', 'barra-projecao', 'kpis',
@@ -31,25 +31,46 @@ async function preencherDisputas() {
   if (opcoes.some(([v]) => v === pedido)) el.disputa.value = pedido;
 }
 
-/** Unidades do modelo (2º turno + 1º turno) e os dois candidatos. */
+const jsonOuNulo = (url) => fetch(url, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+
+/**
+ * Unidades do modelo e os dois candidatos.
+ * Presidente: as cidades do Brasil (retrato que o Voto Lab grava a cada ~10 min durante a apuração),
+ * agrupadas por estado, com os totais de cada estado ao vivo; sem o retrato, os estados.
+ * Governador: as cidades do estado, ao vivo.
+ */
 async function unidadesDa(disputa) {
   const gov = disputa.startsWith('gov:');
   const uf = gov ? disputa.slice(4) : null;
   const [c2, c1] = gov ? [cargoPorValor('6260:3'), cargoPorValor('6259:3')] : [cargoPorValor('6258:1'), cargoPorValor('6257:1')];
-  const [d2, d1] = gov
-    ? await Promise.all([carregarMunicipios(c2, uf), carregarMunicipios(c1, uf)])
-    : await Promise.all([carregarEstados(c2), carregarEstados(c1)]);
-  const l2 = gov ? d2.municipios : d2.estados;
-  const l1 = gov ? d1.municipios : d1.estados;
-  const chave = (r) => (gov ? r.codigo : r.uf);
-  const nomes = d2.nomes ?? {};
-  const [a, b] = doisDaDisputa(nomes, l2, l1);
+  if (gov) {
+    const [d2, d1] = await Promise.all([carregarMunicipios(c2, uf), carregarMunicipios(c1, uf)]);
+    const nomes = d2.nomes ?? {};
+    const [a, b] = doisDaDisputa(nomes, d2.municipios, d1.municipios);
+    if (!a || !b) throw new Error('candidatos do 2º turno ainda não publicados');
+    const unidades = montarUnidades({ l2: d2.municipios, l1: d1.municipios, chave: (r) => r.codigo, nome: (r) => r.nome, a, b });
+    return { unidades, aoVivo: null, nivel: 'cidades', ...candidatos(nomes, a, b), gov, uf };
+  }
+  const [vivo, t1Estados, snap, t1Cidades] = await Promise.all([carregarEstados(c2), carregarEstados(c1), jsonOuNulo('resultados/6258-1.json'), jsonOuNulo('resultados/6257-1.json')]);
+  const nomes = vivo.nomes ?? {};
+  const [a, b] = doisDaDisputa(nomes, vivo.estados, t1Estados.estados);
   if (!a || !b) throw new Error('candidatos do 2º turno ainda não publicados');
-  const unidades = montarUnidades({ l2, l1, chave, nome: (r) => (gov ? r.nome : nomeUf(r.uf)), a, b });
+  const aoVivo = Object.fromEntries(vivo.estados.map((e) => [e.uf, { aptos: e.eleitorado, aptosApurados: e.aptosTotalizadas ?? 0, validos: e.validos ?? 0, votosA: e.cand?.[a] ?? 0, votosB: e.cand?.[b] ?? 0 }]));
+  if (snap?.municipios?.length && t1Cidades?.municipios?.length) {
+    const l2 = expandirRetrato(snap).municipios;
+    const l1 = expandirRetrato(t1Cidades).municipios;
+    const unidades = montarUnidades({ l2, l1, chave: (r) => r.codigo, nome: (r) => `${r.nome} · ${r.uf.toUpperCase()}`, grupo: (r) => r.uf, a, b });
+    return { unidades, aoVivo, nivel: 'cidades', retratoEm: snap.retrato?.geradoEm, ...candidatos(nomes, a, b), gov, uf };
+  }
+  const unidades = montarUnidades({ l2: vivo.estados, l1: t1Estados.estados, chave: (r) => r.uf, nome: (r) => nomeUf(r.uf), a, b });
+  return { unidades, aoVivo: null, nivel: 'estados', ...candidatos(nomes, a, b), gov, uf };
+}
+
+function candidatos(nomes, a, b) {
   const nome = (n) => `${nomes[n]?.[0] ?? n} (${nomes[n]?.[1] ?? ''})`;
   const cores = coresPorPartido([a, b], (n) => nomes[n]?.[1], CATEGORICA);
   [COR_A, COR_B] = [cores.get(a), cores.get(b)];
-  return { unidades, a: { numero: a, nome: nome(a), curto: nomes[a]?.[0] ?? a }, b: { numero: b, nome: nome(b), curto: nomes[b]?.[0] ?? b }, gov, uf };
+  return { a: { numero: a, nome: nome(a), curto: nomes[a]?.[0] ?? a }, b: { numero: b, nome: nome(b), curto: nomes[b]?.[0] ?? b } };
 }
 
 async function carregar() {
@@ -61,7 +82,7 @@ async function carregar() {
   try {
     const dados = await unidadesDa(disputa);
     if (pedido !== estado.pedido) return;
-    const r = projetar({ unidades: dados.unidades });
+    const r = projetar({ unidades: dados.unidades, aoVivo: dados.aoVivo });
     if (!r) throw new Error('sem dados para projetar');
     // Ponto ao vivo desta consulta (entre as gravações do histórico compartilhado, a cada ~10 min).
     if (r.apuradoA !== null) {
@@ -93,7 +114,7 @@ function agendar(ms) {
 
 const kpi = (rotulo, valor, detalhe = '') => `<div class="kpi"><dt>${rotulo}</dt><dd><span class="kpi-pct">${valor}</span>${detalhe ? `<small>${detalhe}</small>` : ''}</dd></div>`;
 
-function renderizar({ a, b, gov, uf }, r) {
+function renderizar({ a, b, gov, uf, nivel, retratoEm }, r) {
   const local = gov ? nomeUf(uf) : 'Brasil';
   el.titulo.textContent = `${gov ? 'Governador' : 'Presidente'} · ${local} · 2º turno`;
   el.subTitulo.textContent = `${pct(r.fracaoApurada * 100)} do eleitorado apurado`;
@@ -122,7 +143,7 @@ function renderizar({ a, b, gov, uf }, r) {
     </div>
     <div class="bp-legenda mudo pequeno">faixa clara: intervalo de 90% · traço: 50%</div>`;
   el.kpis.innerHTML = [
-    kpi('Eleitorado apurado', pct(r.fracaoApurada * 100), `${fmtInt.format(r.unidades.filter((u) => u.f > 0).length)} de ${fmtInt.format(r.unidades.length)} ${gov ? 'cidades' : 'estados'} com votos`),
+    kpi('Eleitorado apurado', pct(r.fracaoApurada * 100), `${fmtInt.format(r.unidades.filter((u) => u.f > 0).length)} de ${fmtInt.format(r.unidades.length)} ${nivel} com votos${retratoEm ? ` (cidades de ${HORA.format(new Date(retratoEm))})` : ''}`),
     kpi(`Projeção ${esc(a.curto)}`, um(r.projecao), `entre ${um(lo)} e ${um(hi)}`),
     kpi(`Chance de ${esc(a.curto)} vencer`, `${r.chanceA >= 0.995 ? '>99' : r.chanceA <= 0.005 ? '<1' : Math.round(r.chanceA * 100)}%`, `${esc(b.curto)}: ${r.chanceA >= 0.995 ? '<1' : r.chanceA <= 0.005 ? '>99' : Math.round((1 - r.chanceA) * 100)}%`),
     kpi('Votos válidos esperados', fmtInt.format(Math.round(r.validosEsperados)), `faltam ~${fmtInt.format(Math.round(r.unidades.reduce((t, u) => t + u.restante, 0)))}`),
@@ -130,8 +151,8 @@ function renderizar({ a, b, gov, uf }, r) {
   estado.ultimo = { a, b, gov, uf };
   renderizarEvolucao();
   renderizarSimulacoes(a, r);
-  renderizarRegressao(a, r, gov);
-  renderizarTabela(a, b, r, gov);
+  renderizarRegressao(a, r, nivel === 'cidades');
+  renderizarTabela(a, b, r, gov, nivel);
 }
 
 const HORA = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
@@ -206,29 +227,33 @@ function renderizarSimulacoes(a, r) {
 }
 
 function renderizarRegressao(a, r, gov) {
-  const pts = r.unidades.filter((u) => u.y !== null && u.dois >= 50);
+  // No máximo 1.500 pontos (os com mais votos apurados), para o gráfico continuar leve.
+  const pts = r.unidades.filter((u) => u.y !== null && u.dois >= 50).sort((x, y) => y.dois - x.dois).slice(0, 1500);
   estado.pontos = pts;
-  el.subRegressao.textContent = `${fmtInt.format(pts.length)} ${gov ? 'cidades' : 'estados'} com votos`;
+  el.subRegressao.textContent = `${fmtInt.format(r.modelo.n)} ${gov ? 'cidades' : 'estados'} com votos`;
   if (!pts.length) { el.regressao.innerHTML = '<p class="mudo">Aparece quando houver urnas apuradas.</p>'; el.notaRegressao.textContent = ''; return; }
   const maxV = Math.max(...pts.map((u) => u.dois));
   const { delta, beta } = r.modelo;
   // A reta do modelo (base do 1º turno → 2º turno) no local com a fatia média de "outros".
   el.regressao.innerHTML = svgDispersao({
-    pontos: pts.map((u, i) => ({ x: u.base * 100, y: u.y * 100, r: 3 + Math.sqrt(u.dois / maxV) * 12, cor: COR_A, i })),
+    pontos: pts.map((u, i) => ({ x: u.base * 100, y: u.y * 100, r: 1.5 + Math.sqrt(u.dois / maxV) * 10, cor: COR_A, i })),
     rotuloX: `${a.curto} no 1º turno + metade dos outros (%)`, rotuloY: `${a.curto} no 2º turno (%)`,
     regressao: { a: delta * 100, b: 1 },
   });
   el.notaRegressao.textContent = `Cada ponto é ${gov ? 'uma cidade' : 'um estado'} com votos (tamanho: votos apurados). A reta é o modelo: `
     + `${a.curto} está ${delta >= 0 ? `${um(delta).replace('%', '')} p.p. acima` : `${um(-delta).replace('%', '')} p.p. abaixo`} do 1º turno com metade dos votos dos outros candidatos`
-    + `${Math.abs(beta) > 0.05 ? `, e os eleitores dos outros pendem ${beta > 0 ? `para ${a.curto}` : 'para o adversário'}` : ''}.`;
+    + `${Math.abs(beta) > 0.05 ? `, e os eleitores dos outros pendem ${beta > 0 ? `para ${a.curto}` : 'para o adversário'}` : ''}`
+    + `${Math.abs(r.modelo.betaA) > 0.05 ? `; cresce mais onde já era ${r.modelo.betaA > 0 ? 'forte' : 'fraco'}` : ''}. Cada estado tem ainda um ajuste próprio (efeito de estado), encolhido para zero onde há poucas cidades apuradas.`;
 }
 
-function renderizarTabela(a, b, r, gov) {
+function renderizarTabela(a, b, r, gov, nivel) {
   el.tituloTabela.textContent = gov ? 'Por cidade' : 'Por estado';
-  const linhas = [...r.unidades].sort((x, y) => y.restante - x.restante);
+  // Presidente com cidades: a tabela mostra os estados (soma das cidades + totais ao vivo).
+  const porEstado = !gov && nivel === 'cidades';
+  const linhas = (porEstado ? r.grupos.map((g) => ({ ...g, nome: nomeUf(g.grupo) })) : [...r.unidades]).sort((x, y) => y.restante - x.restante);
   const celPct = (x) => (x === null || !Number.isFinite(x) ? '—' : um(x));
   el.tabela.innerHTML = `<thead><tr><th>${gov ? 'Cidade' : 'Estado'}</th><th class="num">Apurado</th><th class="num">${esc(a.curto)} agora</th><th class="num">${esc(a.curto)} no 1º turno</th><th class="num">Previsto (regressão)</th><th class="num">Projeção final</th><th class="num">Votos válidos que faltam</th></tr></thead>
-    <tbody>${linhas.map((u) => `<tr><td class="local">${esc(u.nome)}</td><td class="num">${pct(u.f * 100)}</td><td class="num">${celPct(u.y)}</td><td class="num">${um(u.A1)}</td><td class="num">${um(u.previsto)}</td>`
+    <tbody>${linhas.map((u) => `<tr><td class="local">${esc(u.nome)}</td><td class="num">${pct(u.f * 100)}</td><td class="num">${celPct(u.y)}</td><td class="num">${u.A1 === null ? '—' : um(u.A1)}</td><td class="num">${um(u.previsto)}</td>`
       + `<td class="num"><strong style="color:${u.projecao >= 0.5 ? COR_A : COR_B}">${um(u.projecao)}</strong><small class="mudo"> ${u.restante ? `(${um(u.intervalo[0])}–${um(u.intervalo[1])})` : ''}</small></td>`
       + `<td class="num">${fmtInt.format(Math.round(u.restante))}</td></tr>`).join('')}</tbody>`;
 }

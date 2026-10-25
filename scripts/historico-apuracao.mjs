@@ -18,6 +18,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { doisDaDisputa, montarUnidades, projetar } from '../public/projecao-modelo.js';
+import { expandirRetrato } from '../public/tse.js';
 
 const RAIZ = new URL('..', import.meta.url).pathname;
 const ARQUIVO = join(RAIZ, 'public', 'historico', '2t.json');
@@ -38,16 +39,34 @@ export function acrescentar(pontos, ponto) {
   return true;
 }
 
+/** Cidades do 2º turno (retrato parcial) e do 1º turno, se os retratos estiverem no disco. */
+async function lerCidades() {
+  try {
+    const [d2, d1] = await Promise.all(['6258-1', '6257-1'].map(async (n) => JSON.parse(await readFile(join(RAIZ, 'public', 'resultados', `${n}.json`), 'utf8'))));
+    return { l2: expandirRetrato(d2).municipios, l1: expandirRetrato(d1).municipios };
+  } catch {
+    return null;
+  }
+}
+
 async function passada(hist, t1) {
   const [p2, g2] = await Promise.all([api('estados?ele=6258&cargo=1'), api('estados?ele=6260&cargo=3').catch(() => null)]);
   const t = new Date().toISOString();
   let novos = 0;
 
-  // Presidente: totais do Brasil e a projeção com os estados.
-  const [a, b] = doisDaDisputa(p2.nomes ?? {}, p2.estados, t1.estados);
+  // Presidente: totais do Brasil e a projeção (o mesmo modelo da página: cidades do retrato mais
+  // recente em public/resultados, agrupadas por estado, com os totais de cada estado ao vivo).
+  // A ordem dos dois fica fixa desde o primeiro ponto: se a liderança virar, "a" continua o mesmo
+  // candidato (senão as linhas trocariam de candidato no meio do histórico).
+  const [a, b] = hist.presidente.numeros ? [hist.presidente.numeros.a, hist.presidente.numeros.b] : doisDaDisputa(p2.nomes ?? {}, p2.estados, t1.estados);
   if (a && b && p2.brasil?.eleitorado) {
     const br = p2.brasil;
-    const r = projetar({ unidades: montarUnidades({ l2: p2.estados, l1: t1.estados, chave: (x) => x.uf, nome: (x) => x.uf, a, b }), simulacoes: 2000 });
+    const aoVivo = Object.fromEntries(p2.estados.map((e) => [e.uf, { aptos: e.eleitorado, aptosApurados: e.aptosTotalizadas ?? 0, validos: e.validos ?? 0, votosA: e.cand?.[a] ?? 0, votosB: e.cand?.[b] ?? 0 }]));
+    const cidades = await lerCidades();
+    const unidades = cidades
+      ? montarUnidades({ l2: cidades.l2, l1: cidades.l1, chave: (x) => x.codigo, nome: (x) => x.nome, grupo: (x) => x.uf, a, b })
+      : montarUnidades({ l2: p2.estados, l1: t1.estados, chave: (x) => x.uf, nome: (x) => x.uf, a, b });
+    const r = projetar({ unidades, aoVivo: cidades ? aoVivo : null, simulacoes: 2000 });
     hist.presidente.nomes = { a: (p2.nomes[a] ?? []).slice(0, 2), b: (p2.nomes[b] ?? []).slice(0, 2) };
     hist.presidente.numeros = { a, b };
     const ponto = { t, ap: arredondar(br.aptosTotalizadas / br.eleitorado), a: br.cand?.[a] ?? 0, b: br.cand?.[b] ?? 0 };

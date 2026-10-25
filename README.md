@@ -138,17 +138,20 @@ A janela **Projeção** (`/projecao.html`) estima em tempo real o resultado fina
 candidato com o intervalo de 90%, a chance de cada um terminar na frente, o histograma das simulações, a regressão
 2º × 1º turno e a projeção de cada estado (ou cidade). Atualiza a cada minuto. Não é resultado oficial.
 
-- Modelo em `public/projecao-modelo.js` (sem dependências, testado em `test/projecao.test.js`):
-  1. o que já foi apurado conta como está; só a parte que falta é estimada, local por local;
-  2. regressão bayesiana (prioris fracas) do 2º turno sobre o 1º nos locais com votos:
-     `fatia = A1 + 0,5·O1 + δ + β·(O1 − média)` — A1 é a fatia do candidato no 1º turno, O1 a dos outros candidatos;
-  3. a parte não apurada de cada local mistura o que já saiu ali com a previsão, pesando pela incerteza (as primeiras
-     urnas não são amostra aleatória);
-  4. votos que faltam = eleitores × comparecimento × % de válidos (do 2º turno apurado, encolhido para o 1º turno
-     enquanto há pouco apurado);
-  5. 3.000 simulações sorteiam os coeficientes, o erro de cada local e um desvio comum a toda a parte não apurada (até
-     2,5 p.p. no começo, sumindo com a apuração).
-- Em 40 cenários simulados com resultado conhecido, o intervalo de 90% conteve o resultado em pelo menos 39.
+- Modelo em `public/projecao-modelo.js` (sem dependências, testado em `test/projecao.test.js`), no desenho dos
+  modelos de noite de eleição (NYT, Washington Post `elex-live-model`, Decision Desk HQ e as projeções brasileiras por
+  município):
+  1. unidade = cidade (Presidente: o retrato parcial de todas as cidades em `public/resultados/6258-1.json`, gravado a
+     cada ~10 min pelo workflow da noite; Governador: as cidades do estado, ao vivo); sem o retrato, os estados;
+  2. o apurado conta como está; só a parte que falta é estimada;
+  3. regressão bayesiana da mudança em relação ao 1º turno, com efeito aleatório de estado:
+     `fatia = A1 + 0,5·O1 + δ + βO·(O1 − Ō) + βA·(A1 − Ā) + u[estado]`;
+  4. a parte não apurada de cada cidade mistura o que já saiu nela com a previsão, pesando pela incerteza; os totais
+     ao vivo de cada estado (mais novos que o retrato) corrigem a previsão do que falta no estado;
+  5. votos que faltam = eleitores × comparecimento × % de válidos;
+  6. simulações por estado: coeficientes e efeitos de estado (Cholesky da covariância), erro somado das cidades e um
+     desvio comum da parte não apurada.
+- Validação (cenários simulados com apuração fora de ordem): erro médio de 1 p.p., metade do modelo por estado.
 
 ## Minha seção (votos de uma seção, de uma zona ou da cidade)
 
