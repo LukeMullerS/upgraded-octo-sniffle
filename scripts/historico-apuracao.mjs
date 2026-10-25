@@ -49,6 +49,24 @@ async function lerCidades() {
   }
 }
 
+/**
+ * Conserto do histórico de 25/10/2026: uma versão anterior trocava "a" pelo líder do momento, e a
+ * partir de 22:45 (UTC) os pontos foram gravados com a ordem invertida. Desinverte esses pontos uma vez.
+ * Exportada para os testes.
+ */
+export function corrigirOrdem(h, a, b) {
+  if (!h.numeros || (String(h.numeros.a) === String(a) && String(h.numeros.b) === String(b))) return false;
+  if (String(h.numeros.a) !== String(b)) return false;
+  for (const p of h.pontos) {
+    if (p.t < '2026-10-25T22:45:00Z') continue;
+    [p.a, p.b] = [p.b, p.a];
+    if (Number.isFinite(p.p)) [p.p, p.lo, p.hi, p.c] = [1 - p.p, 1 - p.hi, 1 - p.lo, 1 - p.c].map((x) => Math.round(x * 1e5) / 1e5);
+  }
+  h.numeros = { a: String(a), b: String(b) };
+  if (h.nomes) h.nomes = { a: h.nomes.b, b: h.nomes.a };
+  return true;
+}
+
 async function passada(hist, t1) {
   const [p2, g2] = await Promise.all([api('estados?ele=6258&cargo=1'), api('estados?ele=6260&cargo=3').catch(() => null)]);
   const t = new Date().toISOString();
@@ -56,9 +74,10 @@ async function passada(hist, t1) {
 
   // Presidente: totais do Brasil e a projeção (o mesmo modelo da página: cidades do retrato mais
   // recente em public/resultados, agrupadas por estado, com os totais de cada estado ao vivo).
-  // A ordem dos dois fica fixa desde o primeiro ponto: se a liderança virar, "a" continua o mesmo
-  // candidato (senão as linhas trocariam de candidato no meio do histórico).
-  const [a, b] = hist.presidente.numeros ? [hist.presidente.numeros.a, hist.presidente.numeros.b] : doisDaDisputa(p2.nomes ?? {}, p2.estados, t1.estados);
+  // Ordem fixa e neutra: "a" é sempre o de menor número (não depende de quem lidera; senão as linhas
+  // trocariam de candidato quando a liderança virasse).
+  const [a, b] = doisDaDisputa(p2.nomes ?? {}, p2.estados, t1.estados).sort((x, y) => Number(x) - Number(y));
+  corrigirOrdem(hist.presidente, a, b);
   if (a && b && p2.brasil?.eleitorado) {
     const br = p2.brasil;
     const aoVivo = Object.fromEntries(p2.estados.map((e) => [e.uf, { aptos: e.eleitorado, aptosApurados: e.aptosTotalizadas ?? 0, validos: e.validos ?? 0, votosA: e.cand?.[a] ?? 0, votosB: e.cand?.[b] ?? 0 }]));
