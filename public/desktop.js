@@ -756,7 +756,12 @@ montarMenuIniciar();
 
 let salvas = [];
 try { salvas = JSON.parse(localStorage.getItem(CHAVE_JANELAS) || '[]'); } catch { salvas = []; }
+// 2º turno: uma vez, a janela Apuração guardada no 1º turno passa a abrir no 2º (o padrão agora).
+const CHAVE_2T = 'apuracao2026:abre-2turno';
+let migrar2t = false;
+try { migrar2t = !localStorage.getItem(CHAVE_2T); localStorage.setItem(CHAVE_2T, '1'); } catch { /* sem armazenamento */ }
 for (const s of salvas.sort((a, b) => (a.z ?? 0) - (b.z ?? 0))) {
+  if (migrar2t && s.app === 'apuracao' && /(?:^|[#&])ele=62(?:57|59|61)\b/.test(s.hash ?? '')) s.hash = '';
   if (APPS[s.app] && !APPS[s.app].modal) abrir(s.app, s);
 }
 // Link vindo de uma página do app (desktop.html#abrir=brancos&h=…): abre essa janela.

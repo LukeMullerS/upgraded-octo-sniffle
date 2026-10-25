@@ -152,7 +152,8 @@ async function atualizarMunicipios(inicial = {}) {
 
 function lerHash() {
   const p = new URLSearchParams(location.hash.slice(1));
-  return { ele: p.get('ele') ?? '6257', cargo: p.get('cargo') ?? 0, abr: p.get('abr') ?? undefined, mun: p.get('mun') ?? '' };
+  // Sem eleição no endereço, abre no 2º turno (Presidente).
+  return { ele: p.get('ele') ?? '6258', cargo: p.get('cargo') ?? 0, abr: p.get('abr') ?? undefined, mun: p.get('mun') ?? '' };
 }
 
 function gravarHash() {
