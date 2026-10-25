@@ -7,7 +7,7 @@ import {
   CARGOS, CODIGO_IBGE_UF, UF_DO_CODIGO, baixarCsv, cargoPorValor, carregarEstados, carregarMunicipios, criarDica, dadosUrnas, esc,
   fmtInt, fmtNum, nomeUf, pct, semAcento,
 } from './comum.js';
-import { UFS } from './tse.js';
+import { UFS, ordemCidades } from './tse.js';
 import { METRICAS, regressaoLinear, testeCorrelacao, valorMetrica } from './calculos.js';
 import { svgBarras, svgDispersao, svgHistograma } from './graficos.js';
 import { carregarMalha, criarMapa } from './mapa.js';
@@ -225,7 +225,7 @@ function agendar() {
 }
 
 function preencherMunicipios(est, valor) {
-  const lista = [...(est.municipios ?? [])].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  const lista = [...(est.municipios ?? [])].sort(ordemCidades(el.uf.value));
   const opcoes = lista.map((m) => `<option value="${m.codigo}">${esc(m.nome)} (${fmtInt.format(m.lidas)}/${fmtInt.format(m.totalSecoes)})</option>`).join('');
   el.mun.innerHTML = `<option value="">Todos</option>${opcoes}`;
   if (lista.some((m) => m.codigo === valor)) el.mun.value = valor;

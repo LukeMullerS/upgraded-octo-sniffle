@@ -206,12 +206,23 @@ export function votosPorPartido(candidatos) {
 }
 
 /** Lista de municípios por UF a partir de `mun-e{eleição}-cm.json`. */
+// Capital de cada UF (código do município no TSE), para vir primeiro nas listas de cidades.
+export const CAPITAIS = {
+  ac: '01392', al: '27855', ap: '06050', am: '02550', ba: '38490', ce: '13897', df: '97012', es: '57053', go: '93734',
+  ma: '09210', mt: '90670', ms: '90514', mg: '41238', pr: '75353', pb: '20516', pa: '04278', pe: '25313', pi: '12190',
+  rj: '60011', rn: '17612', rs: '88013', ro: '00035', rr: '03018', sc: '81051', se: '31054', sp: '71072', to: '73440',
+};
+
+/** Ordena cidades em ordem alfabética, com a capital do estado primeiro. */
+export const ordemCidades = (uf) => (x, y) => (String(y.codigo) === CAPITAIS[uf]) - (String(x.codigo) === CAPITAIS[uf]) || x.nome.localeCompare(y.nome, 'pt-BR');
+
 export function lerMunicipios(bruto) {
   const porUf = {};
   for (const a of bruto.abr ?? []) {
-    porUf[String(a.cd).toLowerCase()] = (a.mu ?? [])
-      .map((m) => ({ codigo: String(m.cd), nome: m.nm, ibge: m.cdi ? String(m.cdi) : null }))
-      .sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR'));
+    const uf = String(a.cd).toLowerCase();
+    porUf[uf] = (a.mu ?? [])
+      .map((m) => ({ codigo: String(m.cd), nome: m.nm, ibge: m.cdi ? String(m.cdi) : null, capital: m.c === 's' || String(m.cd) === CAPITAIS[uf] }))
+      .sort((x, y) => (y.capital - x.capital) || x.nome.localeCompare(y.nome, 'pt-BR'));
   }
   return porUf;
 }

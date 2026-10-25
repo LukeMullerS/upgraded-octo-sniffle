@@ -177,7 +177,8 @@ async function carregarLista() {
     if (uf === 'zz') continue; // exterior: sem dados do IBGE
     for (const m of lista) estado.municipios.push({ ...m, uf, rotulo: `${m.nome} (${uf.toUpperCase()})` });
   }
-  estado.municipios.sort((a, b) => a.rotulo.localeCompare(b.rotulo, 'pt-BR'));
+  // Capitais primeiro (as mais procuradas), depois as outras em ordem alfabética.
+  estado.municipios.sort((a, b) => (b.capital - a.capital) || a.rotulo.localeCompare(b.rotulo, 'pt-BR'));
   el.listaMunicipios.innerHTML = estado.municipios.map((m) => `<option value="${esc(m.rotulo)}"></option>`).join('');
   el.status.textContent = `${fmtInt.format(estado.municipios.length)} cidades`;
   el.status.className = 'status ok';
