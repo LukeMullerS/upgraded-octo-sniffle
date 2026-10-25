@@ -197,8 +197,10 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
    *   `valores` passa a ser opcional e aparece só na dica
    * @param {Map<string, string>} [o.cores]  categoria → cor (senão, a paleta categórica pela ordem de frequência)
    * @param {Map<string, number>} [o.intensidade]  codarea → 0..1: cor mais forte onde é maior (ex.: margem)
+   * @param {string} [o.notaIntensidade]  o que a cor mais forte quer dizer (legenda)
+   * @param {boolean} [o.manterVista]  mesma malha: mantém o zoom e a posição (ex.: alternar 1º e 2º turno)
    */
-  function desenhar({ geo, valores = new Map(), rotulos = new Map(), titulo = '', formato = (v) => fmtNum.format(v), referencia = null, modo = 'quantis', extra = null, destaques = new Set(), categorias = null, cores = null, intensidade = null, rotuloSemDado = 'sem dado' }) {
+  function desenhar({ notaIntensidade = 'cor mais forte = vitória mais folgada', manterVista = false, geo, valores = new Map(), rotulos = new Map(), titulo = '', formato = (v) => fmtNum.format(v), referencia = null, modo = 'quantis', extra = null, destaques = new Set(), categorias = null, cores = null, intensidade = null, rotuloSemDado = 'sem dado' }) {
     if (!geo?.features?.length) {
       area.innerHTML = '<p class="mudo">Mapa indisponível.</p>';
       legenda.innerHTML = '';
@@ -250,14 +252,15 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
       <defs><pattern id="mapa-sem-dado" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f2f1ed"/><line x1="0" y1="0" x2="0" y2="6" stroke="#c9c8c2" stroke-width="2"/></pattern></defs>
       <g class="feicoes">${paths}</g></svg>`;
     container.classList.remove('zoom-locais');
-    estado = { svg: area.querySelector('svg'), vb: [0, 0, largura, altura], inicial: [0, 0, largura, altura], feicoes, valores, rotulos, titulo, formato, extra, categorias };
+    const vistaAnterior = manterVista && estado?.inicial?.[2] === largura && Math.abs(estado.inicial[3] - altura) < 0.5 ? estado.vb : null;
+    estado = { svg: area.querySelector('svg'), vb: vistaAnterior ?? [0, 0, largura, altura], inicial: [0, 0, largura, altura], feicoes, valores, rotulos, titulo, formato, extra, categorias };
     aplicarVb();
 
     if (corCat) {
       const semCat = geo.features.some((f) => !categorias.get(f.properties.codarea));
       legenda.innerHTML = `<span class="mapa-titulo">${esc(titulo)}</span>`
         + [...corCat].map(([c, cor]) => `<span class="mapa-faixa"><i style="background:${cor}"></i>${esc(c)} <span class="mudo">(${contagem.get(c)})</span></span>`).join('')
-        + (intensidade ? '<span class="mapa-faixa mudo">cor mais forte = vitória mais folgada</span>' : '')
+        + (intensidade ? `<span class="mapa-faixa mudo">${esc(notaIntensidade)}</span>` : '')
         + (semCat ? `<span class="mapa-faixa"><i class="sem-dado"></i>${esc(rotuloSemDado)}</span>` : '');
       return;
     }

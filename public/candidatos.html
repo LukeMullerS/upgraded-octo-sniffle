@@ -29,7 +29,7 @@
   <header class="topo">
     <div>
       <h1>Mapa da votação</h1>
-      <p class="sub">Candidatos, partidos, comparecimento e fragmentação por estado e por cidade · 1º turno 2026</p>
+      <p class="sub">Candidatos, partidos, comparecimento e fragmentação por estado e por cidade · eleições 2026</p>
     </div>
     <div class="atualizacao">
       <span id="status" class="status">carregando…</span>
@@ -75,6 +75,12 @@
 
     <section class="cartao" data-modulo-cartao="mapa">
       <div class="linha"><h2 id="titulo-mapa">Mapa</h2><span class="mudo pequeno" id="sub-mapa">clique num estado para ver as cidades</span></div>
+      <div class="alternar turnos-mapa" id="turnos-mapa" role="group" aria-label="Turno no mapa" hidden>
+        <button type="button" class="secundario sem-margem" data-turno="2" aria-pressed="true">2º turno</button>
+        <button type="button" class="secundario sem-margem" data-turno="1" aria-pressed="false">1º turno</button>
+        <button type="button" class="secundario sem-margem" data-turno="dif" aria-pressed="false">Diferença</button>
+      </div>
+      <p class="mudo pequeno" id="nota-turnos" hidden></p>
       <div id="mapa"></div>
     </section>
 

@@ -9,18 +9,19 @@ import {
 import { regressaoLinear, testeCorrelacao } from './calculos.js';
 import { svgBarras, svgDispersao } from './graficos.js';
 import { CATEGORICA, carregarMalha, criarMapa } from './mapa.js';
+import { ELEICOES } from './tse.js';
 
 const $ = (id) => document.getElementById(id);
 const el = Object.fromEntries([
   'cargo', 'nivel', 'ver', 'comparar', 'status', 'exportar', 'atualizar', 'erro', 'titulo', 'sub-titulo', 'resumo-texto', 'kpis',
   'titulo-mapa', 'sub-mapa', 'mapa', 'titulo-ranking', 'ranking', 'titulo-vitorias', 'sub-vitorias', 'vitorias',
   'titulo-forte', 'forte', 'titulo-fraco', 'fraco', 'comparacao-cartao', 'titulo-comparacao', 'correlacao', 'comparacao',
-  'nota-comparacao', 'partidos-cartao', 'partidos', 'titulo-tabela', 'busca', 'tabela', 'mais', 'dica',
+  'nota-comparacao', 'partidos-cartao', 'partidos', 'titulo-tabela', 'busca', 'tabela', 'mais', 'dica', 'turnos-mapa', 'nota-turnos',
 ].map((id) => [id.replace(/-(\w)/g, (_, l) => l.toUpperCase()), $(id)]));
 
 const PAGINA = 60;
 const dica = criarDica(el.dica);
-const estado = { dados: null, locais: [], consolidado: null, nomes: {}, cores: new Map(), coresPar: new Map(), pedido: 0, timer: null, limite: PAGINA, ordem: null, pontos: [] };
+const estado = { turnoMapa: '2', cache1T: null, dados: null, locais: [], consolidado: null, nomes: {}, cores: new Map(), coresPar: new Map(), pedido: 0, timer: null, limite: PAGINA, ordem: null, pontos: [] };
 const pctDe = (parte, total) => (total > 0 ? (parte / total) * 100 : null);
 
 const cargoAtual = () => cargoPorValor(el.cargo.value) ?? CARGOS[0];
@@ -51,8 +52,8 @@ function preencherNiveis(valor) {
   el.nivel.value = lista.some(([v]) => v === valor) ? valor : lista[0][0];
 }
 
-const nomeCand = (n) => {
-  const x = estado.nomes[n];
+const nomeCand = (n, nomes = estado.nomes) => {
+  const x = nomes[n];
   return x ? `${x[0]} (${x[1]})` : `nº ${n}`;
 };
 const rotuloVer = (v) => {
@@ -67,15 +68,16 @@ function preencherVer() {
   const comp = el.comparar.value || inicial.comparar || '';
   const cands = Object.entries(estado.consolidado?.cand ?? {}).sort((a, b) => b[1] - a[1]).slice(0, 40);
   const pars = Object.entries(estado.consolidado?.par ?? {}).sort((a, b) => b[1] - a[1]).slice(0, 30);
+  const doisNaDisputa = !proporcional() && Object.keys(estado.consolidado?.cand ?? {}).length <= 2;
   const geral = proporcional()
     ? [['partido', 'Partido mais votado'], ['vencedor', 'Candidato mais votado'], ['efetivo', 'Fragmentação (nº efetivo de partidos)']]
-    : [['vencedor', 'Candidato mais votado'], ['margem', 'Margem do 1º sobre o 2º'], ['partido', 'Partido mais votado'], ['efetivo', 'Fragmentação (nº efetivo de candidatos)']];
+    : [['vencedor', 'Candidato mais votado'], ['margem', 'Margem do 1º sobre o 2º'], ['partido', 'Partido mais votado'], ...(doisNaDisputa ? [] : [['efetivo', 'Fragmentação (nº efetivo de candidatos)']])];
   geral.push(['comparecimento', 'Comparecimento (%)'], ['validos', '% votos válidos']);
   const opt = (v, t) => `<option value="${esc(v)}">${esc(t)}</option>`;
   const grupoCands = cands.length ? `<optgroup label="Votação do candidato (% válidos)">${cands.map(([n]) => opt(`c:${n}`, nomeCand(n))).join('')}</optgroup>` : '';
   const grupoPars = pars.length ? `<optgroup label="Votação do partido (% válidos)">${pars.map(([sg]) => opt(`p:${sg}`, sg)).join('')}</optgroup>` : '';
   el.ver.innerHTML = `<optgroup label="Geral">${geral.map(([v, t]) => opt(v, t)).join('')}</optgroup>${grupoCands}${grupoPars}`;
-  el.comparar.innerHTML = `<option value="">—</option>${grupoCands}${grupoPars}<optgroup label="Outros">${opt('comparecimento', 'Comparecimento (%)')}${opt('efetivo', 'Fragmentação')}</optgroup>`;
+  el.comparar.innerHTML = `<option value="">—</option>${grupoCands}${grupoPars}<optgroup label="Outros">${opt('comparecimento', 'Comparecimento (%)')}${doisNaDisputa ? '' : opt('efetivo', 'Fragmentação')}</optgroup>`;
   el.ver.value = [...el.ver.options].some((o) => o.value === atual) ? atual : geral[0][0];
   el.comparar.value = [...el.comparar.options].some((o) => o.value === comp) ? comp : '';
   // Cores fixas por candidato e partido (as mesmas no mapa e nas barras).
@@ -88,6 +90,7 @@ const inicial = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
 function gravarHash() {
   const p = new URLSearchParams({ cargo: el.cargo.value, nivel: nivel(), ver: el.ver.value });
   if (el.comparar.value) p.set('comparar', el.comparar.value);
+  if (segundoTurno() && estado.turnoMapa !== '2') p.set('turno', estado.turnoMapa);
   const hash = `#${p}`;
   if (hash === location.hash) return;
   history.replaceState(null, '', hash);
@@ -137,6 +140,7 @@ canal?.addEventListener('message', (ev) => {
     }
     if ([...el.ver.options].some((o) => o.value === p.get('ver'))) el.ver.value = p.get('ver');
     el.comparar.value = [...el.comparar.options].some((o) => o.value === p.get('comparar')) ? p.get('comparar') : '';
+    estado.turnoMapa = ['1', 'dif'].includes(p.get('turno')) ? p.get('turno') : '2';
     renderizar();
   } finally {
     if (!p.get('cargo') || p.get('cargo') === el.cargo.value) aplicandoRemoto = false;
@@ -253,7 +257,8 @@ function renderizar() {
     el.resumoTexto.textContent = '';
   } else {
     const { primeiro, segundo } = colocados(r);
-    const efetivo = proporcional() ? r.efetivoPar : r.efetivoCand;
+    // Nº efetivo só faz sentido com mais de dois na disputa (no 2º turno são sempre dois).
+    const efetivo = !proporcional() && Object.keys(r.cand ?? {}).length <= 2 ? null : proporcional() ? r.efetivoPar : r.efetivoCand;
     el.kpis.innerHTML = [
       kpi('Votos válidos', fmtInt.format(r.validos), `${pct(r.pctValidos ?? pctDe(r.validos, r.total))} do total · ${pct(pctSecoes(r))} das seções`),
       kpi('Comparecimento', pct(r.pctComparecimento ?? pctDe(r.comparecimento, r.aptosTotalizadas) ?? 0), `abstenção ${pct(r.pctAbstencao ?? 0)}`),
@@ -371,15 +376,62 @@ const mapa = criarMapa(el.mapa, {
 });
 let pedidoMapa = 0;
 
+// ---------- 1º × 2º turno ----------
+
+/** Cargo do 2º turno (Presidente ou Governador)? */
+const segundoTurno = () => ELEICOES[cargoAtual().eleicao]?.turno === 2;
+/** O mesmo cargo no 1º turno. */
+function cargo1T() {
+  const e = ELEICOES[cargoAtual().eleicao];
+  return e?.primeiroTurno ? cargoPorValor(`${e.primeiroTurno}:${cargoAtual().codigo}`) : null;
+}
+const turnoMapa = () => (segundoTurno() ? estado.turnoMapa : '2');
+
+/** Locais do 1º turno no mesmo recorte (carregados uma vez por cargo e local). */
+async function dados1T() {
+  const c1 = cargo1T();
+  if (!c1) return null;
+  const n = nivel();
+  const chave = `${c1.valor}|${n}`;
+  if (estado.cache1T?.chave !== chave) {
+    estado.cache1T = {
+      chave,
+      promessa: (n === 'estados' ? getJsonComErro(carregarEstados(c1)) : getJsonComErro(carregarMunicipios(c1, n))).then((d) => {
+        const locais = n === 'estados' ? d.estados : d.municipios;
+        const porCod = new Map();
+        for (const r of locais) {
+          const cod = n === 'estados' ? CODIGO_IBGE_UF[r.uf] ?? null : r.ibge ?? null;
+          if (cod) porCod.set(cod, r);
+        }
+        const consolidado = n === 'estados' ? d.brasil : d.consolidado;
+        const cands = Object.entries(consolidado?.cand ?? {}).sort((x, y) => y[1] - x[1]).slice(0, 40).map(([k]) => k);
+        const nomes = d.nomes ?? {};
+        return { porCod, nomes, cores: coresPorPartido(cands, (k) => nomes[k]?.[1], CATEGORICA) };
+      }),
+    };
+  }
+  return estado.cache1T.promessa;
+}
+
+/** Botões 2º turno · 1º turno · Diferença (só nos cargos do 2º turno). */
+function atualizarTurnos() {
+  el.turnosMapa.hidden = !segundoTurno();
+  for (const b of el.turnosMapa.querySelectorAll('[data-turno]')) b.setAttribute('aria-pressed', String(b.dataset.turno === turnoMapa()));
+}
+
 async function renderizarMapa() {
   const n = nivel();
   const v = el.ver.value;
+  const t = turnoMapa();
   const pedido = ++pedidoMapa;
-  el.tituloMapa.textContent = `${rotuloVer(v)} · ${n === 'estados' ? 'por estado' : n === 'todas' ? 'cidades do Brasil' : `cidades de ${nomeUf(n)}`}`;
+  atualizarTurnos();
+  const sufixoTurno = t === '1' ? ' · 1º turno' : t === 'dif' ? ' · diferença do 1º para o 2º turno' : segundoTurno() ? ' · 2º turno' : '';
+  el.tituloMapa.textContent = `${rotuloVer(v)}${sufixoTurno} · ${n === 'estados' ? 'por estado' : n === 'todas' ? 'cidades do Brasil' : `cidades de ${nomeUf(n)}`}`;
   el.subMapa.textContent = n === 'estados' ? 'clique num estado para ver as cidades' : 'role para aproximar; arraste para mover';
   let geo;
+  let t1 = null;
   try {
-    geo = await carregarMalha(n === 'estados' ? undefined : n);
+    [geo, t1] = await Promise.all([carregarMalha(n === 'estados' ? undefined : n), t !== '2' ? dados1T() : null]);
   } catch (erro) {
     if (pedido === pedidoMapa) el.mapa.querySelector('.mapa-area').innerHTML = `<p class="mudo">Mapa indisponível: ${esc(erro.message)}</p>`;
     return;
@@ -393,24 +445,70 @@ async function renderizarMapa() {
     rotulos.set(l.cod, n === 'todas' ? `${l.nome} · ${l.uf.toUpperCase()}` : l.nome);
     porCod.set(l.cod, l);
   }
-  const extra = (cod) => {
-    const l = porCod.get(cod);
-    if (!l?.validos) return '<span class="mudo">sem votos apurados</span>';
+  // No 1º turno o mapa usa os locais, os nomes e as cores do 1º turno (mesma vista do 2º).
+  const fonte = t === '1' ? t1.porCod : porCod;
+  const nomes = t === '1' ? t1.nomes : estado.nomes;
+  const corDe = (num) => estado.cores.get(num) ?? t1?.cores.get(num) ?? '#5e6b7d';
+  const linhaTurno = (l, nm, rotulo) => {
+    if (!l?.validos) return `<span class="mudo">${rotulo}sem votos apurados</span>`;
     const { primeiro, segundo } = colocados(l);
-    return `${primeiro ? `<span>1º ${esc(nomeCand(primeiro.numero))}: ${pct(primeiro.pct)}</span>` : ''}${segundo ? `<span>2º ${esc(nomeCand(segundo.numero))}: ${pct(segundo.pct)}</span>` : ''}<span class="mudo">${fmtInt.format(l.validos)} válidos · ${pct(pctSecoes(l))} das seções</span>`;
+    return `${primeiro ? `<span>${rotulo}1º ${esc(nomeCand(primeiro.numero, nm))}: ${pct(primeiro.pct)}</span>` : ''}${segundo ? `<span>${rotulo}2º ${esc(nomeCand(segundo.numero, nm))}: ${pct(segundo.pct)}</span>` : ''}`;
   };
+  const extra = (cod) => {
+    if (t === 'dif') return `${linhaTurno(t1.porCod.get(cod), t1.nomes, '1º turno · ')}${linhaTurno(porCod.get(cod), estado.nomes, '2º turno · ')}`;
+    const l = fonte.get(cod);
+    if (!l?.validos) return '<span class="mudo">sem votos apurados</span>';
+    return `${linhaTurno(l, nomes, '')}<span class="mudo">${fmtInt.format(l.validos)} válidos · ${pct(pctSecoes(l))} das seções</span>`;
+  };
+  const opcoes = { geo, rotulos, extra, manterVista: true };
+  el.notaTurnos.hidden = t !== 'dif';
+  if (t === 'dif') {
+    if (v === 'vencedor' || v === 'partido') {
+      // Quem venceu em cada local nos dois turnos: manteve (cor fraca) ou virou (cor forte).
+      const categorias = new Map();
+      const cores = new Map();
+      const intensidade = new Map();
+      for (const [cod, l2] of porCod) {
+        const l1 = t1.porCod.get(cod);
+        if (!l2?.validos || !l1?.validos) continue;
+        const [k1, k2, nome1, nome2, cor] = v === 'vencedor'
+          ? [colocados(l1).primeiro?.numero, colocados(l2).primeiro?.numero, (k) => nomeCand(k, t1.nomes), (k) => nomeCand(k), corDe]
+          : [partidoVencedor(l1)?.sigla, partidoVencedor(l2)?.sigla, (k) => k, (k) => k, (k) => estado.coresPar.get(k) ?? '#5e6b7d'];
+        if (!k1 || !k2) continue;
+        const cat = k1 === k2 ? `${nome2(k2)}: venceu nos dois turnos` : `Virou para ${nome2(k2)} (no 1º turno: ${nome1(k1)})`;
+        categorias.set(cod, cat);
+        cores.set(cat, cor(k2));
+        intensidade.set(cod, k1 === k2 ? 0 : 1);
+      }
+      el.notaTurnos.textContent = 'Cor forte: o local mudou de vencedor do 1º para o 2º turno. Cor fraca: o mesmo venceu nos dois.';
+      mapa.desenhar({ ...opcoes, titulo: 'Vencedor no 1º e no 2º turno', categorias, cores, intensidade, formato: (x) => pct(x), notaIntensidade: 'cor forte = mudou de vencedor' });
+      return;
+    }
+    // Opções numéricas: 2º turno − 1º turno, em pontos percentuais (cores divergentes em torno de 0).
+    for (const [cod, l2] of porCod) {
+      const x2 = valor(l2, v);
+      const x1 = valor(t1.porCod.get(cod), v);
+      if (x1 !== null && x2 !== null && Number.isFinite(x1) && Number.isFinite(x2)) valores.set(cod, x2 - x1);
+    }
+    el.notaTurnos.textContent = v.startsWith('c:')
+      ? `Quanto ${nomeCand(v.slice(2))} ganhou (ou perdeu) em % dos válidos do 1º para o 2º turno. No 2º turno os votos dos outros candidatos se redistribuem, então quase todos sobem.`
+      : 'Diferença em pontos percentuais entre o 2º e o 1º turno.';
+    const sinal = (x) => `${x > 0 ? '+' : ''}${fmtNum.format(x)} p.p.`;
+    mapa.desenhar({ ...opcoes, valores, titulo: `${rotuloVer(v)}: 2º − 1º turno`, formato: sinal, referencia: 0 });
+    return;
+  }
   if (v === 'vencedor' || v === 'partido') {
     const categorias = new Map();
     const intensidade = new Map();
     const cores = new Map();
-    for (const [cod, l] of porCod) {
+    for (const [cod, l] of fonte) {
       if (!l.validos) continue;
       if (v === 'vencedor') {
         const { primeiro, segundo } = colocados(l);
         if (!primeiro) continue;
-        const rot = nomeCand(primeiro.numero);
+        const rot = nomeCand(primeiro.numero, nomes);
         categorias.set(cod, rot);
-        cores.set(rot, estado.cores.get(primeiro.numero) ?? '#5e6b7d');
+        cores.set(rot, corDe(primeiro.numero));
         valores.set(cod, primeiro.pct);
         intensidade.set(cod, Math.min(1, (primeiro.pct - (segundo?.pct ?? 0)) / 30));
       } else {
@@ -421,14 +519,14 @@ async function renderizarMapa() {
         valores.set(cod, p.pct);
       }
     }
-    mapa.desenhar({ geo, valores, rotulos, titulo: rotuloVer(v), formato: (x) => pct(x), categorias, cores, intensidade: v === 'vencedor' ? intensidade : null, extra });
+    mapa.desenhar({ ...opcoes, valores, titulo: rotuloVer(v), formato: (x) => pct(x), categorias, cores, intensidade: v === 'vencedor' ? intensidade : null });
     return;
   }
-  for (const [cod, l] of porCod) {
+  for (const [cod, l] of fonte) {
     const x = valor(l, v);
     if (x !== null && Number.isFinite(x)) valores.set(cod, x);
   }
-  mapa.desenhar({ geo, valores, rotulos, titulo: rotuloVer(v), formato: formatoVer(v), extra });
+  mapa.desenhar({ ...opcoes, valores, titulo: rotuloVer(v), formato: formatoVer(v) });
 }
 
 // ---------- resumo em texto ----------
@@ -516,6 +614,13 @@ dica.ligar(el.comparacao, '[data-dica]', (alvo) => {
 });
 
 el.cargo.addEventListener('change', () => { preencherNiveis(nivel()); el.ver.value = ''; el.comparar.value = ''; estado.ordem = null; carregar(); });
+el.turnosMapa.addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-turno]');
+  if (!b || b.dataset.turno === estado.turnoMapa) return;
+  estado.turnoMapa = b.dataset.turno;
+  gravarHash();
+  renderizarMapa();
+});
 el.nivel.addEventListener('change', () => { estado.ordem = null; estado.limite = PAGINA; carregar(); });
 el.ver.addEventListener('change', () => { gravarHash(); estado.ordem = null; renderizar(); });
 el.comparar.addEventListener('change', () => { gravarHash(); renderizarComparacao(); renderizarResumo(); });
@@ -557,6 +662,8 @@ if (document.documentElement.dataset.modulo) {
 }
 
 preencherCargos();
-if (inicial.cargo && cargoPorValor(inicial.cargo)) el.cargo.value = inicial.cargo;
+// Sem cargo no link, abre no Presidente do 2º turno.
+el.cargo.value = inicial.cargo && cargoPorValor(inicial.cargo) ? inicial.cargo : cargoPorValor('6258:1') ? '6258:1' : el.cargo.value;
+if (['1', 'dif'].includes(inicial.turno)) estado.turnoMapa = inicial.turno;
 preencherNiveis(inicial.nivel ?? 'estados');
 carregar();
