@@ -78,7 +78,10 @@ function indice(x, cortes) {
  * @param {HTMLElement} container
  * @param {{aoClicar?: (codarea, feature) => void, dica?: ReturnType<import('./comum.js').criarDica>}} opcoes
  */
+let contadorMapas = 0;
+
 export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
+  const idMapa = `mapa${++contadorMapas}`;
   container.classList.add('mapa');
   container.innerHTML = `<div class="mapa-area"></div>
     <div class="mapa-controles"><button type="button" data-zoom="1" title="Aproximar">+</button><button type="button" data-zoom="-1" title="Afastar">−</button><button type="button" data-zoom="0" title="Mostrar tudo">⟲</button></div>
@@ -197,10 +200,12 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
    *   `valores` passa a ser opcional e aparece só na dica
    * @param {Map<string, string>} [o.cores]  categoria → cor (senão, a paleta categórica pela ordem de frequência)
    * @param {Map<string, number>} [o.intensidade]  codarea → 0..1: cor mais forte onde é maior (ex.: margem)
+   * @param {Map<string, [string, string]>} [o.hachuras]  categoria → [cor de fundo, cor das listras]: categoria
+   *   desenhada listrada (ex.: local que mudou de vencedor entre os turnos)
    * @param {string} [o.notaIntensidade]  o que a cor mais forte quer dizer (legenda)
    * @param {boolean} [o.manterVista]  mesma malha: mantém o zoom e a posição (ex.: alternar 1º e 2º turno)
    */
-  function desenhar({ notaIntensidade = 'cor mais forte = vitória mais folgada', manterVista = false, geo, valores = new Map(), rotulos = new Map(), titulo = '', formato = (v) => fmtNum.format(v), referencia = null, modo = 'quantis', extra = null, destaques = new Set(), categorias = null, cores = null, intensidade = null, rotuloSemDado = 'sem dado' }) {
+  function desenhar({ hachuras = null, notaIntensidade = 'cor mais forte = vitória mais folgada', manterVista = false, geo, valores = new Map(), rotulos = new Map(), titulo = '', formato = (v) => fmtNum.format(v), referencia = null, modo = 'quantis', extra = null, destaques = new Set(), categorias = null, cores = null, intensidade = null, rotuloSemDado = 'sem dado' }) {
     if (!geo?.features?.length) {
       area.innerHTML = '<p class="mudo">Mapa indisponível.</p>';
       legenda.innerHTML = '';
@@ -226,6 +231,18 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
       const ordem = [...contagem.keys()].sort((a, b) => contagem.get(b) - contagem.get(a));
       corCat = new Map(ordem.map((c, i) => [c, cores?.get(c) ?? CATEGORICA[i % CATEGORICA.length]]));
     }
+    // Listras: um <pattern> por par de cores (ids únicos por mapa, pode haver mais de um na página).
+    const padraoDe = new Map();
+    let defsListras = '';
+    for (const [c, [fundo, listra]] of hachuras ?? []) {
+      const chave = `${fundo}|${listra}`;
+      if (!padraoDe.has(chave)) {
+        const id = `${idMapa}-h${padraoDe.size}`;
+        padraoDe.set(chave, id);
+        defsListras += `<pattern id="${id}" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="10" height="10" fill="${esc(fundo)}"/><rect width="4" height="10" fill="${esc(listra)}"/></pattern>`;
+      }
+      padraoDe.set(c, padraoDe.get(chave));
+    }
     const feicoes = new Map();
     let paths = '';
     for (const f of geo.features) {
@@ -239,7 +256,7 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
       let opac = '';
       if (corCat) {
         const cat = categorias.get(cod);
-        fill = cat ? corCat.get(cat) : SEM_DADO;
+        fill = cat ? (padraoDe.has(cat) ? `url(#${padraoDe.get(cat)})` : corCat.get(cat)) : SEM_DADO;
         const k = intensidade?.get(cod);
         if (cat && Number.isFinite(k)) opac = ` fill-opacity="${(0.35 + 0.65 * Math.max(0, Math.min(1, k))).toFixed(2)}"`;
       } else {
@@ -249,7 +266,7 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
       paths += `<path data-cod="${esc(cod)}" d="${d}" fill="${fill}"${opac}${destaques.has(cod) ? ' class="destaque"' : ''}/>`;
     }
     area.innerHTML = `<svg viewBox="0 0 ${largura} ${altura.toFixed(1)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa: ${esc(titulo)}">
-      <defs><pattern id="mapa-sem-dado" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f2f1ed"/><line x1="0" y1="0" x2="0" y2="6" stroke="#c9c8c2" stroke-width="2"/></pattern></defs>
+      <defs><pattern id="mapa-sem-dado" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f2f1ed"/><line x1="0" y1="0" x2="0" y2="6" stroke="#c9c8c2" stroke-width="2"/></pattern>${defsListras}</defs>
       <g class="feicoes">${paths}</g></svg>`;
     container.classList.remove('zoom-locais');
     const vistaAnterior = manterVista && estado?.inicial?.[2] === largura && Math.abs(estado.inicial[3] - altura) < 0.5 ? estado.vb : null;
@@ -259,7 +276,11 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
     if (corCat) {
       const semCat = geo.features.some((f) => !categorias.get(f.properties.codarea));
       legenda.innerHTML = `<span class="mapa-titulo">${esc(titulo)}</span>`
-        + [...corCat].map(([c, cor]) => `<span class="mapa-faixa"><i style="background:${cor}"></i>${esc(c)} <span class="mudo">(${contagem.get(c)})</span></span>`).join('')
+        + [...corCat].map(([c, cor]) => {
+          const h = hachuras?.get(c);
+          const fundo = h ? `repeating-linear-gradient(45deg, ${h[1]} 0 3px, ${h[0]} 3px 7px)` : cor;
+          return `<span class="mapa-faixa"><i style="background:${fundo}"></i>${esc(c)} <span class="mudo">(${contagem.get(c)})</span></span>`;
+        }).join('')
         + (intensidade ? `<span class="mapa-faixa mudo">${esc(notaIntensidade)}</span>` : '')
         + (semCat ? `<span class="mapa-faixa"><i class="sem-dado"></i>${esc(rotuloSemDado)}</span>` : '');
       return;

@@ -464,10 +464,11 @@ async function renderizarMapa() {
   el.notaTurnos.hidden = t !== 'dif';
   if (t === 'dif') {
     if (v === 'vencedor' || v === 'partido') {
-      // Quem venceu em cada local nos dois turnos: manteve (cor fraca) ou virou (cor forte).
+      // Quem venceu em cada local nos dois turnos, na cor do partido; onde virou, listrado com a cor
+      // de quem tinha vencido no 1º turno.
       const categorias = new Map();
       const cores = new Map();
-      const intensidade = new Map();
+      const hachuras = new Map();
       for (const [cod, l2] of porCod) {
         const l1 = t1.porCod.get(cod);
         if (!l2?.validos || !l1?.validos) continue;
@@ -478,10 +479,10 @@ async function renderizarMapa() {
         const cat = k1 === k2 ? `${nome2(k2)}: venceu nos dois turnos` : `Virou para ${nome2(k2)} (no 1º turno: ${nome1(k1)})`;
         categorias.set(cod, cat);
         cores.set(cat, cor(k2));
-        intensidade.set(cod, k1 === k2 ? 0 : 1);
+        if (k1 !== k2) hachuras.set(cat, [cor(k2), cor(k1)]);
       }
-      el.notaTurnos.textContent = 'Cor forte: o local mudou de vencedor do 1º para o 2º turno. Cor fraca: o mesmo venceu nos dois.';
-      mapa.desenhar({ ...opcoes, titulo: 'Vencedor no 1º e no 2º turno', categorias, cores, intensidade, formato: (x) => pct(x), notaIntensidade: 'cor forte = mudou de vencedor' });
+      el.notaTurnos.textContent = 'Cor cheia: o mesmo venceu nos dois turnos. Listrado: o local virou — o fundo é a cor de quem venceu no 2º turno e as listras, de quem tinha vencido no 1º.';
+      mapa.desenhar({ ...opcoes, titulo: 'Vencedor no 1º e no 2º turno', categorias, cores, hachuras, formato: (x) => pct(x) });
       return;
     }
     // Opções numéricas: 2º turno − 1º turno, em pontos percentuais (cores divergentes em torno de 0).
