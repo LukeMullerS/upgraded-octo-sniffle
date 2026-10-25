@@ -201,7 +201,7 @@ async function consultarSecao(pedido, uf, m, zona, secao) {
   if (pedido !== estado.pedido) return false;
   if (!bu) {
     throw aviso(aux ? 'O TSE ainda não publicou o boletim desta seção.'
-      : el.turno.value === '2' ? 'Boletim do 2º turno ainda não publicado (a apuração é em 25/10, depois das 17h).' : 'Boletim desta seção não encontrado no TSE.');
+      : el.turno.value === '2' ? 'Boletim do 2º turno ainda não publicado (a votação foi prorrogada até as 19h de 25/10 e a apuração começa depois).' : 'Boletim desta seção não encontrado no TSE.');
   }
   // Nomes e percentuais da cidade de cada cargo do boletim.
   const cargos = bu.eleicoes.flatMap((e) => e.cargos.map((c) => ({ ...c, eleicao: e.eleicao, aptos: e.aptos })))
@@ -224,7 +224,7 @@ async function consultarCidade(pedido, uf, m, zona = '') {
   if (pedido !== estado.pedido) return false;
   const cargos = lista.map(([, cargo], i) => ({ cargo, r: res[i] })).filter((x) => x.r?.candidatos?.some((c) => c.votos > 0));
   if (!cargos.length) {
-    throw aviso(el.turno.value === '2' ? 'Resultado do 2º turno ainda não publicado (a apuração é em 25/10, depois das 17h).' : 'Resultado desta cidade não encontrado no TSE.');
+    throw aviso(el.turno.value === '2' ? 'Resultado do 2º turno ainda não publicado (a votação foi prorrogada até as 19h de 25/10 e a apuração começa depois).' : 'Resultado desta cidade não encontrado no TSE.');
   }
   const { eleitorado, secoes } = cargos[0].r;
   const zonas = new Set((estado.locais?.locais ?? []).map((l) => l[0]));

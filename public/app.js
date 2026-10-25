@@ -257,17 +257,23 @@ async function carregar() {
   }
 }
 
+// Fim da votação do 2º turno: 19h de Brasília (UTC−3). Era 17h; prorrogado em 25/10/2026 por decisão
+// do STF, em todo o país.
+const HORA_FIM_2T = 19;
+function votacaoEncerrada(e) {
+  const [dia, mes, ano] = String(e?.data ?? '').split('/').map(Number);
+  return !Number.isFinite(ano) || Date.now() >= Date.UTC(ano, mes - 1, dia, HORA_FIM_2T + 3);
+}
+
 // 2º turno antes da apuração: em vez de "falha", diz quando é e quem disputa (do 1º turno).
 async function avisoSegundoTurno(pedido, ele, cargo, uf, municipio) {
   const e = ELEICOES[ele];
   el.status.textContent = `aguardando o 2º turno (${e.data})`;
   el.status.className = 'status';
-  // Urnas fecham às 17h de Brasília (UTC−3) no dia do 2º turno.
-  const [dia, mes, ano] = String(e.data).split('/').map(Number);
-  const comecou = Number.isFinite(ano) && Date.now() >= Date.UTC(ano, mes - 1, dia, 20);
+  const comecou = votacaoEncerrada(e);
   const base = comecou
     ? 'A apuração do <strong>2º turno</strong> já começou: esta janela mostra os resultados assim que o TSE publicar o primeiro boletim deste local (com "automático" marcado, ela atualiza sozinha).'
-    : `O <strong>2º turno</strong> é no domingo, <strong>${esc(e.data)}</strong>. A apuração começa depois das 17h (horário de Brasília), quando as urnas fecham em todo o país, e esta janela mostra os resultados assim que o TSE publicar o primeiro boletim (com "automático" marcado, ela atualiza sozinha).`;
+    : `O <strong>2º turno</strong> é no domingo, <strong>${esc(e.data)}</strong>. A votação vai até as ${HORA_FIM_2T}h (horário de Brasília, prorrogada pelo STF) e a apuração começa quando as urnas fecham em todo o país, e esta janela mostra os resultados assim que o TSE publicar o primeiro boletim (com "automático" marcado, ela atualiza sozinha).`;
   if (comecou) el.status.textContent = 'aguardando o primeiro boletim';
   el.erro.innerHTML = base;
   try {
@@ -483,6 +489,9 @@ function renderizar() {
   const vagas = d.cargo.vagas > 1 ? ` · ${d.cargo.vagas} vagas` : '';
   el.titulo.textContent = `${modoNoronha() ? 'Conselheiro Distrital' : d.cargo.nome || cargo.nome} · ${nomeAbr(el.abrangencia.value)}${nomeMun}${vagas}`;
   el.horario.textContent = d.atualizadoEm ? `Atualizado pelo TSE em ${d.atualizadoEm}` : '';
+  if (eleicaoAtual().turno === 2 && !d.secoes.totalizadas && !votacaoEncerrada(eleicaoAtual())) {
+    el.horario.textContent += `${el.horario.textContent ? ' · ' : ''}votação prorrogada até as ${HORA_FIM_2T}h (horário de Brasília): a apuração começa depois`;
+  }
   el.barra.style.width = `${Math.min(100, d.secoes.percentual)}%`;
   el.pctSecoes.textContent = `${fmtPct.format(d.secoes.percentual)}%`;
   el.secoes.textContent = `${fmtInt.format(d.secoes.totalizadas)} de ${fmtInt.format(d.secoes.total)}`;
