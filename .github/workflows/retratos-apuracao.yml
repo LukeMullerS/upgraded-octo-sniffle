@@ -25,6 +25,7 @@ on:
 
 permissions:
   contents: write
+  actions: write # para se reiniciar sozinho durante a noite da apuração (o agendamento do GitHub falha muito)
 
 concurrency:
   group: retratos-apuracao
@@ -68,3 +69,17 @@ jobs:
           exit 1
         env:
           TURNO: ${{ github.event.inputs.turno || '2' }}
+      - name: Continuar durante a noite da apuração
+        if: always()
+        run: |
+          # Até 4h UTC de 26/10 (1h de Brasília), e só no 2º turno: dispara a próxima execução.
+          AGORA=$(date -u +%Y%m%d%H%M)
+          if [ "${TURNO:-2}" = "2" ] && [ "$AGORA" -ge 202610252000 ] && [ "$AGORA" -lt 202610260400 ]; then
+            gh workflow run retratos-apuracao.yml --ref "$GITHUB_REF_NAME" -f turno=2 -f minutos="${MINUTOS:-8}"
+          else
+            echo "fora da noite da apuração: fim"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TURNO: ${{ github.event.inputs.turno || '2' }}
+          MINUTOS: ${{ github.event.inputs.minutos || '8' }}
