@@ -744,3 +744,14 @@ body:not(.especialista) [data-especialista] { display: none !important; }
 .campos-secao label { display: grid; gap: .2rem; font-size: .85rem; }
 .campos-secao select, .campos-secao input { width: 100%; min-width: 0; }
 .opcao-numeros { display: inline-flex; align-items: center; gap: .35rem; margin: .4rem .75rem 0 0; }
+
+/* Projeção: barra dos dois candidatos com o intervalo de 90% e a linha dos 50%. */
+.barra-projecao { margin: .9rem 0 .2rem; }
+.bp-nomes { display: flex; justify-content: space-between; gap: 1rem; font-weight: 700; font-size: 1.05rem; flex-wrap: wrap; }
+.bp-barra { position: relative; display: flex; height: 26px; border-radius: 6px; overflow: hidden; margin-top: .35rem; }
+.bp-a { display: block; height: 100%; }
+.bp-b { display: block; height: 100%; flex: 1; }
+.bp-intervalo { position: absolute; top: 0; bottom: 0; background: rgb(255 255 255 / .35); border-left: 1px solid rgb(255 255 255 / .8); border-right: 1px solid rgb(255 255 255 / .8); }
+.bp-meio { position: absolute; top: -2px; bottom: -2px; left: 50%; width: 2px; background: var(--texto); }
+.bp-legenda { margin-top: .25rem; }
+.explica li { margin: .35rem 0; }

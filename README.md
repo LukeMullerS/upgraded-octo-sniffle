@@ -131,6 +131,25 @@ taxa de alfabetização (Censo 2022); qualquer outra tabela do SIDRA entra pelo 
 instrução), escolhendo a variável e as categorias. Também dá para **importar um CSV** (primeira coluna: código IBGE,
 código TSE, sigla da UF ou nome do local). A ligação com as cidades usa o código IBGE que o TSE publica.
 
+## Projeção (estimativa do resultado final)
+
+A janela **Projeção** (`/projecao.html`) estima em tempo real o resultado final do 2º turno: Presidente, com os estados
+(e o exterior) como unidades, e Governador nos estados com 2º turno, com as cidades. Mostra a projeção de cada
+candidato com o intervalo de 90%, a chance de cada um terminar na frente, o histograma das simulações, a regressão
+2º × 1º turno e a projeção de cada estado (ou cidade). Atualiza a cada minuto. Não é resultado oficial.
+
+- Modelo em `public/projecao-modelo.js` (sem dependências, testado em `test/projecao.test.js`):
+  1. o que já foi apurado conta como está; só a parte que falta é estimada, local por local;
+  2. regressão bayesiana (prioris fracas) do 2º turno sobre o 1º nos locais com votos:
+     `fatia = A1 + 0,5·O1 + δ + β·(O1 − média)` — A1 é a fatia do candidato no 1º turno, O1 a dos outros candidatos;
+  3. a parte não apurada de cada local mistura o que já saiu ali com a previsão, pesando pela incerteza (as primeiras
+     urnas não são amostra aleatória);
+  4. votos que faltam = eleitores × comparecimento × % de válidos (do 2º turno apurado, encolhido para o 1º turno
+     enquanto há pouco apurado);
+  5. 3.000 simulações sorteiam os coeficientes, o erro de cada local e um desvio comum a toda a parte não apurada (até
+     2,5 p.p. no começo, sumindo com a apuração).
+- Em 40 cenários simulados com resultado conhecido, o intervalo de 90% conteve o resultado em pelo menos 39.
+
 ## Minha seção (votos de uma seção, de uma zona ou da cidade)
 
 A janela **Minha seção** (`/minhasecao.html`) mostra os votos de uma seção eleitoral: a pessoa escolhe o estado, a

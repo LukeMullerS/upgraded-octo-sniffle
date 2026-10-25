@@ -1,0 +1,191 @@
+// Projeção do resultado final do 2º turno em tempo real (modelo em projecao-modelo.js): Presidente,
+// com os estados (e o exterior) como unidades, e Governador, com as cidades do estado.
+
+import { cargoPorValor, carregarEstados, carregarMunicipios, coresPorPartido, criarDica, esc, fmtInt, nomeUf, pct } from './comum.js';
+import { svgDispersao, svgHistograma } from './graficos.js';
+import { CATEGORICA } from './mapa.js';
+import { projetar } from './projecao-modelo.js';
+import { lerMunicipios, urlMunicipios } from './tse.js';
+
+const $ = (id) => document.getElementById(id);
+const el = Object.fromEntries(['disputa', 'status', 'atualizar', 'erro', 'titulo', 'sub-titulo', 'resumo', 'barra-projecao', 'kpis',
+  'simulacoes', 'sub-simulacoes', 'regressao', 'sub-regressao', 'nota-regressao', 'titulo-tabela', 'tabela', 'dica']
+  .map((id) => [id.replace(/-(\w)/g, (_, l) => l.toUpperCase()), $(id)]));
+
+const dica = criarDica(el.dica);
+const estado = { pedido: 0, timer: null, pontos: [] };
+const um = (x) => `${(Math.round(x * 1000) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+// Cores dos dois candidatos: as dos partidos (as mesmas do resto do app).
+let COR_A = 'var(--cat-1)';
+let COR_B = 'var(--cat-2)';
+
+// Disputas do 2º turno: Presidente e, nos estados com 2º turno, Governador.
+async function preencherDisputas() {
+  const opcoes = [['presidente', 'Presidente — Brasil (por estado)']];
+  try {
+    const r = await fetch(urlMunicipios('tse', '6260'));
+    if (r.ok) for (const uf of Object.keys(lerMunicipios(await r.json())).sort()) opcoes.push([`gov:${uf}`, `Governador — ${nomeUf(uf)} (por cidade)`]);
+  } catch { /* só Presidente */ }
+  el.disputa.innerHTML = opcoes.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join('');
+  const pedido = new URLSearchParams(location.hash.slice(1)).get('disputa');
+  if (opcoes.some(([v]) => v === pedido)) el.disputa.value = pedido;
+}
+
+/** Unidades do modelo (2º turno + 1º turno) e os dois candidatos. */
+async function unidadesDa(disputa) {
+  const gov = disputa.startsWith('gov:');
+  const uf = gov ? disputa.slice(4) : null;
+  const [c2, c1] = gov ? [cargoPorValor('6260:3'), cargoPorValor('6259:3')] : [cargoPorValor('6258:1'), cargoPorValor('6257:1')];
+  const [d2, d1] = gov
+    ? await Promise.all([carregarMunicipios(c2, uf), carregarMunicipios(c1, uf)])
+    : await Promise.all([carregarEstados(c2), carregarEstados(c1)]);
+  const l2 = gov ? d2.municipios : d2.estados;
+  const l1 = gov ? d1.municipios : d1.estados;
+  const chave = (r) => (gov ? r.codigo : r.uf);
+  const t1 = new Map(l1.map((r) => [chave(r), r]));
+  // Os dois do 2º turno: os nomes do arquivo do 2º turno, na ordem dos votos (ou do 1º turno).
+  const nomes = d2.nomes ?? {};
+  const soma = (lista, n) => lista.reduce((t, r) => t + (r.cand?.[n] ?? 0), 0);
+  const temVotos2 = Object.keys(nomes).some((n) => soma(l2, n) > 0);
+  const [a, b] = Object.keys(nomes).sort((x, y) => (temVotos2 ? soma(l2, y) - soma(l2, x) : soma(l1, y) - soma(l1, x)));
+  if (!a || !b) throw new Error('candidatos do 2º turno ainda não publicados');
+  const unidades = l2.map((r) => {
+    const p = t1.get(chave(r));
+    return {
+      id: chave(r), nome: gov ? r.nome : nomeUf(r.uf), aptos: r.eleitorado, aptosApurados: r.aptosTotalizadas ?? 0,
+      comparecimento: r.comparecimento ?? 0, validos: r.validos ?? 0, votosA: r.cand?.[a] ?? 0, votosB: r.cand?.[b] ?? 0,
+      t1: p ? { aptos: p.eleitorado, comparecimento: p.comparecimento, validos: p.validos, votosA: p.cand?.[a] ?? 0, votosB: p.cand?.[b] ?? 0 } : null,
+    };
+  });
+  const nome = (n) => `${nomes[n]?.[0] ?? n} (${nomes[n]?.[1] ?? ''})`;
+  const cores = coresPorPartido([a, b], (n) => nomes[n]?.[1], CATEGORICA);
+  [COR_A, COR_B] = [cores.get(a), cores.get(b)];
+  return { unidades, a: { numero: a, nome: nome(a), curto: nomes[a]?.[0] ?? a }, b: { numero: b, nome: nome(b), curto: nomes[b]?.[0] ?? b }, gov, uf };
+}
+
+async function carregar() {
+  const pedido = ++estado.pedido;
+  const disputa = el.disputa.value;
+  history.replaceState(null, '', `#${new URLSearchParams({ disputa })}`);
+  el.status.textContent = 'consultando…';
+  el.status.className = 'status';
+  try {
+    const dados = await unidadesDa(disputa);
+    if (pedido !== estado.pedido) return;
+    const r = projetar({ unidades: dados.unidades });
+    if (!r) throw new Error('sem dados para projetar');
+    renderizar(dados, r);
+    el.erro.hidden = true;
+    el.status.textContent = `atualizado às ${new Date().toLocaleTimeString('pt-BR')}`;
+    el.status.className = 'status ok';
+    agendar(r.fracaoApurada >= 0.9999 ? 600_000 : 60_000);
+  } catch (erro) {
+    if (pedido !== estado.pedido) return;
+    el.erro.hidden = false;
+    el.erro.textContent = `Não foi possível projetar: ${erro.message}`;
+    el.status.textContent = 'falha na consulta';
+    el.status.className = 'status falha';
+    agendar(30_000);
+  }
+}
+
+function agendar(ms) {
+  clearTimeout(estado.timer);
+  estado.timer = setTimeout(() => { if (!document.hidden) carregar(); else agendar(ms); }, ms);
+}
+
+const kpi = (rotulo, valor, detalhe = '') => `<div class="kpi"><dt>${rotulo}</dt><dd><span class="kpi-pct">${valor}</span>${detalhe ? `<small>${detalhe}</small>` : ''}</dd></div>`;
+
+function renderizar({ a, b, gov, uf }, r) {
+  const local = gov ? nomeUf(uf) : 'Brasil';
+  el.titulo.textContent = `${gov ? 'Governador' : 'Presidente'} · ${local} · 2º turno`;
+  el.subTitulo.textContent = `${pct(r.fracaoApurada * 100)} do eleitorado apurado`;
+  const [lo, hi] = r.intervalo;
+  const lider = r.projecao >= 0.5 ? a : b;
+  const pLider = r.projecao >= 0.5 ? r.projecao : 1 - r.projecao;
+  const chanceLider = r.projecao >= 0.5 ? r.chanceA : 1 - r.chanceA;
+  const intervaloLider = r.projecao >= 0.5 ? [lo, hi] : [1 - hi, 1 - lo];
+  const fim = r.fracaoApurada >= 0.9999;
+  if (fim) {
+    el.resumo.innerHTML = `<strong>Apuração encerrada:</strong> ${esc(lider.nome)} terminou com ${um(pLider)} dos votos válidos.`;
+  } else if (!r.modelo.n) {
+    el.resumo.innerHTML = `<strong>Ainda não há urnas apuradas.</strong> Por enquanto a projeção usa só o 1º turno, com metade dos votos dos outros candidatos para cada lado: ${esc(lider.nome)} ${um(pLider)} (entre ${um(intervaloLider[0])} e ${um(intervaloLider[1])}). Muito incerta; melhora assim que as primeiras urnas chegarem.`;
+  } else {
+    el.resumo.innerHTML = `<strong>Projeção:</strong> ${esc(lider.nome)} termina com <strong>${um(pLider)}</strong> dos votos válidos (90% das simulações entre ${um(intervaloLider[0])} e ${um(intervaloLider[1])}). `
+      + `Chance de terminar na frente: <strong>${chanceLider >= 0.995 ? 'mais de 99%' : `${Math.round(chanceLider * 100)}%`}</strong>. `
+      + `Agora, com ${pct(r.fracaoApurada * 100)} apurado, ${esc(a.curto)} tem ${um(r.apuradoA ?? 0)} e ${esc(b.curto)} ${um(1 - (r.apuradoA ?? 0))}.`;
+  }
+  // Barra: projeção dos dois, com o intervalo de 90% marcado e a linha dos 50%.
+  el.barraProjecao.innerHTML = `
+    <div class="bp-nomes"><span style="color:${COR_A}">${esc(a.nome)} ${um(r.projecao)}</span><span style="color:${COR_B}">${um(1 - r.projecao)} ${esc(b.nome)}</span></div>
+    <div class="bp-barra" role="img" aria-label="${esc(a.curto)} ${um(r.projecao)}, ${esc(b.curto)} ${um(1 - r.projecao)}">
+      <span class="bp-a" style="width:${(r.projecao * 100).toFixed(2)}%;background:${COR_A}"></span><span class="bp-b" style="background:${COR_B}"></span>
+      <span class="bp-intervalo" style="left:${(lo * 100).toFixed(2)}%;width:${((hi - lo) * 100).toFixed(2)}%"></span>
+      <span class="bp-meio"></span>
+    </div>
+    <div class="bp-legenda mudo pequeno">faixa clara: intervalo de 90% · traço: 50%</div>`;
+  el.kpis.innerHTML = [
+    kpi('Eleitorado apurado', pct(r.fracaoApurada * 100), `${fmtInt.format(r.unidades.filter((u) => u.f > 0).length)} de ${fmtInt.format(r.unidades.length)} ${gov ? 'cidades' : 'estados'} com votos`),
+    kpi(`Projeção ${esc(a.curto)}`, um(r.projecao), `entre ${um(lo)} e ${um(hi)}`),
+    kpi(`Chance de ${esc(a.curto)} vencer`, `${r.chanceA >= 0.995 ? '>99' : r.chanceA <= 0.005 ? '<1' : Math.round(r.chanceA * 100)}%`, `${esc(b.curto)}: ${r.chanceA >= 0.995 ? '<1' : r.chanceA <= 0.005 ? '>99' : Math.round((1 - r.chanceA) * 100)}%`),
+    kpi('Votos válidos esperados', fmtInt.format(Math.round(r.validosEsperados)), `faltam ~${fmtInt.format(Math.round(r.unidades.reduce((t, u) => t + u.restante, 0)))}`),
+  ].join('');
+  renderizarSimulacoes(a, r);
+  renderizarRegressao(a, r, gov);
+  renderizarTabela(a, b, r, gov);
+}
+
+function renderizarSimulacoes(a, r) {
+  const xs = r.simulacoes;
+  const min = xs[0];
+  const max = xs.at(-1);
+  if (max - min < 1e-6) { el.simulacoes.innerHTML = '<p class="mudo">Apuração completa: sem incerteza.</p>'; el.subSimulacoes.textContent = ''; return; }
+  const n = 30;
+  const passo = (max - min) / n;
+  const faixas = Array.from({ length: n }, (_, i) => ({ inicio: (min + i * passo) * 100, fim: (min + (i + 1) * passo) * 100, contagem: 0 }));
+  for (const x of xs) faixas[Math.min(n - 1, Math.floor((x - min) / passo))].contagem += 1;
+  el.subSimulacoes.textContent = `${fmtInt.format(xs.length)} sorteios · ${a.curto} em % dos válidos`;
+  el.simulacoes.innerHTML = svgHistograma({
+    faixas, rotuloX: `% de ${a.curto} nos votos válidos`, cor: COR_A,
+    linhas: [{ valor: 50, classe: 'ref-principal', rotulo: '50%' }, { valor: r.projecao * 100, classe: 'ref-mediana', rotulo: 'projeção' }],
+  });
+}
+
+function renderizarRegressao(a, r, gov) {
+  const pts = r.unidades.filter((u) => u.y !== null && u.dois >= 50);
+  estado.pontos = pts;
+  el.subRegressao.textContent = `${fmtInt.format(pts.length)} ${gov ? 'cidades' : 'estados'} com votos`;
+  if (!pts.length) { el.regressao.innerHTML = '<p class="mudo">Aparece quando houver urnas apuradas.</p>'; el.notaRegressao.textContent = ''; return; }
+  const maxV = Math.max(...pts.map((u) => u.dois));
+  const { delta, beta } = r.modelo;
+  // A reta do modelo (base do 1º turno → 2º turno) no local com a fatia média de "outros".
+  el.regressao.innerHTML = svgDispersao({
+    pontos: pts.map((u, i) => ({ x: u.base * 100, y: u.y * 100, r: 3 + Math.sqrt(u.dois / maxV) * 12, cor: COR_A, i })),
+    rotuloX: `${a.curto} no 1º turno + metade dos outros (%)`, rotuloY: `${a.curto} no 2º turno (%)`,
+    regressao: { a: delta * 100, b: 1 },
+  });
+  el.notaRegressao.textContent = `Cada ponto é ${gov ? 'uma cidade' : 'um estado'} com votos (tamanho: votos apurados). A reta é o modelo: `
+    + `${a.curto} está ${delta >= 0 ? `${um(delta).replace('%', '')} p.p. acima` : `${um(-delta).replace('%', '')} p.p. abaixo`} do 1º turno com metade dos votos dos outros candidatos`
+    + `${Math.abs(beta) > 0.05 ? `, e os eleitores dos outros pendem ${beta > 0 ? `para ${a.curto}` : 'para o adversário'}` : ''}.`;
+}
+
+function renderizarTabela(a, b, r, gov) {
+  el.tituloTabela.textContent = gov ? 'Por cidade' : 'Por estado';
+  const linhas = [...r.unidades].sort((x, y) => y.restante - x.restante);
+  const celPct = (x) => (x === null || !Number.isFinite(x) ? '—' : um(x));
+  el.tabela.innerHTML = `<thead><tr><th>${gov ? 'Cidade' : 'Estado'}</th><th class="num">Apurado</th><th class="num">${esc(a.curto)} agora</th><th class="num">${esc(a.curto)} no 1º turno</th><th class="num">Previsto (regressão)</th><th class="num">Projeção final</th><th class="num">Votos válidos que faltam</th></tr></thead>
+    <tbody>${linhas.map((u) => `<tr><td class="local">${esc(u.nome)}</td><td class="num">${pct(u.f * 100)}</td><td class="num">${celPct(u.y)}</td><td class="num">${um(u.A1)}</td><td class="num">${um(u.previsto)}</td>`
+      + `<td class="num"><strong style="color:${u.projecao >= 0.5 ? COR_A : COR_B}">${um(u.projecao)}</strong><small class="mudo"> ${u.restante ? `(${um(u.intervalo[0])}–${um(u.intervalo[1])})` : ''}</small></td>`
+      + `<td class="num">${fmtInt.format(Math.round(u.restante))}</td></tr>`).join('')}</tbody>`;
+}
+
+dica.ligar(el.regressao, '[data-dica]', (alvo) => {
+  const u = estado.pontos[Number(alvo.dataset.dica)];
+  if (!u) return null;
+  return `<strong>${esc(u.nome)}</strong><span>1º turno (+ metade dos outros): ${um(u.base)}</span><span>2º turno apurado: ${um(u.y)}</span><span>${pct(u.f * 100)} apurado</span>`;
+});
+
+el.disputa.addEventListener('change', carregar);
+el.atualizar.addEventListener('click', carregar);
+await preencherDisputas();
+carregar();

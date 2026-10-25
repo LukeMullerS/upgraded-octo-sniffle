@@ -48,6 +48,7 @@ const APPS = {
   secao: { titulo: 'Minha seção', icone: 'documento', url: 'minhasecao.html', w: 980, h: 720, descricao: 'Os votos de cada candidato na sua seção (boletim de urna), na sua zona ou na cidade.' },
   candidatos: { titulo: 'Mapa da votação', icone: 'mapa', url: 'candidatos.html', w: 1040, h: 700, descricao: 'Candidatos, partidos, vencedor e comparecimento em mapas por estado e cidade.' },
   logs: { titulo: 'Logs das urnas', icone: 'urna', url: 'urnas.html', w: 1000, h: 680, descricao: 'Tempo de votação, biometria e horários a partir do log de cada urna.' },
+  projecao: { titulo: 'Projeção', icone: 'dispersao', url: 'projecao.html', w: 1000, h: 700, descricao: 'Estimativa em tempo real do resultado final do 2º turno, estado por estado.' },
   explorar: { titulo: 'Análises', icone: 'grafico', url: 'explorar.html', w: 1040, h: 680, descricao: 'Perguntas prontas, mapas e estatística com dados do TSE, IBGE e IPEA.' },
   ...Object.fromEntries(MODULOS.map(([id, titulo, ic, descricao, w, h]) => [`brancos-${id}`, {
     titulo: `${titulo} — Brancos e nulos`, curto: titulo, icone: ic, url: 'brancos.html', modulo: id, w, h, descricao,
@@ -71,7 +72,7 @@ const EXTERNOS = {
 };
 
 const ICONES_AREA = [
-  ['apuracao', 'Apuração'], ['brancos', 'Brancos e nulos'], ['paineis', 'Painéis'],
+  ['apuracao', 'Apuração'], ['projecao', 'Projeção'], ['brancos', 'Brancos e nulos'], ['paineis', 'Painéis'],
   ['candidatos', 'Mapa da votação'], ['municipio', 'Ficha do município'], ['secao', 'Minha seção'], ['explorar', 'Análises'], ['logs', 'Logs das urnas'], ['leiame', 'Leia-me.txt'], ['tse', 'Resultados TSE'], ['ibge', 'IBGE SIDRA'], ['lixeira', 'Lixeira'],
 ];
 
@@ -412,6 +413,7 @@ function montarMenuIniciar() {
     <li class="sep"></li>${itemMenu('pasta', 'Abrir pasta Painéis', 'data-abrir="paineis"')}</ul>`;
   const subEleicoes = `<ul class="menu sub">
     ${itemMenu('computador', 'Apuração', 'data-abrir="apuracao"')}
+    ${itemMenu('dispersao', 'Projeção', 'data-abrir="projecao"')}
     ${itemMenu('pastaPainel', 'Brancos e nulos', 'data-abrir="brancos"')}
     ${itemMenu('pasta', 'Painéis', '', subPaineis)}
     ${itemMenu('mapa', 'Mapa da votação', 'data-abrir="candidatos"')}

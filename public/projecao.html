@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Voto Lab — Eleições 2026</title>
+  <meta name="description" content="Apuração ao vivo, mapas da votação, divisão das cadeiras, ficha de cada município, análises com dados do IBGE e IPEA e os logs das urnas. Dados oficiais do TSE, de graça.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Voto Lab">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:title" content="Voto Lab — Eleições 2026">
+  <meta property="og:description" content="Apuração ao vivo, mapas da votação, divisão das cadeiras, ficha de cada município, análises com dados do IBGE e IPEA e os logs das urnas. Dados oficiais do TSE, de graça.">
+  <meta property="og:url" content="https://votolab.vercel.app/">
+  <meta property="og:image" content="https://votolab.vercel.app/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Voto Lab — Eleições 2026: apuração, mapas, cadeiras e análises">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Voto Lab — Eleições 2026">
+  <meta name="twitter:description" content="Apuração ao vivo, mapas da votação, divisão das cadeiras, ficha de cada município, análises com dados do IBGE e IPEA e os logs das urnas. Dados oficiais do TSE, de graça.">
+  <meta name="twitter:image" content="https://votolab.vercel.app/og.png">
+  <link rel="icon" href="icone.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0b5cad">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <script src="tema.js"></script>
+</head>
+<body class="painel">
+  <header class="topo">
+    <div>
+      <h1>Projeção do resultado</h1>
+      <p class="sub">Estimativa em tempo real do resultado final do 2º turno, a partir das urnas já apuradas em cada estado e do 1º turno</p>
+    </div>
+    <div class="atualizacao">
+      <span id="status" class="status">carregando…</span>
+      <button type="button" class="secundario sem-margem" data-citar>Como citar</button>
+      <button id="atualizar" type="button">Atualizar</button>
+    </div>
+  </header>
+
+  <nav class="abas" aria-label="Páginas">
+    <a href="./">Apuração</a>
+    <a href="projecao.html" aria-current="page">Projeção</a>
+    <a href="candidatos.html">Mapa da votação</a>
+    <a href="municipio.html">Ficha do município</a>
+    <a href="minhasecao.html">Minha seção</a>
+    <a href="explorar.html">Análises</a>
+    <a href="urnas.html">Logs das urnas</a>
+  </nav>
+
+  <nav class="filtros" aria-label="Filtros">
+    <label>Disputa <select id="disputa"></select></label>
+  </nav>
+
+  <main>
+    <section id="erro" class="erro" hidden></section>
+
+    <section class="cartao">
+      <div class="linha"><h2 id="titulo">Projeção</h2><span id="sub-titulo" class="mudo pequeno"></span></div>
+      <p id="resumo" class="resumo-texto"></p>
+      <div id="barra-projecao" class="barra-projecao"></div>
+      <dl id="kpis" class="kpis"></dl>
+      <p class="mudo pequeno">Projeção estatística feita pelo Voto Lab, <strong>não é resultado oficial</strong>. O resultado é o do TSE quando a apuração terminar.</p>
+    </section>
+
+    <div class="grade-painel">
+      <section class="cartao">
+        <div class="linha"><h2>Simulações</h2><span id="sub-simulacoes" class="mudo pequeno"></span></div>
+        <div id="simulacoes" class="grafico"></div>
+      </section>
+      <section class="cartao">
+        <div class="linha"><h2>Regressão: 2º turno × 1º turno</h2><span id="sub-regressao" class="mudo pequeno"></span></div>
+        <div id="regressao" class="grafico"></div>
+        <p id="nota-regressao" class="mudo pequeno"></p>
+      </section>
+    </div>
+
+    <section class="cartao">
+      <div class="linha"><h2 id="titulo-tabela">Por estado</h2><span class="mudo pequeno">do que falta apurar para o que já foi</span></div>
+      <div class="tabela-rolagem"><table class="tabela" id="tabela"></table></div>
+    </section>
+
+    <section class="cartao">
+      <details>
+        <summary><strong>Como é feita a projeção</strong></summary>
+        <ol class="explica">
+          <li><strong>O que já foi apurado conta como está.</strong> A projeção só estima a parte que falta, local por local (estados, para Presidente; cidades, para Governador).</li>
+          <li><strong>Regressão com o 1º turno.</strong> Nos locais que já têm votos, compara a votação de cada candidato no 2º turno com a do 1º: quanto ele ganhou em geral e para que lado foram os eleitores dos candidatos que ficaram de fora. Isso prevê os locais que ainda não começaram a apurar.</li>
+          <li><strong>Mistura das duas fontes.</strong> Num local com parte apurada, o resto é uma média entre o que já saiu ali e a previsão da regressão. Quanto mais apurado, mais vale o que já saiu: as primeiras urnas não são uma amostra aleatória (a ordem de apuração depende de onde ficam).</li>
+          <li><strong>Quantos votos faltam.</strong> Eleitores de cada local × comparecimento × % de votos válidos, do que já foi apurado no 2º turno (e do 1º turno, enquanto há pouco).</li>
+          <li><strong>Incerteza.</strong> Milhares de simulações sorteiam o erro da regressão, o de cada local e um desvio comum a toda a parte não apurada. Elas dão o intervalo (90% das simulações caem dentro dele) e a chance de cada candidato terminar na frente.</li>
+        </ol>
+        <p class="mudo pequeno">Limitações: no começo da apuração, com poucas urnas, a projeção é instável e o intervalo é largo. Votos em trânsito e no exterior seguem o mesmo método. Testada em cenários simulados: o intervalo de 90% conteve o resultado verdadeiro em pelo menos 39 de 40 casos.</p>
+      </details>
+    </section>
+  </main>
+
+  <div id="dica" class="dica" role="tooltip" hidden></div>
+
+  <footer>
+    <p class="credito"><strong>Voto Lab</strong> · por Lucas Müller-Silveira · <a href="#" data-citar>Como citar este programa</a></p>
+    Fonte: <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">TSE</a> (resultados oficiais do 1º e do 2º turno). Projeção: modelo próprio, código aberto.
+  </footer>
+
+  <script type="module" src="projecao.js"></script>
+</body>
+</html>
