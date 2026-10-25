@@ -189,3 +189,26 @@ export function projetar({ unidades, simulacoes = 3000, semente = 7 }) {
     modelo: { delta: beta[0], beta: beta[1], sigma: Math.sqrt(sigma2), n: comDados.length, mediaOutros: mO, desvioComum: sComum },
   };
 }
+
+/**
+ * Unidades do modelo a partir das listas de locais do 2º e do 1º turno (formato de /api/estados e
+ * /api/municipios): `chave` identifica o local nas duas listas, `a` e `b` são os números dos dois.
+ */
+export function montarUnidades({ l2, l1, chave, nome, a, b }) {
+  const t1 = new Map(l1.map((r) => [chave(r), r]));
+  return l2.map((r) => {
+    const p = t1.get(chave(r));
+    return {
+      id: chave(r), nome: nome(r), aptos: r.eleitorado, aptosApurados: r.aptosTotalizadas ?? 0,
+      comparecimento: r.comparecimento ?? 0, validos: r.validos ?? 0, votosA: r.cand?.[a] ?? 0, votosB: r.cand?.[b] ?? 0,
+      t1: p ? { aptos: p.eleitorado, comparecimento: p.comparecimento, validos: p.validos, votosA: p.cand?.[a] ?? 0, votosB: p.cand?.[b] ?? 0 } : null,
+    };
+  });
+}
+
+/** Os dois candidatos do 2º turno: pelos votos do 2º turno ou, antes deles, do 1º. */
+export function doisDaDisputa(nomes, l2, l1) {
+  const soma = (lista, n) => lista.reduce((t, r) => t + (r.cand?.[n] ?? 0), 0);
+  const temVotos2 = Object.keys(nomes).some((n) => soma(l2, n) > 0);
+  return Object.keys(nomes).sort((x, y) => (temVotos2 ? soma(l2, y) - soma(l2, x) : soma(l1, y) - soma(l1, x))).slice(0, 2);
+}

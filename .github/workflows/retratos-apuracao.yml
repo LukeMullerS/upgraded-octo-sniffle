@@ -47,19 +47,22 @@ jobs:
           TURNO: ${{ github.event.inputs.turno || '2' }}
           MINUTOS: ${{ github.event.inputs.minutos || '8' }}
         run: |
+          # Histórico da apuração (linhas no tempo da página Projeção), de minuto em minuto, em paralelo.
+          if [ "$TURNO" = "2" ]; then node scripts/historico-apuracao.mjs --minutos "$MINUTOS" --a-cada 60 & HIST=$!; fi
           if [ "$MINUTOS" = "0" ]; then
             node scripts/atualizar-resultados.mjs --turno "$TURNO"
           else
             node scripts/atualizar-resultados.mjs --turno "$TURNO" --acompanhar=20 --max-minutos="$MINUTOS"
           fi
+          if [ -n "${HIST:-}" ]; then wait "$HIST" || true; fi
       - name: Gravar no repositório
         run: |
-          if git diff --quiet -- public/resultados && [ -z "$(git ls-files --others --exclude-standard public/resultados)" ]; then
+          if git diff --quiet -- public/resultados public/historico && [ -z "$(git ls-files --others --exclude-standard public/resultados public/historico)" ]; then
             echo "nada mudou"; exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/resultados
+          git add public/resultados public/historico
           git commit -m "Atualiza retratos da apuração (${TURNO:-2}º turno)"
           for i in 1 2 3; do git pull --rebase && git push && exit 0; sleep 5; done
           exit 1

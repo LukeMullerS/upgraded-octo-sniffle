@@ -63,6 +63,17 @@
       <p class="mudo pequeno">Projeção estatística feita pelo Voto Lab, <strong>não é resultado oficial</strong>. O resultado é o do TSE quando a apuração terminar.</p>
     </section>
 
+    <section class="cartao">
+      <div class="linha"><h2>Evolução da apuração</h2>
+        <div class="alternar" id="eixo-evolucao" role="group" aria-label="Eixo horizontal">
+          <button type="button" class="secundario sem-margem" data-eixo="tempo" aria-pressed="true">Por horário</button>
+          <button type="button" class="secundario sem-margem" data-eixo="apurado" aria-pressed="false">Por % apurado</button>
+        </div>
+      </div>
+      <div id="evolucao" class="grafico"></div>
+      <p id="nota-evolucao" class="mudo pequeno"></p>
+    </section>
+
     <div class="grade-painel">
       <section class="cartao">
         <div class="linha"><h2>Simulações</h2><span id="sub-simulacoes" class="mudo pequeno"></span></div>

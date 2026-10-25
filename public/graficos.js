@@ -168,3 +168,42 @@ export function svgBarras({ itens, rotuloX, largura = 560, cor = 'var(--destaque
   });
   return `<svg viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
 }
+
+/**
+ * Linhas no tempo (ou em qualquer eixo x numérico). `series` = [{nome, cor, pontos: [{x, y}], tracejada}],
+ * `faixas` = [{cor, pontos: [{x, lo, hi}]}] (área sombreada, ex.: intervalo), `marcasX` opcional (senão,
+ * marcas redondas), `refY` = linha horizontal de referência. Cada ponto leva `data-dica` "série:índice".
+ */
+export function svgLinhas({ series, faixas = [], rotuloX = '', rotuloY = '', refY = null, marcasX = null, largura = 760, altura = 300, fmtX = fmt.format, fmtY = fmt.format }) {
+  const todos = series.flatMap((s) => s.pontos).concat(faixas.flatMap((f) => f.pontos.flatMap((p) => [{ x: p.x, y: p.lo }, { x: p.x, y: p.hi }])))
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  if (!todos.length) return '<p class="mudo">Sem dados suficientes.</p>';
+  const m = { t: 12, r: 16, b: 42, l: 46 };
+  const xs = todos.map((p) => p.x);
+  const x0 = Math.min(...xs);
+  const x1 = Math.max(...xs) > x0 ? Math.max(...xs) : x0 + 1;
+  const ys = todos.map((p) => p.y).concat(Number.isFinite(refY) ? [refY] : []);
+  const ey = marcasEixo(Math.min(...ys), Math.max(...ys), 5);
+  const x = escala(x0, x1, m.l, largura - m.r);
+  const y = escala(ey.inicio, ey.fim, altura - m.b, m.t);
+  const mx = (marcasX ?? marcasEixo(x0, x1, 6).marcas).filter((v) => v >= x0 && v <= x1);
+  let s = eixos({ x, y, w: largura, h: altura, m, marcasX: mx, marcasY: ey.marcas, rotuloX, rotuloY, fmtX, fmtY });
+  for (const f of faixas) {
+    const ps = f.pontos.filter((p) => Number.isFinite(p.lo) && Number.isFinite(p.hi));
+    if (ps.length < 2) continue;
+    const d = `${ps.map((p, i) => `${i ? 'L' : 'M'}${x(p.x).toFixed(1)},${y(p.hi).toFixed(1)}`).join('')}${[...ps].reverse().map((p) => `L${x(p.x).toFixed(1)},${y(p.lo).toFixed(1)}`).join('')}Z`;
+    s += `<path d="${d}" fill="${f.cor}" fill-opacity=".16" stroke="none"/>`;
+  }
+  if (Number.isFinite(refY)) s += linhaReferencia(m.l, y(refY), largura - m.r, y(refY), 'ref-principal');
+  series.forEach((serie, k) => {
+    const ps = serie.pontos.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+    if (!ps.length) return;
+    if (ps.length > 1) s += `<polyline points="${ps.map((p) => `${x(p.x).toFixed(1)},${y(p.y).toFixed(1)}`).join(' ')}" fill="none" stroke="${serie.cor}" stroke-width="2.4"${serie.tracejada ? ' stroke-dasharray="6 4"' : ''} stroke-linejoin="round"/>`;
+    ps.forEach((p, i) => {
+      s += `<circle cx="${x(p.x).toFixed(1)}" cy="${y(p.y).toFixed(1)}" r="${i === ps.length - 1 ? 4 : 2.2}" fill="${serie.cor}" data-dica="${k}:${serie.pontos.indexOf(p)}"/>`;
+    });
+    const u = ps.at(-1);
+    s += `<text class="eixo" x="${Math.min(largura - m.r, x(u.x) + 6)}" y="${y(u.y) - 7}" text-anchor="end" fill="${serie.cor}" style="fill:${serie.cor};font-weight:700">${esc(fmtY(u.y))}</text>`;
+  });
+  return `<svg viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}

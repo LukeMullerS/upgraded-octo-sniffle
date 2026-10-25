@@ -2,18 +2,18 @@
 // com os estados (e o exterior) como unidades, e Governador, com as cidades do estado.
 
 import { cargoPorValor, carregarEstados, carregarMunicipios, coresPorPartido, criarDica, esc, fmtInt, nomeUf, pct } from './comum.js';
-import { svgDispersao, svgHistograma } from './graficos.js';
+import { svgDispersao, svgHistograma, svgLinhas } from './graficos.js';
 import { CATEGORICA } from './mapa.js';
-import { projetar } from './projecao-modelo.js';
+import { doisDaDisputa, montarUnidades, projetar } from './projecao-modelo.js';
 import { lerMunicipios, urlMunicipios } from './tse.js';
 
 const $ = (id) => document.getElementById(id);
 const el = Object.fromEntries(['disputa', 'status', 'atualizar', 'erro', 'titulo', 'sub-titulo', 'resumo', 'barra-projecao', 'kpis',
-  'simulacoes', 'sub-simulacoes', 'regressao', 'sub-regressao', 'nota-regressao', 'titulo-tabela', 'tabela', 'dica']
+  'evolucao', 'nota-evolucao', 'eixo-evolucao', 'simulacoes', 'sub-simulacoes', 'regressao', 'sub-regressao', 'nota-regressao', 'titulo-tabela', 'tabela', 'dica']
   .map((id) => [id.replace(/-(\w)/g, (_, l) => l.toUpperCase()), $(id)]));
 
 const dica = criarDica(el.dica);
-const estado = { pedido: 0, timer: null, pontos: [] };
+const estado = { pedido: 0, timer: null, pontos: [], eixo: 'tempo', vivos: {}, historico: null, ultimo: null };
 const um = (x) => `${(Math.round(x * 1000) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 // Cores dos dois candidatos: as dos partidos (as mesmas do resto do app).
 let COR_A = 'var(--cat-1)';
@@ -42,21 +42,10 @@ async function unidadesDa(disputa) {
   const l2 = gov ? d2.municipios : d2.estados;
   const l1 = gov ? d1.municipios : d1.estados;
   const chave = (r) => (gov ? r.codigo : r.uf);
-  const t1 = new Map(l1.map((r) => [chave(r), r]));
-  // Os dois do 2º turno: os nomes do arquivo do 2º turno, na ordem dos votos (ou do 1º turno).
   const nomes = d2.nomes ?? {};
-  const soma = (lista, n) => lista.reduce((t, r) => t + (r.cand?.[n] ?? 0), 0);
-  const temVotos2 = Object.keys(nomes).some((n) => soma(l2, n) > 0);
-  const [a, b] = Object.keys(nomes).sort((x, y) => (temVotos2 ? soma(l2, y) - soma(l2, x) : soma(l1, y) - soma(l1, x)));
+  const [a, b] = doisDaDisputa(nomes, l2, l1);
   if (!a || !b) throw new Error('candidatos do 2º turno ainda não publicados');
-  const unidades = l2.map((r) => {
-    const p = t1.get(chave(r));
-    return {
-      id: chave(r), nome: gov ? r.nome : nomeUf(r.uf), aptos: r.eleitorado, aptosApurados: r.aptosTotalizadas ?? 0,
-      comparecimento: r.comparecimento ?? 0, validos: r.validos ?? 0, votosA: r.cand?.[a] ?? 0, votosB: r.cand?.[b] ?? 0,
-      t1: p ? { aptos: p.eleitorado, comparecimento: p.comparecimento, validos: p.validos, votosA: p.cand?.[a] ?? 0, votosB: p.cand?.[b] ?? 0 } : null,
-    };
-  });
+  const unidades = montarUnidades({ l2, l1, chave, nome: (r) => (gov ? r.nome : nomeUf(r.uf)), a, b });
   const nome = (n) => `${nomes[n]?.[0] ?? n} (${nomes[n]?.[1] ?? ''})`;
   const cores = coresPorPartido([a, b], (n) => nomes[n]?.[1], CATEGORICA);
   [COR_A, COR_B] = [cores.get(a), cores.get(b)];
@@ -74,11 +63,19 @@ async function carregar() {
     if (pedido !== estado.pedido) return;
     const r = projetar({ unidades: dados.unidades });
     if (!r) throw new Error('sem dados para projetar');
+    // Ponto ao vivo desta consulta (entre as gravações do histórico compartilhado, a cada ~10 min).
+    if (r.apuradoA !== null) {
+      const vivos = (estado.vivos[disputa] ??= []);
+      const u = vivos.at(-1);
+      if (!u || u.ap !== r.fracaoApurada) vivos.push({ t: new Date().toISOString(), ap: r.fracaoApurada, sa: r.apuradoA, p: r.projecao, lo: r.intervalo[0], hi: r.intervalo[1] });
+    }
+    estado.historico = await fetch('historico/2t.json', { cache: 'no-cache' }).then((x) => (x.ok ? x.json() : null)).catch(() => estado.historico);
+    if (pedido !== estado.pedido) return;
     renderizar(dados, r);
     el.erro.hidden = true;
     el.status.textContent = `atualizado às ${new Date().toLocaleTimeString('pt-BR')}`;
     el.status.className = 'status ok';
-    agendar(r.fracaoApurada >= 0.9999 ? 600_000 : 60_000);
+    agendar(r.fracaoApurada >= 0.9999 ? 600_000 : 30_000);
   } catch (erro) {
     if (pedido !== estado.pedido) return;
     el.erro.hidden = false;
@@ -130,9 +127,66 @@ function renderizar({ a, b, gov, uf }, r) {
     kpi(`Chance de ${esc(a.curto)} vencer`, `${r.chanceA >= 0.995 ? '>99' : r.chanceA <= 0.005 ? '<1' : Math.round(r.chanceA * 100)}%`, `${esc(b.curto)}: ${r.chanceA >= 0.995 ? '<1' : r.chanceA <= 0.005 ? '>99' : Math.round((1 - r.chanceA) * 100)}%`),
     kpi('Votos válidos esperados', fmtInt.format(Math.round(r.validosEsperados)), `faltam ~${fmtInt.format(Math.round(r.unidades.reduce((t, u) => t + u.restante, 0)))}`),
   ].join('');
+  estado.ultimo = { a, b, gov, uf };
+  renderizarEvolucao();
   renderizarSimulacoes(a, r);
   renderizarRegressao(a, r, gov);
   renderizarTabela(a, b, r, gov);
+}
+
+const HORA = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+
+/** Linhas de cada candidato (apurado) e da projeção, do histórico compartilhado + o desta sessão. */
+function renderizarEvolucao() {
+  if (!estado.ultimo) return;
+  const { a, b, gov, uf } = estado.ultimo;
+  for (const bt of el.eixoEvolucao.querySelectorAll('[data-eixo]')) bt.setAttribute('aria-pressed', String(bt.dataset.eixo === estado.eixo));
+  const disputa = gov ? `gov:${uf}` : 'presidente';
+  const h = gov ? estado.historico?.governador?.[uf] : estado.historico?.presidente;
+  // No histórico a ordem dos dois é fixa; aqui "a" é o que lidera agora: troca se precisar.
+  const trocado = h?.numeros && String(h.numeros.a) !== String(a.numero);
+  const gravados = (h?.pontos ?? []).filter((p) => p.a + p.b > 0).map((p) => {
+    const sa = p.a / (p.a + p.b);
+    const proj = Number.isFinite(p.p) ? { p: p.p, lo: p.lo, hi: p.hi } : {};
+    if (trocado) return { t: p.t, ap: p.ap, sa: 1 - sa, ...(proj.p !== undefined ? { p: 1 - proj.p, lo: 1 - proj.hi, hi: 1 - proj.lo } : {}) };
+    return { t: p.t, ap: p.ap, sa, ...proj };
+  });
+  const ultimoGravado = gravados.at(-1)?.t ?? '';
+  // Pontos desta sessão depois do último gravado (e nunca "voltando" na apuração: resposta antiga do cache).
+  const apGravado = gravados.at(-1)?.ap ?? 0;
+  const pontos = [...gravados, ...(estado.vivos[disputa] ?? []).filter((p) => p.t > ultimoGravado && p.ap >= apGravado)];
+  if (!pontos.length) {
+    el.evolucao.innerHTML = '<p class="mudo">A linha começa assim que houver votos apurados.</p>';
+    el.notaEvolucao.textContent = '';
+    return;
+  }
+  const porTempo = estado.eixo === 'tempo';
+  const x = (p) => (porTempo ? Date.parse(p.t) : p.ap * 100);
+  // Marcas de horário redondas (10, 15, 30 ou 60 min, conforme o período).
+  let marcasX = null;
+  if (porTempo) {
+    const t0 = x(pontos[0]);
+    const t1 = x(pontos.at(-1));
+    const passo = [10, 15, 30, 60, 120].map((m) => m * 60_000).find((m) => (t1 - t0) / m <= 7) ?? 240 * 60_000;
+    marcasX = [];
+    for (let t = Math.ceil(t0 / passo) * passo; t <= t1; t += passo) marcasX.push(t);
+    if (marcasX.length < 2) marcasX = [t0, t1];
+  }
+  const comProj = pontos.filter((p) => Number.isFinite(p.p));
+  el.evolucao.innerHTML = svgLinhas({
+    series: [
+      { nome: a.curto, cor: COR_A, pontos: pontos.map((p) => ({ x: x(p), y: p.sa * 100 })) },
+      { nome: b.curto, cor: COR_B, pontos: pontos.map((p) => ({ x: x(p), y: (1 - p.sa) * 100 })) },
+      ...(comProj.length ? [{ nome: `projeção ${a.curto}`, cor: COR_A, tracejada: true, pontos: comProj.map((p) => ({ x: x(p), y: p.p * 100 })) }] : []),
+    ],
+    faixas: comProj.length ? [{ cor: COR_A, pontos: comProj.map((p) => ({ x: x(p), lo: p.lo * 100, hi: p.hi * 100 })) }] : [],
+    refY: 50, marcasX,
+    rotuloX: porTempo ? 'horário de Brasília' : '% do eleitorado apurado', rotuloY: '% dos votos válidos',
+    fmtX: porTempo ? (v) => HORA.format(new Date(v)) : (v) => `${Math.round(v * 10) / 10}%`,
+    fmtY: (v) => `${(Math.round(v * 10) / 10).toLocaleString('pt-BR')}%`,
+  });
+  el.notaEvolucao.textContent = `Linhas cheias: % de cada candidato nos votos já apurados. Tracejada: projeção do resultado final de ${a.curto}, com a faixa de 90%. `
+    + 'O histórico é gravado pelo Voto Lab a cada minuto durante a apuração (o mesmo para todos) e esta página acrescenta os pontos de cada atualização enquanto fica aberta.';
 }
 
 function renderizarSimulacoes(a, r) {
@@ -186,6 +240,12 @@ dica.ligar(el.regressao, '[data-dica]', (alvo) => {
 });
 
 el.disputa.addEventListener('change', carregar);
+el.eixoEvolucao.addEventListener('click', (ev) => {
+  const bt = ev.target.closest('[data-eixo]');
+  if (!bt) return;
+  estado.eixo = bt.dataset.eixo;
+  renderizarEvolucao();
+});
 el.atualizar.addEventListener('click', carregar);
 await preencherDisputas();
 carregar();
