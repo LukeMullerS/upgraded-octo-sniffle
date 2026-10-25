@@ -8,7 +8,7 @@ import { doisDaDisputa, montarUnidades, projetar } from './projecao-modelo.js';
 import { expandirRetrato, lerMunicipios, urlMunicipios } from './tse.js';
 
 const $ = (id) => document.getElementById(id);
-const el = Object.fromEntries(['disputa', 'status', 'atualizar', 'erro', 'titulo', 'sub-titulo', 'resumo', 'barra-projecao', 'kpis',
+const el = Object.fromEntries(['disputa', 'foco', 'status', 'atualizar', 'erro', 'titulo', 'sub-titulo', 'resumo', 'barra-projecao', 'kpis',
   'evolucao', 'nota-evolucao', 'eixo-evolucao', 'simulacoes', 'sub-simulacoes', 'regressao', 'sub-regressao', 'nota-regressao', 'titulo-tabela', 'tabela', 'dica']
   .map((id) => [id.replace(/-(\w)/g, (_, l) => l.toUpperCase()), $(id)]));
 
@@ -73,20 +73,52 @@ function candidatos(nomes, a, b) {
   return { a: { numero: a, nome: nome(a), curto: nomes[a]?.[0] ?? a }, b: { numero: b, nome: nome(b), curto: nomes[b]?.[0] ?? b } };
 }
 
+/** Troca os dois candidatos de lugar (o "a" do modelo passa a ser o outro). */
+function trocar(d) {
+  const sw = (o) => (o ? { ...o, votosA: o.votosB, votosB: o.votosA } : o);
+  [COR_A, COR_B] = [COR_B, COR_A];
+  return {
+    ...d, a: d.b, b: d.a,
+    unidades: d.unidades.map((u) => ({ ...sw(u), t1: sw(u.t1) })),
+    aoVivo: d.aoVivo && Object.fromEntries(Object.entries(d.aoVivo).map(([k, v]) => [k, sw(v)])),
+  };
+}
+
+/** Opções de "Candidato em foco": cenário atual e os dois, em ordem alfabética (sem preferência). */
+function preencherFoco(a, b) {
+  const atual = el.foco.value || new URLSearchParams(location.hash.slice(1)).get('foco') || '';
+  const dois = [a, b].sort((x, y) => x.curto.localeCompare(y.curto, 'pt-BR'));
+  el.foco.innerHTML = `<option value="">Cenário atual (quem lidera a apuração agora)</option>${dois.map((c) => `<option value="${esc(c.numero)}">${esc(c.nome)}</option>`).join('')}`;
+  el.foco.value = dois.some((c) => String(c.numero) === atual) ? atual : '';
+}
+
 async function carregar() {
   const pedido = ++estado.pedido;
   const disputa = el.disputa.value;
-  history.replaceState(null, '', `#${new URLSearchParams({ disputa })}`);
   el.status.textContent = 'consultando…';
   el.status.className = 'status';
   try {
-    const dados = await unidadesDa(disputa);
+    let dados = await unidadesDa(disputa);
     if (pedido !== estado.pedido) return;
-    const r = projetar({ unidades: dados.unidades, aoVivo: dados.aoVivo });
-    if (!r) throw new Error('sem dados para projetar');
+    // Candidato em foco: o modelo e os gráficos são do ponto de vista dele (no cenário atual, de quem
+    // lidera a apuração agora).
+    preencherFoco(dados.a, dados.b);
+    // Um cálculo só, sempre na mesma ordem (menor número primeiro): os números principais são os mesmos
+    // em qualquer foco, só espelhados (sem diferença de sorteio entre um ponto de vista e outro).
+    const ordem = Number(dados.a.numero) > Number(dados.b.numero) ? trocar(dados) : dados;
+    const base = projetar({ unidades: ordem.unidades, aoVivo: ordem.aoVivo });
+    if (!base) throw new Error('sem dados para projetar');
+    if (el.foco.value && String(el.foco.value) === String(dados.b.numero)) dados = trocar(dados);
+    history.replaceState(null, '', `#${new URLSearchParams({ disputa, ...(el.foco.value && { foco: el.foco.value }) })}`);
+    // Tabela, regressão e gráficos do ponto de vista do candidato em foco; os totais vêm do cálculo base.
+    const vista = String(dados.a.numero) === String(ordem.a.numero) ? base : projetar({ unidades: dados.unidades, aoVivo: dados.aoVivo });
+    const r = vista === base ? base : {
+      ...vista, projecao: 1 - base.projecao, intervalo: [1 - base.intervalo[1], 1 - base.intervalo[0]], chanceA: 1 - base.chanceA,
+      apuradoA: base.apuradoA === null ? null : 1 - base.apuradoA, simulacoes: base.simulacoes.map((x) => 1 - x).reverse(),
+    };
     // Ponto ao vivo desta consulta (entre as gravações do histórico compartilhado, a cada ~10 min).
     if (r.apuradoA !== null) {
-      const vivos = (estado.vivos[disputa] ??= []);
+      const vivos = (estado.vivos[`${disputa}|${dados.a.numero}`] ??= []);
       const u = vivos.at(-1);
       if (!u || u.ap !== r.fracaoApurada) vivos.push({ t: new Date().toISOString(), ap: r.fracaoApurada, sa: r.apuradoA, p: r.projecao, lo: r.intervalo[0], hi: r.intervalo[1] });
     }
@@ -121,17 +153,17 @@ function renderizar({ a, b, gov, uf, nivel, retratoEm }, r) {
   const [lo, hi] = r.intervalo;
   const lider = r.projecao >= 0.5 ? a : b;
   const pLider = r.projecao >= 0.5 ? r.projecao : 1 - r.projecao;
-  const chanceLider = r.projecao >= 0.5 ? r.chanceA : 1 - r.chanceA;
-  const intervaloLider = r.projecao >= 0.5 ? [lo, hi] : [1 - hi, 1 - lo];
   const fim = r.fracaoApurada >= 0.9999;
   if (fim) {
     el.resumo.innerHTML = `<strong>Apuração encerrada:</strong> ${esc(lider.nome)} terminou com ${um(pLider)} dos votos válidos.`;
   } else if (!r.modelo.n) {
-    el.resumo.innerHTML = `<strong>Ainda não há urnas apuradas.</strong> Por enquanto a projeção usa só o 1º turno, com metade dos votos dos outros candidatos para cada lado: ${esc(lider.nome)} ${um(pLider)} (entre ${um(intervaloLider[0])} e ${um(intervaloLider[1])}). Muito incerta; melhora assim que as primeiras urnas chegarem.`;
+    el.resumo.innerHTML = `<strong>Ainda não há urnas apuradas.</strong> Por enquanto a projeção usa só o 1º turno, com metade dos votos dos outros candidatos para cada lado: ${esc(a.nome)} ${um(r.projecao)} × ${esc(b.nome)} ${um(1 - r.projecao)}, com intervalo largo (${um(lo)} a ${um(hi)} para ${esc(a.curto)}). Muito incerta; melhora assim que as primeiras urnas chegarem.`;
   } else {
-    el.resumo.innerHTML = `<strong>Projeção:</strong> ${esc(lider.nome)} termina com <strong>${um(pLider)}</strong> dos votos válidos (90% das simulações entre ${um(intervaloLider[0])} e ${um(intervaloLider[1])}). `
-      + `Chance de terminar na frente: <strong>${chanceLider >= 0.995 ? 'mais de 99%' : `${Math.round(chanceLider * 100)}%`}</strong>. `
-      + `Agora, com ${pct(r.fracaoApurada * 100)} apurado, ${esc(a.curto)} tem ${um(r.apuradoA ?? 0)} e ${esc(b.curto)} ${um(1 - (r.apuradoA ?? 0))}.`;
+    // Os dois lado a lado, com os mesmos números para cada um.
+    const chance = (c) => (c >= 0.995 ? 'mais de 99%' : c <= 0.005 ? 'menos de 1%' : `${Math.round(c * 100)}%`);
+    el.resumo.innerHTML = `<strong>Projeção:</strong> ${esc(a.nome)} <strong>${um(r.projecao)}</strong> (entre ${um(lo)} e ${um(hi)}) × ${esc(b.nome)} <strong>${um(1 - r.projecao)}</strong> (entre ${um(1 - hi)} e ${um(1 - lo)}). `
+      + `Chance de terminar na frente: ${esc(a.curto)} <strong>${chance(r.chanceA)}</strong> · ${esc(b.curto)} <strong>${chance(1 - r.chanceA)}</strong>. `
+      + `Apurado agora (${pct(r.fracaoApurada * 100)} do eleitorado): ${esc(a.curto)} ${um(r.apuradoA ?? 0)} · ${esc(b.curto)} ${um(1 - (r.apuradoA ?? 0))}.`;
   }
   // Barra: projeção dos dois, com o intervalo de 90% marcado e a linha dos 50%.
   el.barraProjecao.innerHTML = `
@@ -175,7 +207,7 @@ function renderizarEvolucao() {
   const ultimoGravado = gravados.at(-1)?.t ?? '';
   // Pontos desta sessão depois do último gravado (e nunca "voltando" na apuração: resposta antiga do cache).
   const apGravado = gravados.at(-1)?.ap ?? 0;
-  const pontos = [...gravados, ...(estado.vivos[disputa] ?? []).filter((p) => p.t > ultimoGravado && p.ap >= apGravado)];
+  const pontos = [...gravados, ...(estado.vivos[`${disputa}|${a.numero}`] ?? []).filter((p) => p.t > ultimoGravado && p.ap >= apGravado)];
   if (!pontos.length) {
     el.evolucao.innerHTML = '<p class="mudo">A linha começa assim que houver votos apurados.</p>';
     el.notaEvolucao.textContent = '';
@@ -264,7 +296,8 @@ dica.ligar(el.regressao, '[data-dica]', (alvo) => {
   return `<strong>${esc(u.nome)}</strong><span>1º turno (+ metade dos outros): ${um(u.base)}</span><span>2º turno apurado: ${um(u.y)}</span><span>${pct(u.f * 100)} apurado</span>`;
 });
 
-el.disputa.addEventListener('change', carregar);
+el.disputa.addEventListener('change', () => { el.foco.value = ''; carregar(); });
+el.foco.addEventListener('change', carregar);
 el.eixoEvolucao.addEventListener('click', (ev) => {
   const bt = ev.target.closest('[data-eixo]');
   if (!bt) return;
