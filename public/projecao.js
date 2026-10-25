@@ -13,7 +13,7 @@ const el = Object.fromEntries(['disputa', 'foco', 'status', 'atualizar', 'erro',
   .map((id) => [id.replace(/-(\w)/g, (_, l) => l.toUpperCase()), $(id)]));
 
 const dica = criarDica(el.dica);
-const estado = { pedido: 0, timer: null, pontos: [], eixo: 'tempo', vivos: {}, historico: null, ultimo: null };
+const estado = { zoom: 1, pedido: 0, timer: null, pontos: [], eixo: 'tempo', vivos: {}, historico: null, ultimo: null };
 const um = (x) => `${(Math.round(x * 1000) / 10).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 // Cores dos dois candidatos: as dos partidos (as mesmas do resto do app).
 let COR_A = 'var(--cat-1)';
@@ -69,14 +69,12 @@ async function unidadesDa(disputa) {
 function candidatos(nomes, a, b) {
   const nome = (n) => `${nomes[n]?.[0] ?? n} (${nomes[n]?.[1] ?? ''})`;
   const cores = coresPorPartido([a, b], (n) => nomes[n]?.[1], CATEGORICA);
-  [COR_A, COR_B] = [cores.get(a), cores.get(b)];
-  return { a: { numero: a, nome: nome(a), curto: nomes[a]?.[0] ?? a }, b: { numero: b, nome: nome(b), curto: nomes[b]?.[0] ?? b } };
+  return { cores, a: { numero: a, nome: nome(a), curto: nomes[a]?.[0] ?? a }, b: { numero: b, nome: nome(b), curto: nomes[b]?.[0] ?? b } };
 }
 
 /** Troca os dois candidatos de lugar (o "a" do modelo passa a ser o outro). */
 function trocar(d) {
   const sw = (o) => (o ? { ...o, votosA: o.votosB, votosB: o.votosA } : o);
-  [COR_A, COR_B] = [COR_B, COR_A];
   return {
     ...d, a: d.b, b: d.a,
     unidades: d.unidades.map((u) => ({ ...sw(u), t1: sw(u.t1) })),
@@ -109,6 +107,8 @@ async function carregar() {
     const base = projetar({ unidades: ordem.unidades, aoVivo: ordem.aoVivo });
     if (!base) throw new Error('sem dados para projetar');
     if (el.foco.value && String(el.foco.value) === String(dados.b.numero)) dados = trocar(dados);
+    // Cor de cada um: a do partido dele, seja qual for o foco.
+    [COR_A, COR_B] = [dados.cores.get(dados.a.numero), dados.cores.get(dados.b.numero)];
     history.replaceState(null, '', `#${new URLSearchParams({ disputa, ...(el.foco.value && { foco: el.foco.value }) })}`);
     // Tabela, regressão e gráficos do ponto de vista do candidato em foco; os totais vêm do cálculo base.
     const vista = String(dados.a.numero) === String(ordem.a.numero) ? base : projetar({ unidades: dados.unidades, aoVivo: dados.aoVivo });
@@ -226,7 +226,20 @@ function renderizarEvolucao() {
     if (marcasX.length < 2) marcasX = [t0, t1];
   }
   const comProj = pontos.filter((p) => Number.isFinite(p.p));
-  el.evolucao.innerHTML = svgLinhas({
+  // Desenhado na largura real da tela (texto legível no celular); o zoom alarga o eixo do tempo e a
+  // área rola para os lados, começando no trecho mais recente.
+  const larguraTela = Math.max(300, Math.floor(el.evolucao.clientWidth || 760));
+  const largura = larguraTela * estado.zoom;
+  const altura = larguraTela < 520 ? 300 : 320;
+  if (marcasX && estado.zoom > 1) {
+    const t0 = x(pontos[0]);
+    const t1 = x(pontos.at(-1));
+    const passo = [5, 10, 15, 30, 60].map((m) => m * 60_000).find((m) => (t1 - t0) / m <= 6 * estado.zoom * (larguraTela / 600)) ?? 60 * 60_000;
+    marcasX = [];
+    for (let t = Math.ceil(t0 / passo) * passo; t <= t1; t += passo) marcasX.push(t);
+  }
+  const svg = svgLinhas({
+    largura, altura,
     series: [
       { nome: a.curto, cor: COR_A, pontos: pontos.map((p) => ({ x: x(p), y: p.sa * 100 })) },
       { nome: b.curto, cor: COR_B, pontos: pontos.map((p) => ({ x: x(p), y: (1 - p.sa) * 100 })) },
@@ -238,6 +251,10 @@ function renderizarEvolucao() {
     fmtX: porTempo ? (v) => HORA.format(new Date(v)) : (v) => `${Math.round(v * 10) / 10}%`,
     fmtY: (v) => `${(Math.round(v * 10) / 10).toLocaleString('pt-BR')}%`,
   });
+  el.evolucao.innerHTML = `<div class="rolagem-evolucao"><div style="width:${largura}px">${svg}</div></div>`;
+  const rolagem = el.evolucao.firstElementChild;
+  rolagem.scrollLeft = rolagem.scrollWidth;
+  for (const bt of el.eixoEvolucao.querySelectorAll('[data-zoom]')) bt.disabled = (bt.dataset.zoom === '+' && estado.zoom >= 8) || (bt.dataset.zoom === '-' && estado.zoom <= 1);
   el.notaEvolucao.textContent = `Linhas cheias: % de cada candidato nos votos já apurados. Tracejada: projeção do resultado final de ${a.curto}, com a faixa de 90%. `
     + 'O histórico é gravado pelo Voto Lab a cada minuto durante a apuração (o mesmo para todos) e esta página acrescenta os pontos de cada atualização enquanto fica aberta.';
 }
@@ -299,11 +316,20 @@ dica.ligar(el.regressao, '[data-dica]', (alvo) => {
 el.disputa.addEventListener('change', () => { el.foco.value = ''; carregar(); });
 el.foco.addEventListener('change', carregar);
 el.eixoEvolucao.addEventListener('click', (ev) => {
+  const z = ev.target.closest('[data-zoom]');
+  if (z) {
+    estado.zoom = z.dataset.zoom === '+' ? Math.min(8, estado.zoom * 2) : Math.max(1, estado.zoom / 2);
+    renderizarEvolucao();
+    return;
+  }
   const bt = ev.target.closest('[data-eixo]');
   if (!bt) return;
   estado.eixo = bt.dataset.eixo;
   renderizarEvolucao();
 });
+// Girar o celular ou mudar o tamanho da janela redesenha na nova largura.
+let timerTamanho = null;
+addEventListener('resize', () => { clearTimeout(timerTamanho); timerTamanho = setTimeout(renderizarEvolucao, 200); });
 el.atualizar.addEventListener('click', carregar);
 await preencherDisputas();
 carregar();

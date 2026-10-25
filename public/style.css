@@ -755,3 +755,5 @@ body:not(.especialista) [data-especialista] { display: none !important; }
 .bp-meio { position: absolute; top: -2px; bottom: -2px; left: 50%; width: 2px; background: var(--texto); }
 .bp-legenda { margin-top: .25rem; }
 .explica li { margin: .35rem 0; }
+.rolagem-evolucao { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.rolagem-evolucao svg { width: 100%; height: auto; display: block; }
