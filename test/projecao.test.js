@@ -62,3 +62,18 @@ test('projeção: nada apurado usa só o 1º turno (metade dos outros para cada 
   assert.ok(r.intervalo[1] - r.intervalo[0] > 0.05, 'sem apuração o intervalo tem de ser largo');
   assert.equal(r.modelo.n, 0);
 });
+
+import { valorP } from '../public/projecao-modelo.js';
+
+test('valor p bilateral da normal: z = 1,96 → 0,05; z = 3,29 → 0,001; z = 0 → 1', () => {
+  assert.ok(Math.abs(valorP(1.96) - 0.05) < 1e-3);
+  assert.ok(Math.abs(valorP(3.2905) - 0.001) < 1e-4);
+  assert.ok(Math.abs(valorP(0) - 1) < 1e-6);
+});
+
+test('teste da vantagem: sem nada apurado não é significativo; com tudo apurado, p ≈ 0', () => {
+  const vazio = cenario({ apurado: () => 0 });
+  assert.ok(projetar({ unidades: vazio.unidades, simulacoes: 1500 }).teste.p > 0.001);
+  const cheio = cenario({ apurado: () => 1 });
+  assert.ok(projetar({ unidades: cheio.unidades, simulacoes: 300 }).teste.p < 0.001);
+});

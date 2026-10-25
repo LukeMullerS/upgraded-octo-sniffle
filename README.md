@@ -152,6 +152,12 @@ candidato com o intervalo de 90%, a chance de cada um terminar na frente, o hist
   6. simulações por estado: coeficientes e efeitos de estado (Cholesky da covariância), erro somado das cidades e um
      desvio comum da parte não apurada.
 - Validação (cenários simulados com apuração fora de ordem): erro médio de 1 p.p., metade do modelo por estado.
+- Validação com os dados reais do 2º turno de 2026 (cidades 100% apuradas escondidas e previstas): erro de 1,2 p.p.
+  por cidade e 0,55 p.p. num estado inteiro escondido; intervalos de 90% acertando 93% das cidades e 14 de 14 estados.
+  Daí vieram: o tamanho da cidade como variável, σ estimado só com as cidades completas, τ (efeitos de estado)
+  estimado pelos dados (EM) e o ruído de amostra dos votos que faltam no intervalo de cada cidade.
+- Significância: valor p de cada coeficiente (H0: coeficiente = 0) e da vantagem projetada (H0: quem aparece atrás
+  termina na frente; unilateral, pela aproximação normal das simulações).
 
 ## Minha seção (votos de uma seção, de uma zona ou da cidade)
 

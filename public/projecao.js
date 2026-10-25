@@ -9,7 +9,7 @@ import { expandirRetrato, lerMunicipios, urlMunicipios } from './tse.js';
 
 const $ = (id) => document.getElementById(id);
 const el = Object.fromEntries(['disputa', 'foco', 'status', 'atualizar', 'erro', 'titulo', 'sub-titulo', 'resumo', 'barra-projecao', 'kpis',
-  'evolucao', 'nota-evolucao', 'eixo-evolucao', 'simulacoes', 'sub-simulacoes', 'regressao', 'sub-regressao', 'nota-regressao', 'titulo-tabela', 'tabela', 'dica']
+  'evolucao', 'nota-evolucao', 'eixo-evolucao', 'simulacoes', 'sub-simulacoes', 'regressao', 'sub-regressao', 'nota-regressao', 'coeficientes', 'titulo-tabela', 'tabela', 'dica']
   .map((id) => [id.replace(/-(\w)/g, (_, l) => l.toUpperCase()), $(id)]));
 
 const dica = criarDica(el.dica);
@@ -114,7 +114,7 @@ async function carregar() {
     const vista = String(dados.a.numero) === String(ordem.a.numero) ? base : projetar({ unidades: dados.unidades, aoVivo: dados.aoVivo });
     const r = vista === base ? base : {
       ...vista, projecao: 1 - base.projecao, intervalo: [1 - base.intervalo[1], 1 - base.intervalo[0]], chanceA: 1 - base.chanceA,
-      apuradoA: base.apuradoA === null ? null : 1 - base.apuradoA, simulacoes: base.simulacoes.map((x) => 1 - x).reverse(),
+      apuradoA: base.apuradoA === null ? null : 1 - base.apuradoA, simulacoes: base.simulacoes.map((x) => 1 - x).reverse(), teste: base.teste,
     };
     // Ponto ao vivo desta consulta (entre as gravações do histórico compartilhado, a cada ~10 min).
     if (r.apuradoA !== null) {
@@ -144,6 +144,9 @@ function agendar(ms) {
   estado.timer = setTimeout(() => { if (!document.hidden) carregar(); else agendar(ms); }, ms);
 }
 
+/** Valor p no formato usual: "p<0,001" ou "p = 0,034". */
+const fmtP = (p) => (p < 0.001 ? 'p<0,001' : `p = ${p.toLocaleString('pt-BR', { maximumFractionDigits: 3, minimumFractionDigits: 3 })}`);
+
 const kpi = (rotulo, valor, detalhe = '') => `<div class="kpi"><dt>${rotulo}</dt><dd><span class="kpi-pct">${valor}</span>${detalhe ? `<small>${detalhe}</small>` : ''}</dd></div>`;
 
 function renderizar({ a, b, gov, uf, nivel, retratoEm }, r) {
@@ -163,7 +166,10 @@ function renderizar({ a, b, gov, uf, nivel, retratoEm }, r) {
     const chance = (c) => (c >= 0.995 ? 'mais de 99%' : c <= 0.005 ? 'menos de 1%' : `${Math.round(c * 100)}%`);
     el.resumo.innerHTML = `<strong>Projeção:</strong> ${esc(a.nome)} <strong>${um(r.projecao)}</strong> (entre ${um(lo)} e ${um(hi)}) × ${esc(b.nome)} <strong>${um(1 - r.projecao)}</strong> (entre ${um(1 - hi)} e ${um(1 - lo)}). `
       + `Chance de terminar na frente: ${esc(a.curto)} <strong>${chance(r.chanceA)}</strong> · ${esc(b.curto)} <strong>${chance(1 - r.chanceA)}</strong>. `
-      + `Apurado agora (${pct(r.fracaoApurada * 100)} do eleitorado): ${esc(a.curto)} ${um(r.apuradoA ?? 0)} · ${esc(b.curto)} ${um(1 - (r.apuradoA ?? 0))}.`;
+      + `Apurado agora (${pct(r.fracaoApurada * 100)} do eleitorado): ${esc(a.curto)} ${um(r.apuradoA ?? 0)} · ${esc(b.curto)} ${um(1 - (r.apuradoA ?? 0))}. `
+      + (r.teste.p < 0.05
+        ? `A diferença projetada entre os dois é <strong>estatisticamente significativa (${fmtP(r.teste.p)})</strong>.`
+        : `A diferença projetada entre os dois <strong>ainda não é estatisticamente significativa (${fmtP(r.teste.p)})</strong>: pode virar.`);
   }
   // Barra: projeção dos dois, com o intervalo de 90% marcado e a linha dos 50%.
   el.barraProjecao.innerHTML = `
@@ -293,6 +299,12 @@ function renderizarRegressao(a, r, gov) {
     + `${a.curto} está ${delta >= 0 ? `${um(delta).replace('%', '')} p.p. acima` : `${um(-delta).replace('%', '')} p.p. abaixo`} do 1º turno com metade dos votos dos outros candidatos`
     + `${Math.abs(beta) > 0.05 ? `, e os eleitores dos outros pendem ${beta > 0 ? `para ${a.curto}` : 'para o adversário'}` : ''}`
     + `${Math.abs(r.modelo.betaA) > 0.05 ? `; cresce mais onde já era ${r.modelo.betaA > 0 ? 'forte' : 'fraco'}` : ''}. Cada estado tem ainda um ajuste próprio (efeito de estado), encolhido para zero onde há poucas cidades apuradas.`;
+  // Coeficientes com intervalo de 95% e valor p (H0: coeficiente = 0).
+  const coefs = r.modelo.coeficientes ?? [];
+  el.coeficientes.innerHTML = coefs.length ? `<table class="tabela"><thead><tr><th>Coeficiente (${esc(a.curto)})</th><th class="num">Estimativa</th><th class="num">Intervalo de 95%</th><th class="num">Valor p</th></tr></thead><tbody>${coefs.map((c, i) => {
+    const f = (x) => (i === 0 ? `${(x * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2, minimumFractionDigits: 2 })} p.p.` : x.toLocaleString('pt-BR', { maximumFractionDigits: 3, minimumFractionDigits: 3 }));
+    return `<tr><td class="local">${esc(c.nome)}</td><td class="num">${f(c.valor)}</td><td class="num">${f(c.valor - 1.96 * c.dp)} a ${f(c.valor + 1.96 * c.dp)}</td><td class="num">${c.p < 0.05 ? `<strong>${fmtP(c.p)}</strong>` : fmtP(c.p)}</td></tr>`;
+  }).join('')}</tbody></table><p class="mudo pequeno">Desvio entre cidades não explicado pelo modelo: ${(r.modelo.sigma * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} p.p.; desvio dos efeitos de estado: ${((r.modelo.tau ?? 0) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} p.p. (ambos estimados pelos dados).</p>` : '';
 }
 
 function renderizarTabela(a, b, r, gov, nivel) {

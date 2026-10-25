@@ -86,6 +86,7 @@
         <div class="linha"><h2>Regressão: 2º turno × 1º turno</h2><span id="sub-regressao" class="mudo pequeno"></span></div>
         <div id="regressao" class="grafico"></div>
         <p id="nota-regressao" class="mudo pequeno"></p>
+        <div id="coeficientes" class="tabela-rolagem"></div>
       </section>
     </div>
 
@@ -105,7 +106,7 @@
           <li><strong>Quantos votos faltam.</strong> Eleitores de cada cidade × comparecimento × % de votos válidos, do 2º turno já apurado (e do 1º turno, enquanto há pouco).</li>
           <li><strong>Incerteza.</strong> Milhares de simulações sorteiam o erro da regressão, o efeito de cada estado, o erro das cidades e um desvio comum a toda a parte não apurada. Dão o intervalo (90% das simulações dentro dele) e a chance de cada um terminar na frente.</li>
         </ol>
-        <p class="mudo pequeno">As cidades vêm do retrato que o Voto Lab grava a cada ~10 min durante a apuração; os totais dos estados, ao vivo. Sem o retrato, a projeção usa os estados. Governador: as cidades do estado, ao vivo. Testada em cenários simulados com apuração fora de ordem (cidades favoráveis a um candidato primeiro): erro médio de 1 p.p., metade do modelo por estado, com o intervalo de 90% contendo o resultado em 28 a 30 de 30 casos.</p>
+        <p class="mudo pequeno">As cidades vêm do retrato que o Voto Lab grava a cada ~10 min durante a apuração; os totais dos estados, ao vivo. Sem o retrato, a projeção usa os estados. Governador: as cidades do estado, ao vivo. Validada com os dados reais desta apuração: escondendo cidades já 100% apuradas e prevendo-as, o erro médio foi de 1,2 p.p. por cidade e de 0,55 p.p. num estado inteiro escondido (como se ainda não tivesse apurado), com os intervalos de 90% acertando 93% das cidades e 14 de 14 estados. Os desvios entre cidades e entre estados são estimados pelos dados, e o intervalo de cada cidade inclui a oscilação natural de poucos votos. O <strong>valor p</strong> do resumo testa se a diferença projetada pode ser acaso (H0: quem aparece atrás termina na frente); a tabela da regressão traz o valor p de cada coeficiente.</p>
       </details>
     </section>
   </main>
