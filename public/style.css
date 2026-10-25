@@ -289,6 +289,9 @@ body.painel main, body.painel .filtros, body.painel .abas { max-width: 1280px; }
 .mapa-area path { stroke: var(--cartao); stroke-width: var(--traco, .6px); vector-effect: non-scaling-stroke; cursor: pointer; }
 .mapa-area path:hover { stroke: var(--texto); stroke-width: 1.5px; }
 .mapa-area path.destaque { stroke: var(--texto); stroke-width: 2px; }
+/* Números sobre o mapa: contorno claro em volta das letras para ler sobre qualquer cor. */
+.mapa-area .etiquetas { pointer-events: none; fill: #111; font-weight: 600; paint-order: stroke; stroke: rgb(255 255 255 / .85); stroke-width: .28em; stroke-linejoin: round; }
+.mapa-area .etiquetas .etiqueta-1 { font-weight: 400; font-size: .9em; }
 /* Cidade em camadas: zonas eleitorais e, com zoom, locais de votação (áreas aproximadas) */
 .mapa .camada-locais { display: none; }
 .mapa.zoom-locais .camada-locais { display: inline; }
@@ -740,3 +743,4 @@ body:not(.especialista) [data-especialista] { display: none !important; }
 .campos-secao { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: .6rem; margin-top: .4rem; }
 .campos-secao label { display: grid; gap: .2rem; font-size: .85rem; }
 .campos-secao select, .campos-secao input { width: 100%; min-width: 0; }
+.opcao-numeros { display: inline-flex; align-items: center; gap: .35rem; margin: .4rem .75rem 0 0; }

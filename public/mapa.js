@@ -94,6 +94,7 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
     estado.svg.setAttribute('viewBox', estado.vb.map((n) => n.toFixed(2)).join(' '));
     // Contorno fino em qualquer zoom.
     estado.svg.style.setProperty('--traco', `${(estado.vb[2] / estado.inicial[2]) * 0.6}px`);
+    atualizarEtiquetas();
     // Mapa em camadas (zonas → locais): o zoom decide qual aparece, como estado → cidade.
     if (estado.limiar) {
       const detalhe = estado.vb[2] / (estado.foco ?? estado.inicial)[2] < estado.limiar;
@@ -103,6 +104,23 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
         dica?.esconder();
         estado.aoTrocarCamada?.(detalhe);
       }
+    }
+  }
+
+  // Números sobre o mapa (camada opcional): texto do mesmo tamanho na tela em qualquer zoom, e só
+  // nos locais grandes o bastante (na tela) para caber o texto; ao aproximar, aparecem mais.
+  function atualizarEtiquetas() {
+    const g = estado?.svg?.querySelector('.etiquetas');
+    if (!g) return;
+    // O desenho cabe na caixa pelo lado mais apertado (preserveAspectRatio "meet").
+    const caixa = estado.svg.getBoundingClientRect();
+    const pxPorUnidade = Math.min((caixa.width || 800) / estado.vb[2], caixa.height ? caixa.height / estado.vb[3] : Infinity);
+    if (estado.ultimaEscala === pxPorUnidade) return;
+    estado.ultimaEscala = pxPorUnidade;
+    g.setAttribute('font-size', (11 / pxPorUnidade).toFixed(3));
+    for (const t of g.children) {
+      const cabe = Number(t.dataset.w) * pxPorUnidade >= Number(t.dataset.min) && Number(t.dataset.h) * pxPorUnidade >= 14 * t.children.length;
+      t.style.display = cabe ? '' : 'none';
     }
   }
 
@@ -202,10 +220,11 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
    * @param {Map<string, number>} [o.intensidade]  codarea → 0..1: cor mais forte onde é maior (ex.: margem)
    * @param {Map<string, [string, string]>} [o.hachuras]  categoria → [cor de fundo, cor das listras]: categoria
    *   desenhada listrada (ex.: local que mudou de vencedor entre os turnos)
+   * @param {Map<string, string[]>} [o.etiquetas]  codarea → linhas de texto escritas sobre o local
    * @param {string} [o.notaIntensidade]  o que a cor mais forte quer dizer (legenda)
    * @param {boolean} [o.manterVista]  mesma malha: mantém o zoom e a posição (ex.: alternar 1º e 2º turno)
    */
-  function desenhar({ hachuras = null, notaIntensidade = 'cor mais forte = vitória mais folgada', manterVista = false, geo, valores = new Map(), rotulos = new Map(), titulo = '', formato = (v) => fmtNum.format(v), referencia = null, modo = 'quantis', extra = null, destaques = new Set(), categorias = null, cores = null, intensidade = null, rotuloSemDado = 'sem dado' }) {
+  function desenhar({ etiquetas = null, hachuras = null, notaIntensidade = 'cor mais forte = vitória mais folgada', manterVista = false, geo, valores = new Map(), rotulos = new Map(), titulo = '', formato = (v) => fmtNum.format(v), referencia = null, modo = 'quantis', extra = null, destaques = new Set(), categorias = null, cores = null, intensidade = null, rotuloSemDado = 'sem dado' }) {
     if (!geo?.features?.length) {
       area.innerHTML = '<p class="mudo">Mapa indisponível.</p>';
       legenda.innerHTML = '';
@@ -245,6 +264,7 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
     }
     const feicoes = new Map();
     let paths = '';
+    let textos = '';
     for (const f of geo.features) {
       const cod = f.properties.codarea;
       feicoes.set(cod, f);
@@ -264,10 +284,33 @@ export function criarMapa(container, { aoClicar = null, dica = null } = {}) {
         fill = c >= 0 ? cls.cores[c] : SEM_DADO;
       }
       paths += `<path data-cod="${esc(cod)}" d="${d}" fill="${fill}"${opac}${destaques.has(cod) ? ' class="destaque"' : ''}/>`;
+      const linhas = etiquetas?.get(cod);
+      if (linhas?.length) {
+        // Ponto do texto: centro do maior anel (em área) do local, já projetado.
+        let melhor = null;
+        for (const pol of f.geometry.coordinates) {
+          const anel = pol[0].map(([lon, lat]) => [Number(px(lon)), Number(py(lat))]);
+          let a = 0; let cx = 0; let cy = 0;
+          for (let i = 0, j = anel.length - 1; i < anel.length; j = i, i += 1) {
+            const k = anel[j][0] * anel[i][1] - anel[i][0] * anel[j][1];
+            a += k; cx += (anel[j][0] + anel[i][0]) * k; cy += (anel[j][1] + anel[i][1]) * k;
+          }
+          if (!a) continue;
+          const xs = anel.map((q) => q[0]); const ys = anel.map((q) => q[1]);
+          const cand = { area: Math.abs(a / 2), x: cx / (3 * a), y: cy / (3 * a), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+          if (!melhor || cand.area > melhor.area) melhor = cand;
+        }
+        if (melhor) {
+          const maior = Math.max(...linhas.map((l) => l.length));
+          const y0 = -((linhas.length - 1) * 1.15) / 2;
+          textos += `<text x="${melhor.x.toFixed(1)}" y="${melhor.y.toFixed(1)}" data-w="${melhor.w.toFixed(1)}" data-h="${melhor.h.toFixed(1)}" data-min="${Math.round(maior * 5.6)}">${linhas
+            .map((l, i) => `<tspan x="${melhor.x.toFixed(1)}" dy="${i ? 1.15 : y0}em"${i ? '' : ' class="etiqueta-1"'}>${esc(l)}</tspan>`).join('')}</text>`;
+        }
+      }
     }
     area.innerHTML = `<svg viewBox="0 0 ${largura} ${altura.toFixed(1)}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa: ${esc(titulo)}">
       <defs><pattern id="mapa-sem-dado" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f2f1ed"/><line x1="0" y1="0" x2="0" y2="6" stroke="#c9c8c2" stroke-width="2"/></pattern>${defsListras}</defs>
-      <g class="feicoes">${paths}</g></svg>`;
+      <g class="feicoes">${paths}</g>${textos ? `<g class="etiquetas" text-anchor="middle" dominant-baseline="middle">${textos}</g>` : ''}</svg>`;
     container.classList.remove('zoom-locais');
     const vistaAnterior = manterVista && estado?.inicial?.[2] === largura && Math.abs(estado.inicial[3] - altura) < 0.5 ? estado.vb : null;
     estado = { svg: area.querySelector('svg'), vb: vistaAnterior ?? [0, 0, largura, altura], inicial: [0, 0, largura, altura], feicoes, valores, rotulos, titulo, formato, extra, categorias };

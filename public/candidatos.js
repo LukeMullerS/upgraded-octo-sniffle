@@ -16,7 +16,7 @@ const el = Object.fromEntries([
   'cargo', 'nivel', 'ver', 'comparar', 'status', 'exportar', 'atualizar', 'erro', 'titulo', 'sub-titulo', 'resumo-texto', 'kpis',
   'titulo-mapa', 'sub-mapa', 'mapa', 'titulo-ranking', 'ranking', 'titulo-vitorias', 'sub-vitorias', 'vitorias',
   'titulo-forte', 'forte', 'titulo-fraco', 'fraco', 'comparacao-cartao', 'titulo-comparacao', 'correlacao', 'comparacao',
-  'nota-comparacao', 'partidos-cartao', 'partidos', 'titulo-tabela', 'busca', 'tabela', 'mais', 'dica', 'turnos-mapa', 'nota-turnos',
+  'nota-comparacao', 'partidos-cartao', 'partidos', 'titulo-tabela', 'busca', 'tabela', 'mais', 'dica', 'turnos-mapa', 'nota-turnos', 'numeros-mapa',
 ].map((id) => [id.replace(/-(\w)/g, (_, l) => l.toUpperCase()), $(id)]));
 
 const PAGINA = 60;
@@ -91,6 +91,7 @@ function gravarHash() {
   const p = new URLSearchParams({ cargo: el.cargo.value, nivel: nivel(), ver: el.ver.value });
   if (el.comparar.value) p.set('comparar', el.comparar.value);
   if (segundoTurno() && estado.turnoMapa !== '2') p.set('turno', estado.turnoMapa);
+  if (el.numerosMapa.checked) p.set('numeros', '1');
   const hash = `#${p}`;
   if (hash === location.hash) return;
   history.replaceState(null, '', hash);
@@ -141,6 +142,7 @@ canal?.addEventListener('message', (ev) => {
     if ([...el.ver.options].some((o) => o.value === p.get('ver'))) el.ver.value = p.get('ver');
     el.comparar.value = [...el.comparar.options].some((o) => o.value === p.get('comparar')) ? p.get('comparar') : '';
     estado.turnoMapa = ['1', 'dif'].includes(p.get('turno')) ? p.get('turno') : '2';
+    el.numerosMapa.checked = p.get('numeros') === '1';
     renderizar();
   } finally {
     if (!p.get('cargo') || p.get('cargo') === el.cargo.value) aplicandoRemoto = false;
@@ -460,7 +462,20 @@ async function renderizarMapa() {
     if (!l?.validos) return '<span class="mudo">sem votos apurados</span>';
     return `${linhaTurno(l, nomes, '')}<span class="mudo">${fmtInt.format(l.validos)} válidos · ${pct(pctSecoes(l))} das seções</span>`;
   };
-  const opcoes = { geo, rotulos, extra, manterVista: true };
+  // Camada opcional de números: % das seções apuradas e os dois partidos mais votados do local.
+  const um = (x) => `${(Math.round(x * 10) / 10).toLocaleString('pt-BR')}%`;
+  const etiquetas = el.numerosMapa.checked ? new Map() : null;
+  if (etiquetas) {
+    const nm = t === '1' ? t1.nomes : estado.nomes;
+    for (const [cod, l] of t === 'dif' ? porCod : fonte) {
+      if (!l?.validos) continue;
+      const doisMais = proporcional()
+        ? Object.entries(l.par ?? {}).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([sg, x]) => `${sg} ${um(pctDe(x, l.validos))}`)
+        : Object.entries(l.cand ?? {}).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k, x]) => `${nm[k]?.[1] ?? k} ${um(pctDe(x, l.validos))}`);
+      etiquetas.set(cod, [`${um(pctSecoes(l))} apurado`, doisMais.join(' · ')]);
+    }
+  }
+  const opcoes = { geo, rotulos, extra, etiquetas, manterVista: true };
   el.notaTurnos.hidden = t !== 'dif';
   if (t === 'dif') {
     if (v === 'vencedor' || v === 'partido') {
@@ -615,6 +630,7 @@ dica.ligar(el.comparacao, '[data-dica]', (alvo) => {
 });
 
 el.cargo.addEventListener('change', () => { preencherNiveis(nivel()); el.ver.value = ''; el.comparar.value = ''; estado.ordem = null; carregar(); });
+el.numerosMapa.addEventListener('change', () => { gravarHash(); renderizarMapa(); });
 el.turnosMapa.addEventListener('click', (ev) => {
   const b = ev.target.closest('[data-turno]');
   if (!b || b.dataset.turno === estado.turnoMapa) return;
@@ -666,5 +682,6 @@ preencherCargos();
 // Sem cargo no link, abre no Presidente do 2º turno.
 el.cargo.value = inicial.cargo && cargoPorValor(inicial.cargo) ? inicial.cargo : cargoPorValor('6258:1') ? '6258:1' : el.cargo.value;
 if (['1', 'dif'].includes(inicial.turno)) estado.turnoMapa = inicial.turno;
+el.numerosMapa.checked = inicial.numeros === '1';
 preencherNiveis(inicial.nivel ?? 'estados');
 carregar();
