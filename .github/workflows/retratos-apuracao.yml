@@ -74,6 +74,9 @@ jobs:
         run: |
           # Até 4h UTC de 26/10 (1h de Brasília), e só no 2º turno: dispara a próxima execução.
           AGORA=$(date -u +%Y%m%d%H%M)
+          # Para assim que Presidente e Governador do 2º turno estiverem 100% totalizados (retrato completo).
+          COMPLETO=$(node -e 'const f=(n)=>{try{return require("./public/resultados/"+n+".json").retrato?.completo===true}catch{return false}};console.log(f("6258-1")&&f("6260-3")?1:0)')
+          if [ "$COMPLETO" = "1" ]; then echo "apuração completa: fim"; exit 0; fi
           if [ "${TURNO:-2}" = "2" ] && [ "$AGORA" -ge 202610252000 ] && [ "$AGORA" -lt 202610260400 ]; then
             gh workflow run retratos-apuracao.yml --ref "$GITHUB_REF_NAME" -f turno=2 -f minutos="${MINUTOS:-8}"
           else

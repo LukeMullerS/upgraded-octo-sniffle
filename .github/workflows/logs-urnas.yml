@@ -4,8 +4,10 @@
 #   (sobe enquanto não há erro nem lentidão; cai à metade a qualquer 429/5xx e respeita o Retry-After);
 # - cada log é baixado uma vez só (os logs não mudam), e só de cidades com 100% das seções
 #   totalizadas: no 1º turno, todas; na noite do 2º turno, cada cidade entra assim que fecha;
-# - o progresso fica no cache do Actions e a base é publicada no repositório a cada 15 min
-#   (o Vercel publica cada commit).
+# - o progresso fica no cache do Actions; a base é publicada no repositório no fim da execução, no
+#   máximo a cada 2 horas (ou na hora, quando não falta mais nada). Cada commit vira um deploy no Vercel
+#   com o site inteiro (~150 MB), e o plano gratuito tem 10 GB de armazenamento de deploys: publicar a
+#   cada 15 min estourava o limite.
 # A partir de 25/10/2026 também compila o 2º turno (public/urnas/2t).
 # Agendamentos só rodam no branch padrão; em outro branch, use Actions → "Logs das urnas" → Run workflow.
 name: Logs das urnas
@@ -58,6 +60,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           publicar() {
+            # Só no fim da execução e no máximo a cada 2 h (cada commit é um deploy de ~150 MB no Vercel);
+            # se não falta mais nada, publica na hora.
+            ULTIMO=$(git log -1 --format=%ct -- public/urnas 2>/dev/null || echo 0)
+            F1=$(cat dados/urnas-retrato/pendentes.txt 2>/dev/null || echo 0)
+            F2=$(cat dados/urnas-retrato/2t/pendentes.txt 2>/dev/null || echo 0)
+            if [ $(( $(date +%s) - ${ULTIMO:-0} )) -lt 7200 ] && [ $(( ${F1:-0} + ${F2:-0} )) -gt 0 ]; then
+              echo "publicado há menos de 2 h e ainda faltam seções: fica para depois"; return 0
+            fi
             if git diff --quiet -- public/urnas && [ -z "$(git ls-files --others --exclude-standard public/urnas)" ]; then
               echo "nada novo para publicar"; return 0
             fi
@@ -77,9 +87,9 @@ jobs:
             else
               node scripts/atualizar-urnas.mjs --turno=1 --ritmo="$RITMO" --max-minutos="$M" --concorrencia=8 --concorrencia-max=96
             fi
-            publicar
             RESTA=$(( RESTA - M ))
           done
+          publicar
       # O progresso (resumo de cada seção lida) fica no cache mesmo se a execução for interrompida.
       - uses: actions/cache/save@v4
         if: always()
@@ -97,8 +107,8 @@ jobs:
           F2=$(cat dados/urnas-retrato/2t/pendentes.txt 2>/dev/null || echo 0)
           FALTAM=$(( ${F1:-0} + ${F2:-0} ))
           HOJE=$(date -u +%Y%m%d)
-          # Noite do 2º turno (25 e 26/10): cidades ainda fecham a apuração, então continua de qualquer jeito.
-          if [ "$HOJE" -ge 20261025 ] && [ "$HOJE" -le 20261026 ]; then FALTAM=$(( FALTAM + 1 )); fi
+          # Noite do 2º turno (25/10): cidades ainda fecham a apuração, então continua de qualquer jeito.
+          if [ "$HOJE" = "20261025" ]; then FALTAM=$(( FALTAM + 1 )); fi
           if [ "$FALTAM" -gt 0 ]; then
             echo "faltam $FALTAM seções: disparando a próxima execução"
             gh workflow run logs-urnas.yml --ref "$GITHUB_REF_NAME" -f ritmo="${{ github.event.inputs.ritmo || '0' }}" -f minutos="${{ github.event.inputs.minutos || '45' }}"
